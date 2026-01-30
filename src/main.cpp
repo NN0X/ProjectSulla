@@ -5,11 +5,11 @@
 #include <utility>
 
 void setSourcePart(std::map<int, std::function<std::vector<bool>(std::vector<bool>)>>& parts,
-                   int partID, std::vector<bool> data)
+                   int partID)
 {
-        parts[partID] = [data](std::vector<bool> input) -> std::vector<bool>
+        parts[partID] = [](std::vector<bool> input) -> std::vector<bool>
         {
-                return data;
+                return input;
         };
 }
 
@@ -50,43 +50,73 @@ std::vector<bool> andFunction(std::vector<bool> input)
         return {input[0] && input[1]};
 }
 
-std::vector<bool> compilePart(const std::map<int, std::function<std::vector<bool>(std::vector<bool>)>>& parts,
-                              const std::map<std::pair<int, int>, std::pair<int, int>>& connections,
-                              int partID)
+std::function<std::vector<bool>(std::vector<bool>)> compilePart(
+        const std::map<int, std::function<std::vector<bool>(std::vector<bool>)>>& parts,
+        const std::map<std::pair<int, int>, std::pair<int, int>>& connections,
+        int partID)
 {
         std::map<int, std::function<std::vector<bool>(std::vector<bool>)>>::const_iterator partIt = parts.find(partID);
         if (partIt == parts.end())
         {
-                return {};
+                return [](std::vector<bool>) { return std::vector<bool>{}; };
         }
 
-        std::vector<bool> input;
+        std::function<std::vector<bool>(std::vector<bool>)> currentLogic = partIt->second;
+        std::vector<std::pair<int, std::function<std::vector<bool>(std::vector<bool>)>>> inputProviders;
+        std::vector<int> outputPinIndices;
+
         std::map<std::pair<int, int>, std::pair<int, int>>::const_iterator connIt = connections.lower_bound(std::make_pair(partID, -1));
 
         while (connIt != connections.end() && connIt->first.first == partID)
         {
-                int inputIndex = connIt->first.second;
+                int inputIdx = connIt->first.second;
+                int sourcePartID = connIt->second.first;
+                int sourceOutputIdx = connIt->second.second;
 
-                if (input.size() <= (size_t)inputIndex)
-                {
-                        input.resize(inputIndex + 1, false);
-                }
+                std::function<std::vector<bool>(std::vector<bool>)> dependency = compilePart(parts, connections, sourcePartID);
 
-                std::vector<bool> fromOutput = compilePart(parts, connections, connIt->second.first);
-
-                if ((size_t)connIt->second.second < fromOutput.size())
-                {
-                        input[inputIndex] = fromOutput[connIt->second.second];
-                }
-                else
-                {
-                        input[inputIndex] = false;
-                }
+                inputProviders.push_back(std::make_pair(inputIdx, dependency));
+                outputPinIndices.push_back(sourceOutputIdx);
 
                 connIt++;
         }
 
-        return partIt->second(input);
+        if (inputProviders.empty())
+        {
+                return currentLogic;
+        }
+
+        return [currentLogic, inputProviders, outputPinIndices](std::vector<bool> runtimeInput) -> std::vector<bool>
+        {
+                std::vector<bool> collectedInputs;
+                int maxInputIndex = 0;
+
+                for (size_t i = 0; i < inputProviders.size(); ++i)
+                {
+                        if (inputProviders[i].first > maxInputIndex)
+                        {
+                                maxInputIndex = inputProviders[i].first;
+                        }
+                }
+
+                if (collectedInputs.size() <= (size_t)maxInputIndex)
+                {
+                        collectedInputs.resize(maxInputIndex + 1, false);
+                }
+
+                for (size_t i = 0; i < inputProviders.size(); ++i)
+                {
+                        std::vector<bool> output = inputProviders[i].second(runtimeInput);
+                        int pin = outputPinIndices[i];
+
+                        if ((size_t)pin < output.size())
+                        {
+                                collectedInputs[inputProviders[i].first] = output[pin];
+                        }
+                }
+
+                return currentLogic(collectedInputs);
+        };
 }
 
 int main()
@@ -94,16 +124,21 @@ int main()
         std::map<int, std::function<std::vector<bool>(std::vector<bool>)>> parts;
         std::map<std::pair<int, int>, std::pair<int, int>> connections;
 
-        setSourcePart(parts, 0, {true, false});
-
+        setSourcePart(parts, 0);
         setPartFunction(parts, 1, andFunction);
+        setOutputPart(parts, 2);
+
         connectParts(connections, 0, 0, 1, 0);
         connectParts(connections, 0, 1, 1, 1);
-
-        setOutputPart(parts, 2);
         connectParts(connections, 1, 0, 2, 0);
 
-        compilePart(parts, connections, 2);
+        visualizeCircuit(parts, connections);
+
+        std::function<std::vector<bool>(std::vector<bool>)> circuit = compilePart(parts, connections, 2);
+
+        circuit({true, false});
+
+        circuit({true, true});
 
         return 0;
 }
