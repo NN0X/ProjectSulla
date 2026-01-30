@@ -3,6 +3,7 @@
 #include <vector>
 #include <functional>
 #include <utility>
+#include <string>
 
 void setSourcePart(std::map<int, std::function<std::vector<bool>(std::vector<bool>)>>& parts,
                    int partID)
@@ -22,7 +23,7 @@ void setOutputPart(std::map<int, std::function<std::vector<bool>(std::vector<boo
                 {
                         std::cout << input[i] << " ";
                 }
-                std::cout << std::endl;
+                std::cout << "\n";
                 return {};
         };
 }
@@ -48,6 +49,42 @@ std::vector<bool> andFunction(std::vector<bool> input)
                 return {};
         }
         return {input[0] && input[1]};
+}
+
+void visualizePath(const std::map<int, std::function<std::vector<bool>(std::vector<bool>)>>& parts,
+                   const std::map<std::pair<int, int>, std::pair<int, int>>& connections,
+                   const std::map<int, std::string>& labels)
+{
+        for (std::map<int, std::function<std::vector<bool>(std::vector<bool>)>>::const_iterator partIt = parts.begin(); partIt != parts.end(); ++partIt)
+        {
+                int sourceID = partIt->first;
+                std::string sourceName = "Unknown";
+                if (labels.find(sourceID) != labels.end())
+                {
+                        sourceName = labels.find(sourceID)->second;
+                }
+
+                for (std::map<std::pair<int, int>, std::pair<int, int>>::const_iterator connIt = connections.begin(); connIt != connections.end(); ++connIt)
+                {
+                        if (connIt->second.first == sourceID)
+                        {
+                                int destID = connIt->first.first;
+                                int destPin = connIt->first.second;
+                                int sourcePin = connIt->second.second;
+                                std::string destName = "Unknown";
+
+                                if (labels.find(destID) != labels.end())
+                                {
+                                        destName = labels.find(destID)->second;
+                                }
+
+                                std::cout << "[" << sourceID << "] " << sourceName << " (Pin " << sourcePin << ")";
+                                std::cout << " --------> ";
+                                std::cout << "[" << destID << "] " << destName << " (Pin " << destPin << ")\n";
+                        }
+                }
+        }
+        std::cout << "\n";
 }
 
 std::function<std::vector<bool>(std::vector<bool>)> compilePart(
@@ -123,21 +160,25 @@ int main()
 {
         std::map<int, std::function<std::vector<bool>(std::vector<bool>)>> parts;
         std::map<std::pair<int, int>, std::pair<int, int>> connections;
+        std::map<int, std::string> labels;
 
         setSourcePart(parts, 0);
+        labels[0] = "Source";
+
         setPartFunction(parts, 1, andFunction);
+        labels[1] = "AND Gate";
+
         setOutputPart(parts, 2);
+        labels[2] = "Output";
 
         connectParts(connections, 0, 0, 1, 0);
         connectParts(connections, 0, 1, 1, 1);
         connectParts(connections, 1, 0, 2, 0);
 
-        visualizeCircuit(parts, connections);
+        visualizePath(parts, connections, labels);
 
         std::function<std::vector<bool>(std::vector<bool>)> circuit = compilePart(parts, connections, 2);
-
         circuit({true, false});
-
         circuit({true, true});
 
         return 0;
