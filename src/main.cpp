@@ -120,9 +120,12 @@ std::function<std::vector<bool>(std::vector<bool>)> compilePart(
         const std::map<std::pair<int, int>, std::pair<int, int>>& connections,
         int partID)
 {
-        return [parts, connections, partID](std::vector<bool> runtimeInput) mutable -> std::vector<bool>
+        std::map<int, std::vector<bool>> lastOutputs;
+
+        return [parts, connections, partID, lastOutputs](std::vector<bool> runtimeInput) mutable -> std::vector<bool>
         {
                 std::map<int, std::vector<bool>> cache;
+                std::vector<int> recursionStack;
                 std::function<std::vector<bool>(int)> resolve;
 
                 resolve = [&](int currentID) -> std::vector<bool>
@@ -131,6 +134,20 @@ std::function<std::vector<bool>(std::vector<bool>)> compilePart(
                         {
                                 return cache[currentID];
                         }
+
+                        for (size_t i = 0; i < recursionStack.size(); ++i)
+                        {
+                                if (recursionStack[i] == currentID)
+                                {
+                                        if (lastOutputs.find(currentID) != lastOutputs.end())
+                                        {
+                                                return lastOutputs[currentID];
+                                        }
+                                        return {false};
+                                }
+                        }
+
+                        recursionStack.push_back(currentID);
 
                         std::vector<bool> collectedInputs;
                         int maxInputIndex = -1;
@@ -170,7 +187,10 @@ std::function<std::vector<bool>(std::vector<bool>)> compilePart(
                                 result = parts.at(currentID)(collectedInputs);
                         }
 
+                        recursionStack.pop_back();
+
                         cache[currentID] = result;
+                        lastOutputs[currentID] = result;
                         return result;
                 };
 
