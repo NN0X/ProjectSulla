@@ -51,6 +51,34 @@ std::vector<bool> andFunction(std::vector<bool> input)
         return {input[0] && input[1]};
 }
 
+std::function<std::vector<bool>(std::vector<bool>)> createLatch()
+{
+        std::vector<bool> state = {false};
+
+        return [state](std::vector<bool> input) mutable -> std::vector<bool>
+        {
+                for (size_t i = 0; i < input.size(); ++i)
+                {
+                        state[0] = state[0] || input[i];
+                }
+                return state;
+        };
+}
+
+std::function<std::vector<bool>(std::vector<bool>)> createFlipFlop()
+{
+        std::vector<bool> state = {false};
+
+        return [state](std::vector<bool> input) mutable -> std::vector<bool>
+        {
+                for (size_t i = 0; i < input.size(); ++i)
+                {
+                        state[0] = !state[0];
+                }
+                return state;
+        };
+}
+
 void visualizePath(const std::map<int, std::function<std::vector<bool>(std::vector<bool>)>>& parts,
                    const std::map<std::pair<int, int>, std::pair<int, int>>& connections,
                    const std::map<int, std::string>& labels)
@@ -88,71 +116,65 @@ void visualizePath(const std::map<int, std::function<std::vector<bool>(std::vect
 }
 
 std::function<std::vector<bool>(std::vector<bool>)> compilePart(
-        const std::map<int, std::function<std::vector<bool>(std::vector<bool>)>>& parts,
+        std::map<int, std::function<std::vector<bool>(std::vector<bool>)>> parts,
         const std::map<std::pair<int, int>, std::pair<int, int>>& connections,
         int partID)
 {
-        std::map<int, std::function<std::vector<bool>(std::vector<bool>)>>::const_iterator partIt = parts.find(partID);
-        if (partIt == parts.end())
+        return [parts, connections, partID](std::vector<bool> runtimeInput) mutable -> std::vector<bool>
         {
-                return [](std::vector<bool>) { return std::vector<bool>{}; };
-        }
+                std::map<int, std::vector<bool>> cache;
+                std::function<std::vector<bool>(int)> resolve;
 
-        std::function<std::vector<bool>(std::vector<bool>)> currentLogic = partIt->second;
-        std::vector<std::pair<int, std::function<std::vector<bool>(std::vector<bool>)>>> inputProviders;
-        std::vector<int> outputPinIndices;
-
-        std::map<std::pair<int, int>, std::pair<int, int>>::const_iterator connIt = connections.lower_bound(std::make_pair(partID, -1));
-
-        while (connIt != connections.end() && connIt->first.first == partID)
-        {
-                int inputIdx = connIt->first.second;
-                int sourcePartID = connIt->second.first;
-                int sourceOutputIdx = connIt->second.second;
-
-                std::function<std::vector<bool>(std::vector<bool>)> dependency = compilePart(parts, connections, sourcePartID);
-
-                inputProviders.push_back(std::make_pair(inputIdx, dependency));
-                outputPinIndices.push_back(sourceOutputIdx);
-
-                connIt++;
-        }
-
-        if (inputProviders.empty())
-        {
-                return currentLogic;
-        }
-
-        return [currentLogic, inputProviders, outputPinIndices](std::vector<bool> runtimeInput) -> std::vector<bool>
-        {
-                std::vector<bool> collectedInputs;
-                int maxInputIndex = 0;
-
-                for (size_t i = 0; i < inputProviders.size(); ++i)
+                resolve = [&](int currentID) -> std::vector<bool>
                 {
-                        if (inputProviders[i].first > maxInputIndex)
+                        if (cache.find(currentID) != cache.end())
                         {
-                                maxInputIndex = inputProviders[i].first;
+                                return cache[currentID];
                         }
-                }
 
-                if (collectedInputs.size() <= (size_t)maxInputIndex)
-                {
-                        collectedInputs.resize(maxInputIndex + 1, false);
-                }
+                        std::vector<bool> collectedInputs;
+                        int maxInputIndex = -1;
+                        auto it = connections.lower_bound(std::make_pair(currentID, -1));
+                        bool hasConnections = (it != connections.end() && it->first.first == currentID);
 
-                for (size_t i = 0; i < inputProviders.size(); ++i)
-                {
-                        std::vector<bool> output = inputProviders[i].second(runtimeInput);
-                        int pin = outputPinIndices[i];
-
-                        if ((size_t)pin < output.size())
+                        while (it != connections.end() && it->first.first == currentID)
                         {
-                                collectedInputs[inputProviders[i].first] = output[pin];
-                        }
-                }
+                                if (it->first.second > maxInputIndex)
+                                {
+                                        maxInputIndex = it->first.second;
+                                }
+                                int inputIdx = it->first.second;
+                                int sourceID = it->second.first;
+                                int sourceOutputIdx = it->second.second;
+                                std::vector<bool> sourceResult = resolve(sourceID);
 
-                return currentLogic(collectedInputs);
+                                if (collectedInputs.size() <= (size_t)inputIdx)
+                                {
+                                        collectedInputs.resize(inputIdx + 1, false);
+                                }
+
+                                if ((size_t)sourceOutputIdx < sourceResult.size())
+                                {
+                                        collectedInputs[inputIdx] = sourceResult[sourceOutputIdx];
+                                }
+                                it++;
+                        }
+
+                        std::vector<bool> result;
+                        if (!hasConnections)
+                        {
+                                result = parts.at(currentID)(runtimeInput);
+                        }
+                        else
+                        {
+                                result = parts.at(currentID)(collectedInputs);
+                        }
+
+                        cache[currentID] = result;
+                        return result;
+                };
+
+                return resolve(partID);
         };
 }
 
@@ -171,15 +193,58 @@ int main()
         setOutputPart(parts, 2);
         labels[2] = "Output";
 
+        setPartFunction(parts, 3, createLatch());
+        labels[3] = "Latch";
+
         connectParts(connections, 0, 0, 1, 0);
         connectParts(connections, 0, 1, 1, 1);
-        connectParts(connections, 1, 0, 2, 0);
+        connectParts(connections, 1, 0, 3, 0);
+        connectParts(connections, 3, 0, 2, 0);
 
         visualizePath(parts, connections, labels);
 
-        std::function<std::vector<bool>(std::vector<bool>)> circuit = compilePart(parts, connections, 2);
-        circuit({true, false});
-        circuit({true, true});
+        std::function<std::vector<bool>(std::vector<bool>)> circuitA = compilePart(parts, connections, 2);
+        circuitA({true, false});
+        circuitA({true, true});
+
+        parts.clear();
+        connections.clear();
+        labels.clear();
+
+        setSourcePart(parts, 0);
+        labels[0] = "Source";
+        setOutputPart(parts, 1);
+        labels[1] = "Output";
+        setPartFunction(parts, 2, createLatch());
+        labels[2] = "Latch";
+
+        connectParts(connections, 0, 0, 2, 0);
+        connectParts(connections, 2, 0, 1, 0);
+        visualizePath(parts, connections, labels);
+
+        std::function<std::vector<bool>(std::vector<bool>)> circuitB = compilePart(parts, connections, 1);
+        circuitB({true});
+        circuitB({false});
+
+        parts.clear();
+        connections.clear();
+        labels.clear();
+
+        setSourcePart(parts, 0);
+        labels[0] = "Source";
+        setOutputPart(parts, 1);
+        labels[1] = "Output";
+        setPartFunction(parts, 2, createFlipFlop());
+        labels[2] = "Flip-Flop";
+
+        connectParts(connections, 0, 0, 2, 0);
+        connectParts(connections, 2, 0, 1, 0);
+        visualizePath(parts, connections, labels);
+
+        std::function<std::vector<bool>(std::vector<bool>)> circuitC = compilePart(parts, connections, 1);
+        circuitC({true});
+        circuitC({true});
+        circuitC({true});
 
         return 0;
 }
