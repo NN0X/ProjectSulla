@@ -119,3 +119,28 @@ Part assemblePart(std::map<int, Part> parts, const std::map<PartPin, PartPin>& c
                 return resolve(partID);
         };
 }
+
+Part getPartFromType(PartType type)
+{
+        switch (type)
+        {
+                case PART_TYPE_AND:
+                        return andPart;
+                case PART_TYPE_OR:
+                        return orPart;
+                case PART_TYPE_NOT:
+                        return notPart;
+                case PART_TYPE_NAND:
+                        return nandPart;
+                case PART_TYPE_NOR:
+                        return norPart;
+                case PART_TYPE_XOR:
+                        return xorPart;
+                case PART_TYPE_XNOR:
+                        return xnorPart;
+                default:
+                        std::cerr << "Error: Unknown part type " << PART_TYPE_STRINGS[type] << std::endl;
+                        std::exit(1);
+        }
+}
+

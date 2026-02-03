@@ -1,5 +1,6 @@
 #include "primitives.h"
 
+#include <iostream>
 #include <vector>
 
 std::vector<State> andPart(std::vector<State> input)

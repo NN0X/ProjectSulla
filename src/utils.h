@@ -14,10 +14,12 @@
 void visualizePath(const std::map<int, Part>& parts, const std::map<PartPin, PartPin>& connections,
                    const std::map<int, std::string>& labels);
 
-void saveLayout(const std::map<int, Part>& parts, const std::map<PartPin, PartPin>& connections,
+void saveLayout(const std::map<int, Part>& parts, const std::map<int, PartType>& partTypes,
+              const std::map<PartPin, PartPin>& connections,
               const std::map<int, std::string>& labels, const std::string& filename);
 
-void loadLayout(std::map<int, Part>& parts, std::map<PartPin, PartPin>& connections,
+void loadLayout(std::map<int, Part>& parts, std::map<int, PartType>& partTypes,
+              std::map<PartPin, PartPin>& connections,
               std::map<int, std::string>& labels, const std::string& filename);
 
 #endif // UTILS_H

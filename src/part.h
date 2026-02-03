@@ -23,4 +23,6 @@ void setPart(std::map<int, Part>& parts, int partID, Part part);
 
 Part assemblePart(std::map<int, Part> parts, const std::map<PartPin, PartPin>& connections, int partID);
 
+Part getPartFromType(PartType type);
+
 #endif // PART_H
