@@ -51,66 +51,30 @@ std::vector<bool> andFunction(std::vector<bool> input)
         return {input[0] && input[1]};
 }
 
-std::function<std::vector<bool>(std::vector<bool>)> createLatch()
-{
-        std::vector<bool> state = {false};
-
-        return [state](std::vector<bool> input) mutable -> std::vector<bool>
-        {
-                for (size_t i = 0; i < input.size(); ++i)
-                {
-                        state[0] = state[0] || input[i];
-                }
-                return state;
-        };
-}
-
-std::function<std::vector<bool>(std::vector<bool>)> createFlipFlop()
-{
-        std::vector<bool> state = {false};
-
-        return [state](std::vector<bool> input) mutable -> std::vector<bool>
-        {
-                for (size_t i = 0; i < input.size(); ++i)
-                {
-                        state[0] = !state[0];
-                }
-                return state;
-        };
-}
-
 void visualizePath(const std::map<int, std::function<std::vector<bool>(std::vector<bool>)>>& parts,
-                   const std::map<std::pair<int, int>, std::pair<int, int>>& connections,
-                   const std::map<int, std::string>& labels)
+                      const std::map<std::pair<int, int>, std::pair<int, int>>& connections,
+                      const std::map<int, std::string>& labels)
 {
+        std::cout << "graph LR;\n";
         for (std::map<int, std::function<std::vector<bool>(std::vector<bool>)>>::const_iterator partIt = parts.begin(); partIt != parts.end(); ++partIt)
         {
-                int sourceID = partIt->first;
-                std::string sourceName = "Unknown";
-                if (labels.find(sourceID) != labels.end())
+                int id = partIt->first;
+                std::string name = "Unknown";
+                if (labels.find(id) != labels.end())
                 {
-                        sourceName = labels.find(sourceID)->second;
+                        name = labels.find(id)->second;
                 }
+                std::cout << "    " << id << "[\"" << name << " (" << id << ")\"];\n";
+        }
 
-                for (std::map<std::pair<int, int>, std::pair<int, int>>::const_iterator connIt = connections.begin(); connIt != connections.end(); ++connIt)
-                {
-                        if (connIt->second.first == sourceID)
-                        {
-                                int destID = connIt->first.first;
-                                int destPin = connIt->first.second;
-                                int sourcePin = connIt->second.second;
-                                std::string destName = "Unknown";
+        for (std::map<std::pair<int, int>, std::pair<int, int>>::const_iterator connIt = connections.begin(); connIt != connections.end(); ++connIt)
+        {
+                int fromID = connIt->second.first;
+                int fromPin = connIt->second.second;
+                int toID = connIt->first.first;
+                int toPin = connIt->first.second;
 
-                                if (labels.find(destID) != labels.end())
-                                {
-                                        destName = labels.find(destID)->second;
-                                }
-
-                                std::cout << "[" << sourceID << "] " << sourceName << " (Pin " << sourcePin << ")";
-                                std::cout << " --------> ";
-                                std::cout << "[" << destID << "] " << destName << " (Pin " << destPin << ")\n";
-                        }
-                }
+                std::cout << "    " << fromID << " -- " << "\"Out:" << fromPin << " In:" << toPin << "\" --> " << toID << ";\n";
         }
         std::cout << "\n";
 }
@@ -213,58 +177,15 @@ int main()
         setOutputPart(parts, 2);
         labels[2] = "Output";
 
-        setPartFunction(parts, 3, createLatch());
-        labels[3] = "Latch";
-
         connectParts(connections, 0, 0, 1, 0);
         connectParts(connections, 0, 1, 1, 1);
-        connectParts(connections, 1, 0, 3, 0);
-        connectParts(connections, 3, 0, 2, 0);
+        connectParts(connections, 1, 0, 2, 0);
 
         visualizePath(parts, connections, labels);
 
         std::function<std::vector<bool>(std::vector<bool>)> circuitA = compilePart(parts, connections, 2);
         circuitA({true, false});
         circuitA({true, true});
-
-        parts.clear();
-        connections.clear();
-        labels.clear();
-
-        setSourcePart(parts, 0);
-        labels[0] = "Source";
-        setOutputPart(parts, 1);
-        labels[1] = "Output";
-        setPartFunction(parts, 2, createLatch());
-        labels[2] = "Latch";
-
-        connectParts(connections, 0, 0, 2, 0);
-        connectParts(connections, 2, 0, 1, 0);
-        visualizePath(parts, connections, labels);
-
-        std::function<std::vector<bool>(std::vector<bool>)> circuitB = compilePart(parts, connections, 1);
-        circuitB({true});
-        circuitB({false});
-
-        parts.clear();
-        connections.clear();
-        labels.clear();
-
-        setSourcePart(parts, 0);
-        labels[0] = "Source";
-        setOutputPart(parts, 1);
-        labels[1] = "Output";
-        setPartFunction(parts, 2, createFlipFlop());
-        labels[2] = "Flip-Flop";
-
-        connectParts(connections, 0, 0, 2, 0);
-        connectParts(connections, 2, 0, 1, 0);
-        visualizePath(parts, connections, labels);
-
-        std::function<std::vector<bool>(std::vector<bool>)> circuitC = compilePart(parts, connections, 1);
-        circuitC({true});
-        circuitC({true});
-        circuitC({true});
 
         return 0;
 }
