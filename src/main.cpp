@@ -30,8 +30,8 @@ int main()
         partTypes[3] = PART_TYPE_OUTPUT;
         labels[3] = "Output";
 
-        connectParts(connections, {0, 0}, {1, 0}); 
-        connectParts(connections, {0, 1}, {2, 1}); 
+        connectParts(connections, {0, 0}, {1, 0});
+        connectParts(connections, {0, 1}, {2, 1});
 
         connectParts(connections, {1, 0}, {2, 0});
         connectParts(connections, {2, 0}, {1, 1});
