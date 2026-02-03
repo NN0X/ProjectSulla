@@ -1,0 +1,121 @@
+#include "part.h"
+
+#include <iostream>
+#include <map>
+#include <vector>
+#include <functional>
+#include <utility>
+#include <string>
+
+#include "primitives.h"
+
+void setSourcePart(std::map<int, Part>& parts, int partID)
+{
+        parts[partID] = [](std::vector<State> input) -> std::vector<State>
+        {
+                return input;
+        };
+}
+
+void setOutputPart(std::map<int, Part>& parts, int partID)
+{
+        parts[partID] = [](std::vector<State> input) -> std::vector<State>
+        {
+                for (size_t i = 0; i < input.size(); ++i)
+                {
+                        std::cout << STATE_STRINGS[input[i]] << " ";
+                }
+                std::cout << "\n";
+                return {};
+        };
+}
+
+void connectParts(std::map<PartPin, PartPin>& connections, PartPin from, PartPin to)
+{
+        connections[to] = from;
+}
+
+void setPart(std::map<int, Part>& parts, int partID, Part part)
+{
+        parts[partID] = part;
+}
+
+Part assemblePart(std::map<int, Part> parts, const std::map<PartPin, PartPin>& connections, int partID)
+{
+        std::map<int, std::vector<State>> lastOutputs;
+
+        return [parts, connections, partID, lastOutputs](std::vector<State> runtimeInput) mutable -> std::vector<State>
+        {
+                std::map<int, std::vector<State>> cache;
+                std::vector<int> recursionStack;
+                std::function<std::vector<State>(int)> resolve;
+
+                resolve = [&](int currentID) -> std::vector<State>
+                {
+                        if (cache.find(currentID) != cache.end())
+                        {
+                                return cache[currentID];
+                        }
+
+                        for (size_t i = 0; i < recursionStack.size(); ++i)
+                        {
+                                if (recursionStack[i] == currentID)
+                                {
+                                        if (lastOutputs.find(currentID) != lastOutputs.end())
+                                        {
+                                                return lastOutputs[currentID];
+                                        }
+                                        return {STATE_UNDEFINED};
+                                }
+                        }
+
+                        recursionStack.push_back(currentID);
+
+                        std::vector<State> collectedInputs;
+                        int maxInputIndex = -1;
+                        auto it = connections.lower_bound(std::make_pair(currentID, -1));
+                        bool hasConnections = (it != connections.end() && it->first.first == currentID);
+
+                        while (it != connections.end() && it->first.first == currentID)
+                        {
+                                if (it->first.second > maxInputIndex)
+                                {
+                                        maxInputIndex = it->first.second;
+                                }
+                                int inputIdx = it->first.second;
+                                int sourceID = it->second.first;
+                                int sourceOutputIdx = it->second.second;
+                                std::vector<State> sourceResult = resolve(sourceID);
+
+                                if (collectedInputs.size() <= (size_t)inputIdx)
+                                {
+                                        collectedInputs.resize(inputIdx + 1, STATE_UNDEFINED);
+                                }
+
+                                if ((size_t)sourceOutputIdx < sourceResult.size())
+                                {
+                                        collectedInputs[inputIdx] = sourceResult[sourceOutputIdx];
+                                }
+                                it++;
+                        }
+
+                        std::vector<State> result;
+                        if (!hasConnections)
+                        {
+                                result = parts.at(currentID)(runtimeInput);
+                        }
+                        else
+                        {
+                                result = parts.at(currentID)(collectedInputs);
+                        }
+
+                        recursionStack.pop_back();
+
+                        cache[currentID] = result;
+                        lastOutputs[currentID] = result;
+                        return result;
+                };
+
+                return resolve(partID);
+        };
+}
