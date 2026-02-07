@@ -169,7 +169,7 @@ int loadLayout(std::map<int, Part>& parts, std::map<int, PartType>& partTypes,
         {
                 SCPin from = conn.from;
                 SCPin to = conn.to;
-                connections[{from.id, from.pin}] = {to.id, to.pin};
+                connections[{to.id, to.pin}] = {from.id, from.pin};
         }
 
         return outputID;
