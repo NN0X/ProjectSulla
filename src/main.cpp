@@ -48,5 +48,14 @@ int main()
         srLatch({STATE_HIGH, STATE_LOW});
         srLatch({STATE_HIGH, STATE_HIGH});
 
+        loadLayout(parts, partTypes, connections, labels, "layouts/sr_latch_layout.json");
+        srLatch = assemblePart(parts, connections, 3);
+        srLatch({STATE_LOW, STATE_HIGH});
+        srLatch({STATE_HIGH, STATE_HIGH});
+        srLatch({STATE_HIGH, STATE_LOW});
+        srLatch({STATE_HIGH, STATE_HIGH});
+
+        visualizePath(parts, connections, labels);
+
         return 0;
 }

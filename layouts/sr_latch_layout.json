@@ -23,34 +23,54 @@
    ],
    "connections": [
       {
-         "fromID": 0,
-         "fromPin": 0,
-         "toID": 1,
-         "toPin": 0
+         "from": {
+            "id": 0,
+            "pin": 0
+         },
+         "to": {
+            "id": 1,
+            "pin": 0
+         }
       },
       {
-         "fromID": 2,
-         "fromPin": 0,
-         "toID": 1,
-         "toPin": 1
+         "from": {
+            "id": 2,
+            "pin": 0
+         },
+         "to": {
+            "id": 1,
+            "pin": 1
+         }
       },
       {
-         "fromID": 1,
-         "fromPin": 0,
-         "toID": 2,
-         "toPin": 0
+         "from": {
+            "id": 1,
+            "pin": 0
+         },
+         "to": {
+            "id": 2,
+            "pin": 0
+         }
       },
       {
-         "fromID": 0,
-         "fromPin": 1,
-         "toID": 2,
-         "toPin": 1
+         "from": {
+            "id": 0,
+            "pin": 1
+         },
+         "to": {
+            "id": 2,
+            "pin": 1
+         }
       },
       {
-         "fromID": 1,
-         "fromPin": 0,
-         "toID": 3,
-         "toPin": 0
+         "from": {
+            "id": 1,
+            "pin": 0
+         },
+         "to": {
+            "id": 3,
+            "pin": 0
+         }
       }
    ]
 }

@@ -39,25 +39,29 @@ void visualizePath(const std::map<int, Part>& parts, const std::map<PartPin, Par
         std::cout << "\n";
 }
 
-struct SerializablePart
+typedef struct SerializablePart
 {
         int id;
         PartType type;
         std::string label;
-};
+} SPart;
 
-struct SerializableConnection
+typedef struct SerializableConnectionPin
 {
-        int fromID;
-        int fromPin;
-        int toID;
-        int toPin;
-};
+        int id;
+        int pin;
+} SCPin;
+
+typedef struct SerializableConnection
+{
+        SCPin from;
+        SCPin to;
+} SConn;
 
 struct LayoutData
 {
-        std::vector<SerializablePart> parts;
-        std::vector<SerializableConnection> connections;
+        std::vector<SPart> parts;
+        std::vector<SConn> connections;
 };
 
 void saveLayout(const std::map<int, Part>& parts, const std::map<int, PartType>& partTypes,
@@ -67,24 +71,25 @@ void saveLayout(const std::map<int, Part>& parts, const std::map<int, PartType>&
         LayoutData layoutData;
         for (const auto& partIt : partTypes)
         {
-                SerializablePart sPart;
-                sPart.id = partIt.first;
-                sPart.type = partIt.second;
-                sPart.label = "";
-                if (labels.find(sPart.id) != labels.end())
+                SPart part;
+                part.id = partIt.first;
+                part.type = partIt.second;
+                part.label = "";
+                if (labels.find(part.id) != labels.end())
                 {
-                        sPart.label = labels.at(sPart.id);
+                        part.label = labels.at(part.id);
                 }
-                layoutData.parts.push_back(sPart);
+                layoutData.parts.push_back(part);
         }
         for (const auto& connIt : connections)
         {
-                SerializableConnection sConn;
-                sConn.fromID = connIt.second.first;
-                sConn.fromPin = connIt.second.second;
-                sConn.toID = connIt.first.first;
-                sConn.toPin = connIt.first.second;
-                layoutData.connections.push_back(sConn);
+                SConn conn;
+                SCPin from;
+                SCPin to;
+                from = {connIt.second.first, connIt.second.second};
+                to = {connIt.first.first, connIt.first.second};
+                conn = {from, to};
+                layoutData.connections.push_back(conn);
         }
 
         std::string json;
@@ -135,33 +140,36 @@ int loadLayout(std::map<int, Part>& parts, std::map<int, PartType>& partTypes,
         labels.clear();
 
         int outputID = -1;
-        for (const auto& sPart : layoutData.parts)
+        for (const SPart& part : layoutData.parts)
         {
-                switch (sPart.type)
+                switch (part.type)
                 {
                         case PART_TYPE_SOURCE:
-                                setSourcePart(parts, sPart.id);
+                                setSourcePart(parts, part.id);
                                 break;
                         case PART_TYPE_OUTPUT:
-                                setOutputPart(parts, sPart.id);
+                                setOutputPart(parts, part.id);
                                 if (outputID != -1)
                                 {
-                                        std::cerr << "Warning: Multiple output parts found in layout:" << outputID << " and " << sPart.id << std::endl;
+                                        std::cerr << "Warning: Multiple output parts found in layout:" << outputID
+                                                << " and " << part.id << std::endl;
                                         std::exit(1);
                                 }
-                                outputID = sPart.id;
+                                outputID = part.id;
                                 break;
                         default:
-                                setPart(parts, sPart.id, getPartFromType(sPart.type));
+                                setPart(parts, part.id, getPartFromType(part.type));
                                 break;
                 }
-                partTypes[sPart.id] = sPart.type;
-                labels[sPart.id] = sPart.label;
+                partTypes[part.id] = part.type;
+                labels[part.id] = part.label;
         }
 
-        for (const auto& sConn : layoutData.connections)
+        for (const SConn& conn : layoutData.connections)
         {
-                connections[{sConn.toID, sConn.toPin}] = {sConn.fromID, sConn.fromPin};
+                SCPin from = conn.from;
+                SCPin to = conn.to;
+                connections[{from.id, from.pin}] = {to.id, to.pin};
         }
 
         return outputID;
