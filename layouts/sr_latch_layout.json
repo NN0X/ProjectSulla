@@ -3,30 +3,22 @@
       {
          "id": 0,
          "type": 0,
-         "label": "Inputs (S, R)",
-         "x": 201,
-         "y": 282
+         "label": "Inputs (S, R)"
       },
       {
          "id": 1,
          "type": 5,
-         "label": "NAND 1",
-         "x": 519,
-         "y": 218
+         "label": "NAND 1"
       },
       {
          "id": 2,
          "type": 5,
-         "label": "NAND 2",
-         "x": 524,
-         "y": 390
+         "label": "NAND 2"
       },
       {
          "id": 3,
          "type": 1,
-         "label": "Output",
-         "x": 882,
-         "y": 283
+         "label": "Output"
       }
    ],
    "connections": [

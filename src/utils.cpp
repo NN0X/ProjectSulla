@@ -7,7 +7,6 @@
 #include <fstream>
 
 #include <glaze/glaze.hpp>
-#include <raylib/raylib.h>
 
 #include "part.h"
 #include "primitives.h"
@@ -45,7 +44,6 @@ typedef struct SerializablePart
         int id;
         PartType type;
         std::string label;
-        float x, y;
 } SPart;
 
 typedef struct SerializableConnectionPin
@@ -66,10 +64,9 @@ struct LayoutData
         std::vector<SConn> connections;
 };
 
-void saveLayout(const std::map<int, PartType>& partTypes,
+void saveLayout(const std::map<int, Part>& parts, const std::map<int, PartType>& partTypes,
               const std::map<PartPin, PartPin>& connections,
-              const std::map<int, std::string>& labels,
-              const std::map<int, Vector2>& positions, const std::string& filename)
+              const std::map<int, std::string>& labels, const std::string& filename)
 {
         LayoutData layoutData;
         for (const auto& partIt : partTypes)
@@ -81,11 +78,6 @@ void saveLayout(const std::map<int, PartType>& partTypes,
                 if (labels.find(part.id) != labels.end())
                 {
                         part.label = labels.at(part.id);
-                }
-                if (positions.find(part.id) != positions.end())
-                {
-                        part.x = positions.at(part.id).x;
-                        part.y = positions.at(part.id).y;
                 }
                 layoutData.parts.push_back(part);
         }
@@ -122,13 +114,13 @@ void saveLayout(const std::map<int, PartType>& partTypes,
 
 int loadLayout(std::map<int, Part>& parts, std::map<int, PartType>& partTypes,
               std::map<PartPin, PartPin>& connections,
-              std::map<int, std::string>& labels,
-              std::map<int, Vector2>& positions, const std::string& filename)
+              std::map<int, std::string>& labels, const std::string& filename)
 {
         std::ifstream file(filename);
         if (!file.is_open())
         {
-                return -1;
+                std::cerr << "Error: Could not open file " << filename << " for reading.\n";
+                std::exit(1);
         }
 
         std::string json((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
@@ -146,7 +138,6 @@ int loadLayout(std::map<int, Part>& parts, std::map<int, PartType>& partTypes,
         partTypes.clear();
         connections.clear();
         labels.clear();
-        positions.clear();
 
         int outputID = -1;
         for (const SPart& part : layoutData.parts)
@@ -172,7 +163,6 @@ int loadLayout(std::map<int, Part>& parts, std::map<int, PartType>& partTypes,
                 }
                 partTypes[part.id] = part.type;
                 labels[part.id] = part.label;
-                positions[part.id] = {part.x, part.y};
         }
 
         for (const SConn& conn : layoutData.connections)
