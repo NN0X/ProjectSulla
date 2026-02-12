@@ -62,6 +62,7 @@ void initApp(AppState& state)
         setSourcePart(state.parts, state.rootSourceID);
         setSourcePart(state.parts, state.rootSinkID);
         refreshLayouts(state);
+        SetTextureFilter(GetFontDefault().texture, TEXTURE_FILTER_BILINEAR);
 }
 
 void recompileSimulation(AppState& state)

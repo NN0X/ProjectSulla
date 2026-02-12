@@ -39,8 +39,14 @@ void drawGrid(const AppState& state)
         float endY = 20000.0f;
         Color c = getThemeColor(state, COLOR_GRID_LIGHT, COLOR_GRID_DARK);
 
-        for (float x = startX; x < endX; x += GRID_SIZE) DrawLineV({x, startY}, {x, endY}, c);
-        for (float y = startY; y < endY; y += GRID_SIZE) DrawLineV({startX, y}, {endX, y}, c);
+        for (float x = startX; x < endX; x += GRID_SIZE)
+        {
+                DrawLineV({x, startY}, {x, endY}, c);
+        }
+        for (float y = startY; y < endY; y += GRID_SIZE)
+        {
+                DrawLineV({startX, y}, {endX, y}, c);
+        }
 }
 
 void drawWires(AppState& state)
@@ -144,12 +150,17 @@ void drawParts(AppState& state)
                 else if (type == PART_TYPE_OUTPUT)
                 {
                         size_t index = 0;
-                        for(std::map<int, PartType>::iterator outIt = state.partTypes.begin(); outIt != state.partTypes.end(); ++outIt) {
-                                if (outIt->second == PART_TYPE_OUTPUT) { if (outIt->first == id) break; index++; }
+                        for(std::map<int, PartType>::iterator outIt = state.partTypes.begin(); outIt != state.partTypes.end(); ++outIt)
+                        {
+                                if (outIt->second == PART_TYPE_OUTPUT)
+                                {
+                                        if (outIt->first == id) break;
+                                        index++;
+                                }
                         }
                         State s = (index < state.lastOutputStates.size()) ? state.lastOutputStates[index] : STATE_LOW;
                         Color ledColor = (s == STATE_HIGH) ? COLOR_LED_OUT_ON : COLOR_LED_OUT_OFF;
-                        DrawRectangle(body.x + size.x/2 - PART_LED_SIZE/2 - 5, body.y + size.y - PART_LED_SIZE - 5, PART_LED_SIZE, PART_LED_SIZE, ledColor);
+                        DrawRectangle(body.x + size.x/2 - PART_LED_SIZE/2, body.y + size.y - PART_LED_SIZE - 5, PART_LED_SIZE, PART_LED_SIZE, ledColor);
                 }
 
                 if (type != PART_TYPE_SOURCE)
@@ -195,30 +206,50 @@ void drawUI(AppState& state)
         Color uiBorder = getThemeColor(state, COLOR_UI_BORDER_LIGHT, COLOR_UI_BORDER_DARK);
         Color textC = getThemeColor(state, COLOR_TEXT_LIGHT, COLOR_TEXT_DARK);
 
+        DrawRectangle(0, 0, GetScreenWidth(), TOOLBAR_HEIGHT, uiBg);
+        DrawLine(0, TOOLBAR_HEIGHT, GetScreenWidth(), TOOLBAR_HEIGHT, uiBorder);
+
+        const char* btnLabels[] = { "Save", "Load", "Clear", "Help", "Dark", state.isSimulating ? "Pause" : "Play", "Step", "+", "-" };
+        float x = TOOLBAR_PADDING;
+        
+        for (int i = 0; i < 9; ++i)
+        {
+                Rectangle btn = {x, TOOLBAR_PADDING, TOOLBAR_BTN_WIDTH, TOOLBAR_BTN_HEIGHT};
+                bool hovered = CheckCollisionPointRec(GetMousePosition(), btn);
+                DrawRectangleRounded(btn, 0.2f, 8, hovered ? LIGHTGRAY : GRAY);
+                DrawRectangleRoundedLines(btn, 0.2f, 8, hovered ? BLUE : DARKGRAY);
+                int tw = MeasureText(btnLabels[i], 10);
+                DrawText(btnLabels[i], btn.x + btn.width/2 - tw/2, btn.y + btn.height/2 - 5, 10, BLACK);
+                x += TOOLBAR_BTN_WIDTH + TOOLBAR_BTN_SPACING;
+        }
+
         if (state.showSideMenu)
         {
-                DrawRectangle(0, 0, DEFAULT_SIDEMENU_WIDTH, GetScreenHeight(), uiBg);
-                DrawLine(DEFAULT_SIDEMENU_WIDTH, 0, DEFAULT_SIDEMENU_WIDTH, GetScreenHeight(), uiBorder);
+                DrawRectangle(0, TOOLBAR_HEIGHT, DEFAULT_SIDEMENU_WIDTH, GetScreenHeight() - TOOLBAR_HEIGHT, uiBg);
+                DrawLine(DEFAULT_SIDEMENU_WIDTH, TOOLBAR_HEIGHT, DEFAULT_SIDEMENU_WIDTH, GetScreenHeight(), uiBorder);
 
                 float y = SIDEMENU_Y_START;
-                DrawText("Parts Library", SIDEMENU_PADDING_X, y, SIDEMENU_HEADER_TEXT_SIZE, textC); y += SIDEMENU_HEADER_MARGIN;
+                DrawText("Parts Library", SIDEMENU_PADDING_X, y, SIDEMENU_HEADER_TEXT_SIZE, textC);
+                y += SIDEMENU_HEADER_MARGIN;
 
                 for (int i = 0; i <= PART_TYPE_OUTPUT; ++i)
                 {
                         Rectangle btn = {SIDEMENU_BUTTON_MARGIN, y, DEFAULT_SIDEMENU_WIDTH - SIDEMENU_BUTTON_MARGIN*2, SIDEMENU_BUTTON_HEIGHT};
-                        DrawRectangleRec(btn, LIGHTGRAY);
+                        bool hovered = CheckCollisionPointRec(GetMousePosition(), btn);
+                        DrawRectangleRounded(btn, 0.2f, 8, hovered ? LIGHTGRAY : GRAY);
                         DrawText(PART_TYPE_NAMES[i], btn.x + SIDEMENU_BUTTON_TEXT_OFFSET_X, btn.y + SIDEMENU_BUTTON_TEXT_OFFSET_Y, SIDEMENU_BUTTON_TEXT_SIZE, BLACK);
 
-                        if (CheckCollisionPointRec(GetMousePosition(), btn))
+                        if (hovered)
                         {
-                                DrawRectangleLinesEx(btn, 2, BLUE);
+                                DrawRectangleRoundedLines(btn, 0.2f, 8, BLUE);
                                 if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) state.draggingNewPartType = i;
                         }
                         y += SIDEMENU_BUTTON_SPACING;
                 }
 
                 y += 20;
-                DrawText("Saved Layouts", SIDEMENU_PADDING_X, y, SIDEMENU_HEADER_TEXT_SIZE, textC); y += SIDEMENU_HEADER_MARGIN;
+                DrawText("Saved Layouts", SIDEMENU_PADDING_X, y, SIDEMENU_HEADER_TEXT_SIZE, textC);
+                y += SIDEMENU_HEADER_MARGIN;
 
                 std::vector<std::string> files = state.layoutFiles;
                 for (size_t i = 0; i < files.size(); ++i)
@@ -226,19 +257,15 @@ void drawUI(AppState& state)
                         std::string file = files[i];
                         Rectangle btn = {SIDEMENU_BUTTON_MARGIN, y, DEFAULT_SIDEMENU_WIDTH - SIDEMENU_BUTTON_MARGIN*2 - 25, SIDEMENU_BUTTON_HEIGHT};
                         Rectangle delBtn = {btn.x + btn.width + 5, y + 5, SIDEMENU_DELETE_BTN_SIZE, SIDEMENU_DELETE_BTN_SIZE};
+                        bool hovered = CheckCollisionPointRec(GetMousePosition(), btn);
 
-                        DrawRectangleRec(btn, LIGHTGRAY);
+                        DrawRectangleRounded(btn, 0.2f, 8, hovered ? LIGHTGRAY : GRAY);
                         std::filesystem::path p(file);
                         drawTextFit(p.stem().string().c_str(), btn.x + 5, btn.y + 5, btn.width - 10, SIDEMENU_LIST_TEXT_SIZE, BLACK);
 
-                        if (CheckCollisionPointRec(GetMousePosition(), btn))
+                        if (hovered)
                         {
-                                DrawRectangleLinesEx(btn, 2, BLUE);
-                                if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
-                                {
-                                        loadLayout(state, "layouts/" + file);
-                                        recompileSimulation(state);
-                                }
+                                DrawRectangleRoundedLines(btn, 0.2f, 8, BLUE);
                                 if (IsMouseButtonDown(MOUSE_BUTTON_LEFT) && Vector2Distance(GetMouseDelta(), {0,0}) > 1.0f) state.draggingLayoutFile = file;
                         }
 
@@ -283,21 +310,6 @@ void drawUI(AppState& state)
                 drawTextFit(state.fileNameBuffer, box.x + 5, box.y + 5, SAVE_DIALOG_INPUT_WIDTH - 60, 20, BLACK);
                 int extWidth = MeasureText(".json", 20);
                 DrawText(".json", box.x + box.width - extWidth - 5, box.y + 5, 20, BLACK);
-
-                float btnY = GetScreenHeight()/2 - DIALOG_HEIGHT/2 + SAVE_DIALOG_BTN_Y_OFFSET;
-                float startX = GetScreenWidth()/2 - SAVE_DIALOG_BTN_WIDTH - SAVE_DIALOG_BTN_SPACING/2;
-
-                Rectangle cancelBtn = {startX, btnY, SAVE_DIALOG_BTN_WIDTH, SAVE_DIALOG_BTN_HEIGHT};
-                Rectangle confirmBtn = {startX + SAVE_DIALOG_BTN_WIDTH + SAVE_DIALOG_BTN_SPACING, btnY, SAVE_DIALOG_BTN_WIDTH, SAVE_DIALOG_BTN_HEIGHT};
-
-                DrawRectangleRec(cancelBtn, LIGHTGRAY);
-                DrawRectangleLinesEx(cancelBtn, 1, DARKGRAY);
-                DrawText("Cancel", cancelBtn.x + 10, cancelBtn.y + 5, 10, BLACK);
-
-                DrawRectangleRec(confirmBtn, LIGHTGRAY);
-                DrawRectangleLinesEx(confirmBtn, 1, DARKGRAY);
-                const char* confirmText = state.showSaveDialog ? "Save" : "Load";
-                DrawText(confirmText, confirmBtn.x + 20, confirmBtn.y + 5, 10, BLACK);
         }
 
         if (state.showOverwriteConfirm)
@@ -314,12 +326,12 @@ void drawUI(AppState& state)
                 Rectangle cancelBtn = {startX, btnY, SAVE_DIALOG_BTN_WIDTH, SAVE_DIALOG_BTN_HEIGHT};
                 Rectangle confirmBtn = {startX + SAVE_DIALOG_BTN_WIDTH + SAVE_DIALOG_BTN_SPACING, btnY, SAVE_DIALOG_BTN_WIDTH, SAVE_DIALOG_BTN_HEIGHT};
 
-                DrawRectangleRec(cancelBtn, LIGHTGRAY);
-                DrawRectangleLinesEx(cancelBtn, 1, DARKGRAY);
+                DrawRectangleRounded(cancelBtn, 0.2f, 8, LIGHTGRAY);
+                DrawRectangleRoundedLines(cancelBtn, 0.2f, 8, DARKGRAY);
                 DrawText("Cancel", cancelBtn.x + 10, cancelBtn.y + 5, 10, BLACK);
 
-                DrawRectangleRec(confirmBtn, LIGHTGRAY);
-                DrawRectangleLinesEx(confirmBtn, 1, DARKGRAY);
+                DrawRectangleRounded(confirmBtn, 0.2f, 8, LIGHTGRAY);
+                DrawRectangleRoundedLines(confirmBtn, 0.2f, 8, DARKGRAY);
                 DrawText("Overwrite", confirmBtn.x + 10, confirmBtn.y + 5, 10, BLACK);
         }
 
@@ -327,8 +339,23 @@ void drawUI(AppState& state)
         {
                 DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), Fade(BLACK, 0.5f));
                 DrawRectangle(GetScreenWidth()/2 - DIALOG_WIDTH/2, GetScreenHeight()/2 - DIALOG_HEIGHT/2, DIALOG_WIDTH, DIALOG_HEIGHT, uiBg);
+                DrawRectangleLines(GetScreenWidth()/2 - DIALOG_WIDTH/2, GetScreenHeight()/2 - DIALOG_HEIGHT/2, DIALOG_WIDTH, DIALOG_HEIGHT, uiBorder);
+
                 DrawText("Confirm Delete?", GetScreenWidth()/2 - 80, GetScreenHeight()/2 - 30, 20, textC);
-                DrawText("ENTER to Confirm, ESC to Cancel", GetScreenWidth()/2 - 120, GetScreenHeight()/2 + 10, 10, textC);
+
+                float btnY = GetScreenHeight()/2 - DIALOG_HEIGHT/2 + SAVE_DIALOG_BTN_Y_OFFSET;
+                float startX = GetScreenWidth()/2 - SAVE_DIALOG_BTN_WIDTH - SAVE_DIALOG_BTN_SPACING/2;
+
+                Rectangle cancelBtn = {startX, btnY, SAVE_DIALOG_BTN_WIDTH, SAVE_DIALOG_BTN_HEIGHT};
+                Rectangle confirmBtn = {startX + SAVE_DIALOG_BTN_WIDTH + SAVE_DIALOG_BTN_SPACING, btnY, SAVE_DIALOG_BTN_WIDTH, SAVE_DIALOG_BTN_HEIGHT};
+
+                DrawRectangleRounded(cancelBtn, 0.2f, 8, LIGHTGRAY);
+                DrawRectangleRoundedLines(cancelBtn, 0.2f, 8, DARKGRAY);
+                DrawText("Cancel", cancelBtn.x + 10, cancelBtn.y + 5, 10, BLACK);
+
+                DrawRectangleRounded(confirmBtn, 0.2f, 8, LIGHTGRAY);
+                DrawRectangleRoundedLines(confirmBtn, 0.2f, 8, DARKGRAY);
+                DrawText("Delete", confirmBtn.x + 15, confirmBtn.y + 5, 10, BLACK);
         }
 
         if (state.contextMenu.active)
@@ -341,9 +368,18 @@ void drawUI(AppState& state)
                 DrawText("Remove Pin", p.x + CM_TEXT_OFFSET_X, p.y + CM_ROW_HEIGHT + CM_TEXT_OFFSET_Y, CM_TEXT_SIZE, textC);
                 DrawText("Delete Part", p.x + CM_TEXT_OFFSET_X, p.y + CM_ROW_HEIGHT*2 + CM_TEXT_OFFSET_Y, CM_TEXT_SIZE, RED);
 
-                if (CheckCollisionPointRec(GetMousePosition(), {p.x, p.y, CM_WIDTH, CM_ROW_HEIGHT})) DrawRectangleLines(p.x, p.y, CM_WIDTH, CM_ROW_HEIGHT, BLUE);
-                if (CheckCollisionPointRec(GetMousePosition(), {p.x, p.y+CM_ROW_HEIGHT, CM_WIDTH, CM_ROW_HEIGHT})) DrawRectangleLines(p.x, p.y+CM_ROW_HEIGHT, CM_WIDTH, CM_ROW_HEIGHT, BLUE);
-                if (CheckCollisionPointRec(GetMousePosition(), {p.x, p.y+CM_ROW_HEIGHT*2, CM_WIDTH, CM_ROW_HEIGHT})) DrawRectangleLines(p.x, p.y+CM_ROW_HEIGHT*2, CM_WIDTH, CM_ROW_HEIGHT, BLUE);
+                if (CheckCollisionPointRec(GetMousePosition(), {p.x, p.y, CM_WIDTH, CM_ROW_HEIGHT}))
+                {
+                        DrawRectangleLines(p.x, p.y, CM_WIDTH, CM_ROW_HEIGHT, BLUE);
+                }
+                if (CheckCollisionPointRec(GetMousePosition(), {p.x, p.y+CM_ROW_HEIGHT, CM_WIDTH, CM_ROW_HEIGHT}))
+                {
+                        DrawRectangleLines(p.x, p.y+CM_ROW_HEIGHT, CM_WIDTH, CM_ROW_HEIGHT, BLUE);
+                }
+                if (CheckCollisionPointRec(GetMousePosition(), {p.x, p.y+CM_ROW_HEIGHT*2, CM_WIDTH, CM_ROW_HEIGHT}))
+                {
+                        DrawRectangleLines(p.x, p.y+CM_ROW_HEIGHT*2, CM_WIDTH, CM_ROW_HEIGHT, BLUE);
+                }
         }
 
         if (state.showHelp)
@@ -356,25 +392,40 @@ void drawUI(AppState& state)
 
                 float y = helpY + HELP_PADDING;
                 float x = helpX + HELP_PADDING;
-                DrawText("HELP (Press H to toggle)", x, y, HELP_HEADER_SIZE, textC); y += 30;
-                DrawText("---------------------------", x, y, HELP_HEADER_SIZE, GRAY); y += 20;
-                DrawText("General:", x, y, HELP_HEADER_SIZE, DARKBLUE); y += HELP_SECTION_SPACING;
-                DrawText("  TAB: Toggle Sidemenu", x, y, HELP_TEXT_SIZE, textC); y += HELP_LINE_SPACING;
-                DrawText("  F11: Fullscreen", x, y, HELP_TEXT_SIZE, textC); y += HELP_LINE_SPACING;
-                DrawText("  Mouse Wheel: Zoom", x, y, HELP_TEXT_SIZE, textC); y += HELP_LINE_SPACING;
-                DrawText("  S: Save Layout, L: Load Layout", x, y, HELP_TEXT_SIZE, textC); y += HELP_SECTION_SPACING;
-                DrawText("  D: Toggle Dark Mode", x, y, HELP_TEXT_SIZE, textC); y += HELP_SECTION_SPACING;
+                DrawText("HELP (Press H to toggle)", x, y, HELP_HEADER_SIZE, textC);
+                y += 30;
+                DrawText("---------------------------", x, y, HELP_HEADER_SIZE, GRAY);
+                y += 20;
+                DrawText("General:", x, y, HELP_HEADER_SIZE, DARKBLUE);
+                y += HELP_SECTION_SPACING;
+                DrawText("  TAB: Toggle Sidemenu", x, y, HELP_TEXT_SIZE, textC);
+                y += HELP_LINE_SPACING;
+                DrawText("  F11: Fullscreen", x, y, HELP_TEXT_SIZE, textC);
+                y += HELP_LINE_SPACING;
+                DrawText("  Mouse Wheel: Zoom", x, y, HELP_TEXT_SIZE, textC);
+                y += HELP_LINE_SPACING;
+                DrawText("  S: Save Layout, L: Load Layout", x, y, HELP_TEXT_SIZE, textC);
+                y += HELP_SECTION_SPACING;
+                DrawText("  D: Toggle Dark Mode", x, y, HELP_TEXT_SIZE, textC);
+                y += HELP_SECTION_SPACING;
 
-                DrawText("Editing:", x, y, HELP_HEADER_SIZE, DARKBLUE); y += HELP_SECTION_SPACING;
-                DrawText("  Click List: Load Layout", x, y, HELP_TEXT_SIZE, textC); y += HELP_LINE_SPACING;
-                DrawText("  Drag from Menu: Add Part", x, y, HELP_TEXT_SIZE, textC); y += HELP_LINE_SPACING;
-                DrawText("  Shift+Click: Multi-select", x, y, HELP_TEXT_SIZE, textC); y += HELP_LINE_SPACING;
-                DrawText("  Right Click Part: Options", x, y, HELP_TEXT_SIZE, textC); y += HELP_LINE_SPACING;
+                DrawText("Editing:", x, y, HELP_HEADER_SIZE, DARKBLUE);
+                y += HELP_SECTION_SPACING;
+                DrawText("  Drag from Menu: Add Part", x, y, HELP_TEXT_SIZE, textC);
+                y += HELP_LINE_SPACING;
+                DrawText("  Shift+Click: Multi-select", x, y, HELP_TEXT_SIZE, textC);
+                y += HELP_LINE_SPACING;
+                DrawText("  Right Click Part: Options", x, y, HELP_TEXT_SIZE, textC);
+                y += HELP_LINE_SPACING;
 
-                DrawText("Simulation:", x, y, HELP_HEADER_SIZE, DARKBLUE); y += HELP_SECTION_SPACING;
-                DrawText("  SPACE: Run/Pause", x, y, HELP_TEXT_SIZE, textC); y += HELP_LINE_SPACING;
-                DrawText("  Right Arrow: Step", x, y, HELP_TEXT_SIZE, textC); y += HELP_LINE_SPACING;
-                DrawText("  UP/DOWN: Speed (Hz)", x, y, HELP_TEXT_SIZE, textC); y += HELP_LINE_SPACING;
+                DrawText("Simulation:", x, y, HELP_HEADER_SIZE, DARKBLUE);
+                y += HELP_SECTION_SPACING;
+                DrawText("  SPACE: Run/Pause", x, y, HELP_TEXT_SIZE, textC);
+                y += HELP_LINE_SPACING;
+                DrawText("  Right Arrow: Step", x, y, HELP_TEXT_SIZE, textC);
+                y += HELP_LINE_SPACING;
+                DrawText("  UP/DOWN: Speed (Hz)", x, y, HELP_TEXT_SIZE, textC);
+                y += HELP_LINE_SPACING;
         }
 
         std::string hzStr;

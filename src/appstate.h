@@ -58,7 +58,7 @@ struct AppState
         bool showDeleteConfirm = false;
         bool showOverwriteConfirm = false;
         bool showSideMenu = true;
-        bool showHelp = true;
+        bool showHelp = false;
         bool darkMode = true;
 
         char fileNameBuffer[64] = "circuit";

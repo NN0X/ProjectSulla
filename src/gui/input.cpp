@@ -28,15 +28,27 @@ void dropPart(AppState& state, int type, Vector2 pos)
         state.labels[id] = PART_TYPE_NAMES[type];
         state.simulation = nullptr;
 
-        if (type == PART_TYPE_NOT) { state.inputCounts[id] = 1; state.outputCounts[id] = 1; }
+        if (type == PART_TYPE_NOT)
+        {
+                state.inputCounts[id] = 1;
+                state.outputCounts[id] = 1;
+        }
         else if (type == PART_TYPE_SOURCE) 
         { 
                 state.inputCounts[id] = 0; 
                 state.outputCounts[id] = 1; 
                 state.sourceValues[id] = {STATE_LOW};
         }
-        else if (type == PART_TYPE_OUTPUT) { state.inputCounts[id] = 1; state.outputCounts[id] = 0; }
-        else { state.inputCounts[id] = 2; state.outputCounts[id] = 1; }
+        else if (type == PART_TYPE_OUTPUT)
+        {
+                state.inputCounts[id] = 1;
+                state.outputCounts[id] = 0;
+        }
+        else
+        {
+                state.inputCounts[id] = 2;
+                state.outputCounts[id] = 1;
+        }
 }
 
 void deleteParts(AppState& state)
@@ -57,9 +69,15 @@ void deleteParts(AppState& state)
                 std::vector<PartPin> toRemove;
                 for(std::map<PartPin, PartPin>::iterator connIt = state.connections.begin(); connIt != state.connections.end(); ++connIt)
                 {
-                        if (connIt->first.first == id || connIt->second.first == id) toRemove.push_back(connIt->first);
+                        if (connIt->first.first == id || connIt->second.first == id)
+                        {
+                                toRemove.push_back(connIt->first);
+                        }
                 }
-                for(size_t i = 0; i < toRemove.size(); ++i) state.connections.erase(toRemove[i]);
+                for(size_t i = 0; i < toRemove.size(); ++i)
+                {
+                        state.connections.erase(toRemove[i]);
+                }
         }
         state.selectedParts.clear();
         state.simulation = nullptr;
@@ -72,10 +90,49 @@ void handleInput(AppState& state)
         Vector2 worldMouse = GetScreenToWorld2D(mousePos, state.camera);
 
         bool isDialogActive = state.showSaveDialog || state.showLoadDialog || state.showDeleteConfirm || state.showOverwriteConfirm;
-        bool mouseOverUI = (mousePos.x < sideMenuWidth) || isDialogActive;
+        bool mouseOverUI = (mousePos.x < sideMenuWidth) || (mousePos.y < TOOLBAR_HEIGHT) || isDialogActive;
 
         if (!isDialogActive)
         {
+                if (mousePos.y < TOOLBAR_HEIGHT && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+                {
+                        float x = TOOLBAR_PADDING;
+                        for (int i = 0; i < 9; ++i)
+                        {
+                                Rectangle btn = {x, TOOLBAR_PADDING, TOOLBAR_BTN_WIDTH, TOOLBAR_BTN_HEIGHT};
+                                if (CheckCollisionPointRec(mousePos, btn))
+                                {
+                                        if (i == 0) state.showSaveDialog = true;
+                                        if (i == 1) state.showLoadDialog = true;
+                                        if (i == 2)
+                                        {
+                                                state.selectedParts.clear();
+                                                for(auto const& [id, pos] : state.positions)
+                                                {
+                                                        state.selectedParts.insert(id);
+                                                }
+                                                deleteParts(state);
+                                        }
+                                        if (i == 3) state.showHelp = !state.showHelp;
+                                        if (i == 4) state.darkMode = !state.darkMode;
+                                        if (i == 5) state.isSimulating = !state.isSimulating;
+                                        if (i == 6)
+                                        {
+                                                state.isSimulating = false;
+                                                recompileSimulation(state);
+                                                if(state.simulation)
+                                                {
+                                                        state.lastOutputStates = state.simulation(state.runtimeInput);
+                                                        state.stepCount++;
+                                                }
+                                        }
+                                        if (i == 7) state.targetHZ *= 2.0f;
+                                        if (i == 8) state.targetHZ *= 0.5f;
+                                }
+                                x += TOOLBAR_BTN_WIDTH + TOOLBAR_BTN_SPACING;
+                        }
+                }
+
                 float wheel = GetMouseWheelMove();
                 if (wheel != 0)
                 {
@@ -128,7 +185,11 @@ void handleInput(AppState& state)
                         float startX = GetScreenWidth()/2 - SAVE_DIALOG_BTN_WIDTH - SAVE_DIALOG_BTN_SPACING/2;
                         Rectangle cancelBtn = {startX, btnY, SAVE_DIALOG_BTN_WIDTH, SAVE_DIALOG_BTN_HEIGHT};
                         Rectangle confirmBtn = {startX + SAVE_DIALOG_BTN_WIDTH + SAVE_DIALOG_BTN_SPACING, btnY, SAVE_DIALOG_BTN_WIDTH, SAVE_DIALOG_BTN_HEIGHT};
-                        if (CheckCollisionPointRec(mousePos, cancelBtn)) { state.showSaveDialog = false; state.showLoadDialog = false; }
+                        if (CheckCollisionPointRec(mousePos, cancelBtn))
+                        {
+                                state.showSaveDialog = false;
+                                state.showLoadDialog = false;
+                        }
                         if (CheckCollisionPointRec(mousePos, confirmBtn)) confirm = true;
                 }
 
@@ -160,7 +221,11 @@ void handleInput(AppState& state)
                                 refreshLayouts(state);
                         }
                 }
-                if (IsKeyPressed(KEY_ESCAPE)) { state.showSaveDialog = false; state.showLoadDialog = false; }
+                if (IsKeyPressed(KEY_ESCAPE))
+                {
+                        state.showSaveDialog = false;
+                        state.showLoadDialog = false;
+                }
                 return;
         }
 
@@ -173,7 +238,11 @@ void handleInput(AppState& state)
                         float startX = GetScreenWidth()/2 - SAVE_DIALOG_BTN_WIDTH - SAVE_DIALOG_BTN_SPACING/2;
                         Rectangle cancelBtn = {startX, btnY, SAVE_DIALOG_BTN_WIDTH, SAVE_DIALOG_BTN_HEIGHT};
                         Rectangle confirmBtn = {startX + SAVE_DIALOG_BTN_WIDTH + SAVE_DIALOG_BTN_SPACING, btnY, SAVE_DIALOG_BTN_WIDTH, SAVE_DIALOG_BTN_HEIGHT};
-                        if (CheckCollisionPointRec(mousePos, cancelBtn)) { state.showOverwriteConfirm = false; state.showSaveDialog = true; }
+                        if (CheckCollisionPointRec(mousePos, cancelBtn))
+                        {
+                                state.showOverwriteConfirm = false;
+                                state.showSaveDialog = true;
+                        }
                         if (CheckCollisionPointRec(mousePos, confirmBtn)) confirm = true;
                 }
                 if (IsKeyPressed(KEY_ENTER) || confirm)
@@ -183,13 +252,30 @@ void handleInput(AppState& state)
                         state.showOverwriteConfirm = false;
                         refreshLayouts(state);
                 }
-                if (IsKeyPressed(KEY_ESCAPE)) { state.showOverwriteConfirm = false; state.showSaveDialog = true; }
+                if (IsKeyPressed(KEY_ESCAPE))
+                {
+                        state.showOverwriteConfirm = false;
+                        state.showSaveDialog = true;
+                }
                 return;
         }
 
         if (state.showDeleteConfirm)
         {
-                if (IsKeyPressed(KEY_ENTER))
+                bool confirm = false;
+                if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+                {
+                        float btnY = GetScreenHeight()/2 - DIALOG_HEIGHT/2 + SAVE_DIALOG_BTN_Y_OFFSET;
+                        float startX = GetScreenWidth()/2 - SAVE_DIALOG_BTN_WIDTH - SAVE_DIALOG_BTN_SPACING/2;
+                        Rectangle cancelBtn = {startX, btnY, SAVE_DIALOG_BTN_WIDTH, SAVE_DIALOG_BTN_HEIGHT};
+                        Rectangle confirmBtn = {startX + SAVE_DIALOG_BTN_WIDTH + SAVE_DIALOG_BTN_SPACING, btnY, SAVE_DIALOG_BTN_WIDTH, SAVE_DIALOG_BTN_HEIGHT};
+                        if (CheckCollisionPointRec(mousePos, cancelBtn))
+                        {
+                                state.showDeleteConfirm = false;
+                        }
+                        if (CheckCollisionPointRec(mousePos, confirmBtn)) confirm = true;
+                }
+                if (IsKeyPressed(KEY_ENTER) || confirm)
                 {
                         std::filesystem::remove("layouts/" + state.layoutToDelete);
                         refreshLayouts(state);
@@ -240,33 +326,49 @@ void handleInput(AppState& state)
                         Rectangle rRem = {p.x, p.y + CM_ROW_HEIGHT, CM_WIDTH, CM_ROW_HEIGHT};
                         Rectangle rDel = {p.x, p.y + CM_ROW_HEIGHT*2, CM_WIDTH, CM_ROW_HEIGHT};
 
-                        if (CheckCollisionPointRec(mousePos, rAdd)) {
-                                if (state.partTypes[state.contextMenu.targetPartID] == PART_TYPE_SOURCE) {
+                        if (CheckCollisionPointRec(mousePos, rAdd))
+                        {
+                                if (state.partTypes[state.contextMenu.targetPartID] == PART_TYPE_SOURCE)
+                                {
                                         state.outputCounts[state.contextMenu.targetPartID]++;
                                         state.sourceValues[state.contextMenu.targetPartID].push_back(STATE_LOW);
-                                } else {
+                                }
+                                else
+                                {
                                         state.inputCounts[state.contextMenu.targetPartID]++;
                                 }
                                 state.simulation = nullptr;
                                 state.contextMenu.active = false;
-                        } else if (CheckCollisionPointRec(mousePos, rRem)) {
-                                if (state.partTypes[state.contextMenu.targetPartID] == PART_TYPE_SOURCE) {
-                                        if (state.outputCounts[state.contextMenu.targetPartID] > 1) {
+                        }
+                        else if (CheckCollisionPointRec(mousePos, rRem))
+                        {
+                                if (state.partTypes[state.contextMenu.targetPartID] == PART_TYPE_SOURCE)
+                                {
+                                        if (state.outputCounts[state.contextMenu.targetPartID] > 1)
+                                        {
                                                 state.outputCounts[state.contextMenu.targetPartID]--;
                                                 state.sourceValues[state.contextMenu.targetPartID].pop_back();
                                         }
-                                } else {
+                                }
+                                else
+                                {
                                         if (state.inputCounts[state.contextMenu.targetPartID] > 0)
+                                        {
                                                 state.inputCounts[state.contextMenu.targetPartID]--;
+                                        }
                                 }
                                 state.simulation = nullptr;
                                 state.contextMenu.active = false;
-                        } else if (CheckCollisionPointRec(mousePos, rDel)) {
+                        }
+                        else if (CheckCollisionPointRec(mousePos, rDel))
+                        {
                                 state.selectedParts.clear();
                                 state.selectedParts.insert(state.contextMenu.targetPartID);
                                 deleteParts(state);
                                 state.contextMenu.active = false;
-                        } else {
+                        }
+                        else
+                        {
                                 state.contextMenu.active = false;
                         }
                 }
@@ -295,11 +397,14 @@ void handleInput(AppState& state)
 
         if (IsKeyPressed(KEY_DELETE))
         {
-                 if (state.selectedConnection.first != -1) {
+                 if (state.selectedConnection.first != -1)
+                 {
                          state.connections.erase(state.selectedConnection);
                          state.selectedConnection = {-1, -1};
                          state.simulation = nullptr;
-                 } else {
+                 }
+                 else
+                 {
                          deleteParts(state);
                  }
         }
@@ -330,13 +435,15 @@ void handleInput(AppState& state)
                                         if (outCount <= 1) yOff = 0;
 
                                         Rectangle toggleRect = {pos.x - size.x/2 + 5, pos.y + yOff - SOURCE_TOGGLE_SIZE/2, SOURCE_TOGGLE_SIZE, SOURCE_TOGGLE_SIZE};
-                                        if (CheckCollisionPointRec(worldMouse, toggleRect)) {
+                                        if (CheckCollisionPointRec(worldMouse, toggleRect))
+                                        {
                                                 state.sourceValues[id][i] = (state.sourceValues[id][i] == STATE_LOW) ? STATE_HIGH : STATE_LOW;
                                                 hitSomething = true;
                                                 break;
                                         }
                                         Rectangle pinRect = {pos.x + size.x/2, pos.y + yOff - PIN_SIZE/2, PIN_SIZE, PIN_SIZE};
-                                        if (CheckCollisionPointRec(worldMouse, pinRect)) {
+                                        if (CheckCollisionPointRec(worldMouse, pinRect))
+                                        {
                                                 state.wireStartPartID = id;
                                                 state.wireStartPin = i;
                                                 hitSomething = true;
@@ -347,12 +454,15 @@ void handleInput(AppState& state)
                         else
                         {
                                 float pinYStepIn = (inCount > 1) ? (size.y - PIN_Y_OFFSET_BASE*2) / (inCount - 1) : 0;
-                                for (int i = 0; i < inCount; ++i) {
+                                for (int i = 0; i < inCount; ++i)
+                                {
                                         float yOff = -size.y/2 + PIN_Y_OFFSET_BASE + i * pinYStepIn;
                                         if (inCount <= 1) yOff = 0;
                                         Rectangle pinRect = {pos.x - size.x/2 - PIN_SIZE, pos.y + yOff - PIN_SIZE/2, PIN_SIZE, PIN_SIZE};
-                                        if (CheckCollisionPointRec(worldMouse, pinRect)) {
-                                                if (state.wireStartPartID != -1) {
+                                        if (CheckCollisionPointRec(worldMouse, pinRect))
+                                        {
+                                                if (state.wireStartPartID != -1)
+                                                {
                                                         state.connections[{id, i}] = {state.wireStartPartID, state.wireStartPin};
                                                         state.simulation = nullptr;
                                                         state.wireStartPartID = -1;
@@ -362,11 +472,13 @@ void handleInput(AppState& state)
                                         }
                                 }
                                 float pinYStepOut = (outCount > 1) ? (size.y - PIN_Y_OFFSET_BASE*2) / (outCount - 1) : 0;
-                                for (int i = 0; i < outCount; ++i) {
+                                for (int i = 0; i < outCount; ++i)
+                                {
                                         float yOff = -size.y/2 + PIN_Y_OFFSET_BASE + i * pinYStepOut;
                                         if (outCount <= 1) yOff = 0;
                                         Rectangle pinRect = {pos.x + size.x/2, pos.y + yOff - PIN_SIZE/2, PIN_SIZE, PIN_SIZE};
-                                        if (CheckCollisionPointRec(worldMouse, pinRect)) {
+                                        if (CheckCollisionPointRec(worldMouse, pinRect))
+                                        {
                                                 state.wireStartPartID = id;
                                                 state.wireStartPin = i;
                                                 hitSomething = true;
@@ -382,17 +494,22 @@ void handleInput(AppState& state)
                                 state.dragStartMousePos = worldMouse;
                                 state.isDragging = false;
 
-                                if (IsKeyDown(KEY_LEFT_SHIFT)) {
+                                if (IsKeyDown(KEY_LEFT_SHIFT))
+                                {
                                         if (state.selectedParts.count(id)) state.selectedParts.erase(id);
                                         else state.selectedParts.insert(id);
-                                } else if (state.selectedParts.find(id) == state.selectedParts.end()) {
+                                }
+                                else if (state.selectedParts.find(id) == state.selectedParts.end())
+                                {
                                         state.selectedParts.clear();
                                         state.selectedParts.insert(id);
                                 }
 
                                 state.dragStartPositions.clear();
                                 for (std::set<int>::iterator sit = state.selectedParts.begin(); sit != state.selectedParts.end(); ++sit)
+                                {
                                         state.dragStartPositions[*sit] = {state.positions[*sit].first, state.positions[*sit].second};
+                                }
 
                                 hitSomething = true;
                                 break;
@@ -431,7 +548,8 @@ void handleInput(AppState& state)
                                 else if (CheckCollisionPointRec(worldMouse, {p1.x-WIRE_HITBOX_PADDING, fminf(p1.y, p2.y)-WIRE_HITBOX_PADDING, WIRE_HITBOX_SIZE, fabsf(p1.y-p2.y)+WIRE_HITBOX_SIZE})) hit = true;
                                 else if (CheckCollisionPointRec(worldMouse, {fminf(p2.x, end.x)-WIRE_HITBOX_PADDING, end.y-WIRE_HITBOX_PADDING, fabsf(p2.x-end.x)+WIRE_HITBOX_SIZE, WIRE_HITBOX_SIZE})) hit = true;
 
-                                if (hit) {
+                                if (hit)
+                                {
                                         state.selectedConnection = it->first;
                                         hitSomething = true;
                                         break;
