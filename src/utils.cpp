@@ -5,6 +5,7 @@
 #include <utility>
 #include <string>
 #include <fstream>
+#include <algorithm>
 
 #include <glaze/glaze.hpp>
 
@@ -116,7 +117,7 @@ int loadLayout(std::map<int, Part>& parts, std::map<int, PartType>& partTypes,
         if (!file.is_open())
         {
                 std::cerr << "Error: Could not open file " << filename << " for reading.\n";
-                std::exit(1);
+                return 0; 
         }
 
         std::string json((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
@@ -127,7 +128,7 @@ int loadLayout(std::map<int, Part>& parts, std::map<int, PartType>& partTypes,
         if (result)
         {
                 std::cerr << "Error: Could not deserialize layout data from JSON.\n";
-                std::exit(1);
+                return 0;
         }
 
         parts.clear();
@@ -137,9 +138,11 @@ int loadLayout(std::map<int, Part>& parts, std::map<int, PartType>& partTypes,
         positions.clear();
         inputCounts.clear();
 
+        int maxID = 0;
         int outputID = -1;
         for (const SPart& part : layoutData.parts)
         {
+                if (part.id > maxID) maxID = part.id;
                 switch (part.type)
                 {
                 case PART_TYPE_SOURCE:
@@ -166,5 +169,55 @@ int loadLayout(std::map<int, Part>& parts, std::map<int, PartType>& partTypes,
                 connections[{to.id, to.pin}] = {from.id, from.pin};
         }
 
-        return outputID;
+        return maxID;
+}
+
+void importLayout(std::map<int, Part>& parts, std::map<int, PartType>& partTypes,
+                  std::map<PartPin, PartPin>& connections,
+                  std::map<int, std::string>& labels,
+                  std::map<int, std::pair<float, float>>& positions,
+                  std::map<int, int>& inputCounts,
+                  const std::string& filename,
+                  int& nextID, float offsetX, float offsetY)
+{
+        std::ifstream file(filename);
+        if (!file.is_open()) return;
+
+        std::string json((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+        file.close();
+
+        LayoutData layoutData{};
+        if (glz::read_json(layoutData, json)) return;
+
+        int idOffset = nextID;
+
+        float minX = 10000.0f, minY = 10000.0f;
+        for (const SPart& part : layoutData.parts) {
+                if (part.x < minX) minX = part.x;
+                if (part.y < minY) minY = part.y;
+        }
+
+        for (const SPart& part : layoutData.parts)
+        {
+                int newID = part.id + idOffset;
+                if (newID >= nextID) nextID = newID + 1;
+
+                switch (part.type)
+                {
+                case PART_TYPE_SOURCE: setSourcePart(parts, newID); break;
+                case PART_TYPE_OUTPUT: setOutputPart(parts, newID); break;
+                default: setPart(parts, newID, getPartFromType(part.type)); break;
+                }
+                partTypes[newID] = part.type;
+                labels[newID] = part.label;
+                positions[newID] = {part.x - minX + offsetX, part.y - minY + offsetY};
+                inputCounts[newID] = part.numInputs;
+        }
+
+        for (const SConn& conn : layoutData.connections)
+        {
+                int fromID = conn.from.id + idOffset;
+                int toID = conn.to.id + idOffset;
+                connections[{toID, conn.to.pin}] = {fromID, conn.from.pin};
+        }
 }

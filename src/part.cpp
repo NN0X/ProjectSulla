@@ -134,7 +134,7 @@ Part getPartFromType(PartType type)
         case PART_TYPE_XNOR:
                 return xnorPart;
         default:
-                std::cerr << "Error: Unknown part type " << PART_TYPE_STRINGS[type] << std::endl;
+                std::cerr << "Error: Unknown part type " << PART_TYPE_NAMES[type] << std::endl;
                 std::exit(1);
         }
 }

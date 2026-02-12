@@ -25,4 +25,12 @@ int loadLayout(std::map<int, Part>& parts, std::map<int, PartType>& partTypes,
                std::map<int, int>& inputCounts,
                const std::string& filename);
 
-#endif // UTILS_H
+void importLayout(std::map<int, Part>& parts, std::map<int, PartType>& partTypes,
+                  std::map<PartPin, PartPin>& connections,
+                  std::map<int, std::string>& labels,
+                  std::map<int, std::pair<float, float>>& positions,
+                  std::map<int, int>& inputCounts,
+                  const std::string& filename,
+                  int& nextID, float offsetX, float offsetY);
+
+#endif
