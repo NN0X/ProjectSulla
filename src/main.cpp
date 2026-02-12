@@ -1,7 +1,7 @@
 #include <raylib/raylib.h>
 #include "config.h"
 #include "appstate.h"
-#include "gui.h"
+#include "gui/gui.h"
 
 int main()
 {

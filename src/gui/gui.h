@@ -1,7 +1,7 @@
 #ifndef GUI_H
 #define GUI_H
 
-#include "appstate.h"
+#include "../appstate.h"
 
 void initApp(AppState& state);
 void handleInput(AppState& state);

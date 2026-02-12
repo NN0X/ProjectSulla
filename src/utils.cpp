@@ -6,12 +6,14 @@
 #include <string>
 #include <fstream>
 #include <algorithm>
+#include <cmath>
 
 #include <glaze/glaze.hpp>
 
 #include "part.h"
 #include "primitives.h"
 #include "utils.h"
+#include "appstate.h"
 
 typedef struct SerializablePart
 {
@@ -21,6 +23,7 @@ typedef struct SerializablePart
         float x;
         float y;
         int numInputs;
+        int numOutputs;
 } SPart;
 
 typedef struct SerializableConnectionPin
@@ -41,11 +44,12 @@ struct LayoutData
         std::vector<SConn> connections;
 };
 
-void saveLayout(const std::map<int, Part>& parts, const std::map<int, PartType>& partTypes,
+void saveLayout(const std::map<int, PartType>& partTypes,
                 const std::map<PartPin, PartPin>& connections,
                 const std::map<int, std::string>& labels,
                 const std::map<int, std::pair<float, float>>& positions,
                 const std::map<int, int>& inputCounts,
+                const std::map<int, int>& outputCounts,
                 const std::string& filename)
 {
         LayoutData layoutData;
@@ -58,166 +62,199 @@ void saveLayout(const std::map<int, Part>& parts, const std::map<int, PartType>&
                 part.x = 0.0f;
                 part.y = 0.0f;
                 part.numInputs = 2;
+                part.numOutputs = 1;
 
-                if (labels.find(part.id) != labels.end())
-                {
-                        part.label = labels.at(part.id);
-                }
+                if (labels.find(part.id) != labels.end()) part.label = labels.at(part.id);
                 if (positions.find(part.id) != positions.end())
                 {
                         part.x = positions.at(part.id).first;
                         part.y = positions.at(part.id).second;
                 }
-                if (inputCounts.find(part.id) != inputCounts.end())
-                {
-                        part.numInputs = inputCounts.at(part.id);
-                }
+                if (inputCounts.find(part.id) != inputCounts.end()) part.numInputs = inputCounts.at(part.id);
+                if (outputCounts.find(part.id) != outputCounts.end()) part.numOutputs = outputCounts.at(part.id);
 
                 layoutData.parts.push_back(part);
         }
         for (std::map<PartPin, PartPin>::const_iterator connIt = connections.begin(); connIt != connections.end(); ++connIt)
         {
                 SConn conn;
-                SCPin from;
-                SCPin to;
-                from = {connIt->second.first, connIt->second.second};
-                to = {connIt->first.first, connIt->first.second};
+                SCPin from = {connIt->second.first, connIt->second.second};
+                SCPin to = {connIt->first.first, connIt->first.second};
                 conn = {from, to};
                 layoutData.connections.push_back(conn);
         }
 
         std::string json;
-        auto result = glz::write<glz::opts{.prettify = true}>(layoutData, json);
-        if (result)
-        {
-                std::cerr << "Error: Could not serialize layout data to JSON.\n";
-                return;
-        }
+        if (glz::write<glz::opts{.prettify = true}>(layoutData, json)) return;
 
         std::ofstream file(filename);
-        if (!file.is_open())
+        if (file.is_open())
         {
-                std::cerr << "Error: Could not open file " << filename << " for writing.\n";
-                return;
+                file << json;
+                file.close();
         }
-
-        file << json;
-
-        file.close();
 }
 
-int loadLayout(std::map<int, Part>& parts, std::map<int, PartType>& partTypes,
-               std::map<PartPin, PartPin>& connections,
-               std::map<int, std::string>& labels,
-               std::map<int, std::pair<float, float>>& positions,
-               std::map<int, int>& inputCounts,
-               const std::string& filename)
+int loadLayout(AppState& state, const std::string& filename)
 {
         std::ifstream file(filename);
-        if (!file.is_open())
-        {
-                std::cerr << "Error: Could not open file " << filename << " for reading.\n";
-                return 0; 
-        }
+        if (!file.is_open()) return 0;
 
         std::string json((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
         file.close();
 
         LayoutData layoutData{};
-        auto result = glz::read_json(layoutData, json);
-        if (result)
-        {
-                std::cerr << "Error: Could not deserialize layout data from JSON.\n";
-                return 0;
-        }
+        if (glz::read_json(layoutData, json)) return 0;
 
-        parts.clear();
-        partTypes.clear();
-        connections.clear();
-        labels.clear();
-        positions.clear();
-        inputCounts.clear();
+        state.parts.clear();
+        state.partTypes.clear();
+        state.connections.clear();
+        state.labels.clear();
+        state.positions.clear();
+        state.inputCounts.clear();
+        state.outputCounts.clear();
+        state.sourceValues.clear();
+        state.selectedParts.clear();
+        state.simulation = nullptr;
+        state.stepCount = 0;
 
         int maxID = 0;
-        int outputID = -1;
-        for (const SPart& part : layoutData.parts)
+        for (size_t i = 0; i < layoutData.parts.size(); ++i)
         {
+                const SPart& part = layoutData.parts[i];
                 if (part.id > maxID) maxID = part.id;
                 switch (part.type)
                 {
-                case PART_TYPE_SOURCE:
-                        setSourcePart(parts, part.id);
-                        break;
-                case PART_TYPE_OUTPUT:
-                        setOutputPart(parts, part.id);
-                        outputID = part.id;
-                        break;
-                default:
-                        setPart(parts, part.id, getPartFromType(part.type));
-                        break;
+                case PART_TYPE_SOURCE: setSourcePart(state.parts, part.id); break;
+                case PART_TYPE_OUTPUT: setOutputPart(state.parts, part.id); break;
+                default: setPart(state.parts, part.id, getPartFromType(part.type)); break;
                 }
-                partTypes[part.id] = part.type;
-                labels[part.id] = part.label;
-                positions[part.id] = {part.x, part.y};
-                inputCounts[part.id] = part.numInputs;
+                state.partTypes[part.id] = part.type;
+                state.labels[part.id] = part.label;
+                state.positions[part.id] = {part.x, part.y};
+                state.inputCounts[part.id] = part.numInputs;
+                state.outputCounts[part.id] = (part.numOutputs > 0) ? part.numOutputs : 1;
+
+                if (part.type == PART_TYPE_SOURCE)
+                {
+                        state.sourceValues[part.id].resize(state.outputCounts[part.id], STATE_LOW);
+                }
         }
 
-        for (const SConn& conn : layoutData.connections)
+        for (size_t i = 0; i < layoutData.connections.size(); ++i)
         {
-                SCPin from = conn.from;
-                SCPin to = conn.to;
-                connections[{to.id, to.pin}] = {from.id, from.pin};
+                const SConn& conn = layoutData.connections[i];
+                state.connections[{conn.to.id, conn.to.pin}] = {conn.from.id, conn.from.pin};
         }
 
         return maxID;
 }
 
-void importLayout(std::map<int, Part>& parts, std::map<int, PartType>& partTypes,
-                  std::map<PartPin, PartPin>& connections,
-                  std::map<int, std::string>& labels,
-                  std::map<int, std::pair<float, float>>& positions,
-                  std::map<int, int>& inputCounts,
-                  const std::string& filename,
-                  int& nextID, float offsetX, float offsetY)
+Part loadLayoutAsPart(const std::string& filename, int& nInputs, int& nOutputs)
 {
         std::ifstream file(filename);
-        if (!file.is_open()) return;
+        if (!file.is_open()) return nullptr;
 
         std::string json((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
         file.close();
 
         LayoutData layoutData{};
-        if (glz::read_json(layoutData, json)) return;
+        if (glz::read_json(layoutData, json)) return nullptr;
 
-        int idOffset = nextID;
+        std::map<int, Part> subParts;
+        std::map<int, PartType> subTypes;
+        std::map<PartPin, PartPin> subConnections;
+        std::vector<int> internalSources;
+        std::vector<int> internalOutputs;
 
-        float minX = 10000.0f, minY = 10000.0f;
-        for (const SPart& part : layoutData.parts) {
-                if (part.x < minX) minX = part.x;
-                if (part.y < minY) minY = part.y;
-        }
-
-        for (const SPart& part : layoutData.parts)
+        for (size_t i = 0; i < layoutData.parts.size(); ++i)
         {
-                int newID = part.id + idOffset;
-                if (newID >= nextID) nextID = newID + 1;
-
+                const SPart& part = layoutData.parts[i];
+                subTypes[part.id] = part.type;
                 switch (part.type)
                 {
-                case PART_TYPE_SOURCE: setSourcePart(parts, newID); break;
-                case PART_TYPE_OUTPUT: setOutputPart(parts, newID); break;
-                default: setPart(parts, newID, getPartFromType(part.type)); break;
+                case PART_TYPE_SOURCE: 
+                        setSourcePart(subParts, part.id); 
+                        internalSources.push_back(part.id);
+                        break;
+                case PART_TYPE_OUTPUT: 
+                        setOutputPart(subParts, part.id); 
+                        internalOutputs.push_back(part.id);
+                        break;
+                default: setPart(subParts, part.id, getPartFromType(part.type)); break;
                 }
-                partTypes[newID] = part.type;
-                labels[newID] = part.label;
-                positions[newID] = {part.x - minX + offsetX, part.y - minY + offsetY};
-                inputCounts[newID] = part.numInputs;
         }
 
-        for (const SConn& conn : layoutData.connections)
+        std::function<bool(int, int)> sortPos = [&](int a, int b) -> bool {
+                float ya = 0;
+                float yb = 0;
+                float xa = 0;
+                float xb = 0;
+                for(size_t i = 0; i < layoutData.parts.size(); ++i)
+                {
+                        if(layoutData.parts[i].id == a) { ya = layoutData.parts[i].y; xa = layoutData.parts[i].x; }
+                        if(layoutData.parts[i].id == b) { yb = layoutData.parts[i].y; xb = layoutData.parts[i].x; }
+                }
+                if (fabs(ya - yb) > 0.1f) return ya < yb;
+                return xa < xb;
+        };
+        std::sort(internalSources.begin(), internalSources.end(), sortPos);
+        std::sort(internalOutputs.begin(), internalOutputs.end(), sortPos);
+
+        nInputs = 0;
+        nOutputs = 0;
+
+        for(size_t i = 0; i < internalSources.size(); ++i)
         {
-                int fromID = conn.from.id + idOffset;
-                int toID = conn.to.id + idOffset;
-                connections[{toID, conn.to.pin}] = {fromID, conn.from.pin};
+             int id = internalSources[i];
+             int count = 1;
+             for(size_t k = 0; k < layoutData.parts.size(); ++k)
+             {
+                 if(layoutData.parts[k].id == id) count = (layoutData.parts[k].numOutputs > 0 ? layoutData.parts[k].numOutputs : 1);
+             }
+             nInputs += count;
         }
+
+        nOutputs = (int)internalOutputs.size(); 
+
+        for (size_t i = 0; i < layoutData.connections.size(); ++i)
+        {
+                const SConn& conn = layoutData.connections[i];
+                subConnections[{conn.to.id, conn.to.pin}] = {conn.from.id, conn.from.pin};
+        }
+
+        int virtualSourceID = -9999;
+        int virtualSinkID = -8888;
+
+        int inputIdx = 0;
+        for(size_t i = 0; i < internalSources.size(); ++i)
+        {
+                int srcID = internalSources[i];
+                int pins = 1;
+                for(size_t k = 0; k < layoutData.parts.size(); ++k)
+                {
+                    if(layoutData.parts[k].id == srcID) pins = (layoutData.parts[k].numOutputs > 0 ? layoutData.parts[k].numOutputs : 1);
+                }
+
+                for(int j=0; j<pins; ++j)
+                {
+                        subConnections[{srcID, j}] = {virtualSourceID, inputIdx++};
+                }
+        }
+
+        int outputIdx = 0;
+        for(size_t i = 0; i < internalOutputs.size(); ++i)
+        {
+                 int outID = internalOutputs[i];
+                 subConnections[{virtualSinkID, outputIdx++}] = {outID, 0};
+        }
+
+        setSourcePart(subParts, virtualSourceID);
+
+        Part subSim = assemblePart(subParts, subConnections, virtualSinkID);
+
+        return [subSim](std::vector<State> inputs) -> std::vector<State>
+        {
+                return subSim(inputs);
+        };
 }

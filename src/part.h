@@ -23,7 +23,8 @@ enum PartType
         PART_TYPE_XOR,
         PART_TYPE_XNOR,
         PART_TYPE_SOURCE,
-        PART_TYPE_OUTPUT
+        PART_TYPE_OUTPUT,
+        PART_TYPE_CUSTOM
 };
 
 inline const char* PART_TYPE_NAMES[] = {
@@ -35,7 +36,8 @@ inline const char* PART_TYPE_NAMES[] = {
         "XOR",
         "XNOR",
         "SOURCE",
-        "OUTPUT"
+        "OUTPUT",
+        "CUSTOM"
 };
 
 typedef std::vector<State> Input;

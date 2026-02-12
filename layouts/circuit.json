@@ -1,0 +1,34 @@
+{
+   "parts": [
+      {
+         "id": 100,
+         "type": 7,
+         "label": "SOURCE",
+         "x": 384,
+         "y": 320,
+         "numInputs": 0,
+         "numOutputs": 1
+      },
+      {
+         "id": 101,
+         "type": 8,
+         "label": "OUTPUT",
+         "x": 768,
+         "y": 320,
+         "numInputs": 1,
+         "numOutputs": 0
+      }
+   ],
+   "connections": [
+      {
+         "from": {
+            "id": 100,
+            "pin": 0
+         },
+         "to": {
+            "id": 101,
+            "pin": 0
+         }
+      }
+   ]
+}
