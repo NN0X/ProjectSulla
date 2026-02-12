@@ -21,12 +21,7 @@ void setOutputPart(std::map<int, Part>& parts, int partID)
 {
         parts[partID] = [](std::vector<State> input) -> std::vector<State>
         {
-                for (size_t i = 0; i < input.size(); ++i)
-                {
-                        std::cout << STATE_STRINGS[input[i]] << " ";
-                }
-                std::cout << "\n";
-                return {};
+                return input;
         };
 }
 
@@ -73,7 +68,7 @@ Part assemblePart(std::map<int, Part> parts, const std::map<PartPin, PartPin>& c
 
                         std::vector<State> collectedInputs;
                         int maxInputIndex = -1;
-                        auto it = connections.lower_bound(std::make_pair(currentID, -1));
+                        std::map<PartPin, PartPin>::const_iterator it = connections.lower_bound(std::make_pair(currentID, -1));
                         bool hasConnections = (it != connections.end() && it->first.first == currentID);
 
                         while (it != connections.end() && it->first.first == currentID)
@@ -124,23 +119,22 @@ Part getPartFromType(PartType type)
 {
         switch (type)
         {
-                case PART_TYPE_AND:
-                        return andPart;
-                case PART_TYPE_OR:
-                        return orPart;
-                case PART_TYPE_NOT:
-                        return notPart;
-                case PART_TYPE_NAND:
-                        return nandPart;
-                case PART_TYPE_NOR:
-                        return norPart;
-                case PART_TYPE_XOR:
-                        return xorPart;
-                case PART_TYPE_XNOR:
-                        return xnorPart;
-                default:
-                        std::cerr << "Error: Unknown part type " << PART_TYPE_STRINGS[type] << std::endl;
-                        std::exit(1);
+        case PART_TYPE_AND:
+                return andPart;
+        case PART_TYPE_OR:
+                return orPart;
+        case PART_TYPE_NOT:
+                return notPart;
+        case PART_TYPE_NAND:
+                return nandPart;
+        case PART_TYPE_NOR:
+                return norPart;
+        case PART_TYPE_XOR:
+                return xorPart;
+        case PART_TYPE_XNOR:
+                return xnorPart;
+        default:
+                std::cerr << "Error: Unknown part type " << PART_TYPE_STRINGS[type] << std::endl;
+                std::exit(1);
         }
 }
-

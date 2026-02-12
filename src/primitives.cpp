@@ -5,63 +5,76 @@
 
 std::vector<State> andPart(std::vector<State> input)
 {
-        if (input.size() < 2)
+        if (input.empty())
         {
-                return {};
+                return {STATE_LOW};
         }
-        return {(input[0] == STATE_HIGH && input[1] == STATE_HIGH) ? STATE_HIGH : STATE_LOW};
+        for (size_t i = 0; i < input.size(); ++i)
+        {
+                if (input[i] != STATE_HIGH)
+                {
+                        return {STATE_LOW};
+                }
+        }
+        return {STATE_HIGH};
 }
 
 std::vector<State> orPart(std::vector<State> input)
 {
-        if (input.size() < 2)
+        if (input.empty())
         {
-                return {};
+                return {STATE_LOW};
         }
-        return {(input[0] == STATE_HIGH || input[1] == STATE_HIGH) ? STATE_HIGH : STATE_LOW};
+        for (size_t i = 0; i < input.size(); ++i)
+        {
+                if (input[i] == STATE_HIGH)
+                {
+                        return {STATE_HIGH};
+                }
+        }
+        return {STATE_LOW};
 }
 
 std::vector<State> notPart(std::vector<State> input)
 {
-        if (input.size() < 1)
+        if (input.empty())
         {
-                return {};
+                return {STATE_LOW};
         }
         return {(input[0] == STATE_HIGH) ? STATE_LOW : STATE_HIGH};
 }
 
 std::vector<State> nandPart(std::vector<State> input)
 {
-        if (input.size() < 2)
-        {
-                return {};
-        }
-        return {(input[0] == STATE_HIGH && input[1] == STATE_HIGH) ? STATE_LOW : STATE_HIGH};
+        std::vector<State> res = andPart(input);
+        return {(res[0] == STATE_HIGH) ? STATE_LOW : STATE_HIGH};
 }
 
 std::vector<State> norPart(std::vector<State> input)
 {
-        if (input.size() < 2)
-        {
-                return {};
-        }
-        return {(input[0] == STATE_LOW && input[1] == STATE_LOW) ? STATE_HIGH : STATE_LOW};
+        std::vector<State> res = orPart(input);
+        return {(res[0] == STATE_HIGH) ? STATE_LOW : STATE_HIGH};
 }
 
 std::vector<State> xorPart(std::vector<State> input)
 {
-        if (input.size() < 2)
+        if (input.empty())
         {
-                return {};
+                return {STATE_LOW};
         }
-        return {(input[0] != input[1]) ? STATE_HIGH : STATE_LOW};
+        int highCount = 0;
+        for (size_t i = 0; i < input.size(); ++i)
+        {
+                if (input[i] == STATE_HIGH)
+                {
+                        highCount++;
+                }
+        }
+        return {(highCount % 2 != 0) ? STATE_HIGH : STATE_LOW};
 }
 
 std::vector<State> xnorPart(std::vector<State> input)
 {
-        if (input.size() < 2)
-        {
-                return {};
-        }
-        return {(input[0] == input[1]) ? STATE_HIGH : STATE_LOW};
+        std::vector<State> res = xorPart(input);
+        return {(res[0] == STATE_HIGH) ? STATE_LOW : STATE_HIGH};
 }

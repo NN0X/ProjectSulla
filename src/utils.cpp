@@ -12,38 +12,14 @@
 #include "primitives.h"
 #include "utils.h"
 
-void visualizePath(const std::map<int, Part>& parts, const std::map<PartPin, PartPin>& connections,
-                   const std::map<int, std::string>& labels)
-{
-        std::cout << "graph LR;\n";
-        for (auto partIt = parts.begin(); partIt != parts.end(); ++partIt)
-        {
-                int id = partIt->first;
-                std::string name = "Unknown";
-                if (labels.find(id) != labels.end())
-                {
-                        name = labels.find(id)->second;
-                }
-                std::cout << "    " << id << "[\"" << name << " (" << id << ")\"];\n";
-        }
-
-        for (auto connIt = connections.begin(); connIt != connections.end(); ++connIt)
-        {
-                int fromID = connIt->second.first;
-                int fromPin = connIt->second.second;
-                int toID = connIt->first.first;
-                int toPin = connIt->first.second;
-
-                std::cout << "    " << fromID << " -- " << "\"Out:" << fromPin << " In:" << toPin << "\" --> " << toID << ";\n";
-        }
-        std::cout << "\n";
-}
-
 typedef struct SerializablePart
 {
         int id;
         PartType type;
         std::string label;
+        float x;
+        float y;
+        int numInputs;
 } SPart;
 
 typedef struct SerializableConnectionPin
@@ -65,29 +41,46 @@ struct LayoutData
 };
 
 void saveLayout(const std::map<int, Part>& parts, const std::map<int, PartType>& partTypes,
-              const std::map<PartPin, PartPin>& connections,
-              const std::map<int, std::string>& labels, const std::string& filename)
+                const std::map<PartPin, PartPin>& connections,
+                const std::map<int, std::string>& labels,
+                const std::map<int, std::pair<float, float>>& positions,
+                const std::map<int, int>& inputCounts,
+                const std::string& filename)
 {
         LayoutData layoutData;
-        for (const auto& partIt : partTypes)
+        for (std::map<int, PartType>::const_iterator partIt = partTypes.begin(); partIt != partTypes.end(); ++partIt)
         {
                 SPart part;
-                part.id = partIt.first;
-                part.type = partIt.second;
+                part.id = partIt->first;
+                part.type = partIt->second;
                 part.label = "";
+                part.x = 0.0f;
+                part.y = 0.0f;
+                part.numInputs = 2;
+
                 if (labels.find(part.id) != labels.end())
                 {
                         part.label = labels.at(part.id);
                 }
+                if (positions.find(part.id) != positions.end())
+                {
+                        part.x = positions.at(part.id).first;
+                        part.y = positions.at(part.id).second;
+                }
+                if (inputCounts.find(part.id) != inputCounts.end())
+                {
+                        part.numInputs = inputCounts.at(part.id);
+                }
+
                 layoutData.parts.push_back(part);
         }
-        for (const auto& connIt : connections)
+        for (std::map<PartPin, PartPin>::const_iterator connIt = connections.begin(); connIt != connections.end(); ++connIt)
         {
                 SConn conn;
                 SCPin from;
                 SCPin to;
-                from = {connIt.second.first, connIt.second.second};
-                to = {connIt.first.first, connIt.first.second};
+                from = {connIt->second.first, connIt->second.second};
+                to = {connIt->first.first, connIt->first.second};
                 conn = {from, to};
                 layoutData.connections.push_back(conn);
         }
@@ -113,8 +106,11 @@ void saveLayout(const std::map<int, Part>& parts, const std::map<int, PartType>&
 }
 
 int loadLayout(std::map<int, Part>& parts, std::map<int, PartType>& partTypes,
-              std::map<PartPin, PartPin>& connections,
-              std::map<int, std::string>& labels, const std::string& filename)
+               std::map<PartPin, PartPin>& connections,
+               std::map<int, std::string>& labels,
+               std::map<int, std::pair<float, float>>& positions,
+               std::map<int, int>& inputCounts,
+               const std::string& filename)
 {
         std::ifstream file(filename);
         if (!file.is_open())
@@ -138,31 +134,29 @@ int loadLayout(std::map<int, Part>& parts, std::map<int, PartType>& partTypes,
         partTypes.clear();
         connections.clear();
         labels.clear();
+        positions.clear();
+        inputCounts.clear();
 
         int outputID = -1;
         for (const SPart& part : layoutData.parts)
         {
                 switch (part.type)
                 {
-                        case PART_TYPE_SOURCE:
-                                setSourcePart(parts, part.id);
-                                break;
-                        case PART_TYPE_OUTPUT:
-                                setOutputPart(parts, part.id);
-                                if (outputID != -1)
-                                {
-                                        std::cerr << "Warning: Multiple output parts found in layout:" << outputID
-                                                << " and " << part.id << std::endl;
-                                        std::exit(1);
-                                }
-                                outputID = part.id;
-                                break;
-                        default:
-                                setPart(parts, part.id, getPartFromType(part.type));
-                                break;
+                case PART_TYPE_SOURCE:
+                        setSourcePart(parts, part.id);
+                        break;
+                case PART_TYPE_OUTPUT:
+                        setOutputPart(parts, part.id);
+                        outputID = part.id;
+                        break;
+                default:
+                        setPart(parts, part.id, getPartFromType(part.type));
+                        break;
                 }
                 partTypes[part.id] = part.type;
                 labels[part.id] = part.label;
+                positions[part.id] = {part.x, part.y};
+                inputCounts[part.id] = part.numInputs;
         }
 
         for (const SConn& conn : layoutData.connections)
