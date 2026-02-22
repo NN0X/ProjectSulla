@@ -301,9 +301,10 @@ void drawUI(AppState& state)
                 DrawRectangleLines(GetScreenWidth()/2 - DIALOG_WIDTH/2, GetScreenHeight()/2 - DIALOG_HEIGHT/2, DIALOG_WIDTH, DIALOG_HEIGHT, uiBorder);
 
                 const char* title = state.showSaveDialog ? "Save As:" : "Load Layout:";
-                DrawText(title, GetScreenWidth()/2 - SAVE_DIALOG_TEXT_X_OFFSET, GetScreenHeight()/2 - SAVE_DIALOG_TEXT_Y_OFFSET, 20, textC);
+                int tW = MeasureText(title, 20);
+                DrawText(title, GetScreenWidth()/2 - tW/2, GetScreenHeight()/2 - SAVE_DIALOG_TEXT_Y_OFFSET, 20, textC);
 
-                Rectangle box = { (float)GetScreenWidth()/2 - SAVE_DIALOG_TEXT_X_OFFSET, (float)GetScreenHeight()/2 - SAVE_DIALOG_INPUT_Y_OFFSET, SAVE_DIALOG_INPUT_WIDTH, SAVE_DIALOG_INPUT_HEIGHT };
+                Rectangle box = { (float)GetScreenWidth()/2 - SAVE_DIALOG_INPUT_WIDTH/2, (float)GetScreenHeight()/2 - SAVE_DIALOG_INPUT_Y_OFFSET, SAVE_DIALOG_INPUT_WIDTH, SAVE_DIALOG_INPUT_HEIGHT };
                 DrawRectangleRec(box, LIGHTGRAY);
                 DrawRectangleLinesEx(box, 1, DARKGRAY);
 
@@ -353,7 +354,9 @@ void drawUI(AppState& state)
                 DrawRectangle(GetScreenWidth()/2 - DIALOG_WIDTH/2, GetScreenHeight()/2 - DIALOG_HEIGHT/2, DIALOG_WIDTH, DIALOG_HEIGHT, uiBg);
                 DrawRectangleLines(GetScreenWidth()/2 - DIALOG_WIDTH/2, GetScreenHeight()/2 - DIALOG_HEIGHT/2, DIALOG_WIDTH, DIALOG_HEIGHT, uiBorder);
 
-                DrawText("File Exists. Overwrite?", GetScreenWidth()/2 - 100, GetScreenHeight()/2 - 30, 20, textC);
+                const char* oText = "File Exists. Overwrite?";
+                int oW = MeasureText(oText, 20);
+                DrawText(oText, GetScreenWidth()/2 - oW/2, GetScreenHeight()/2 - 30, 20, textC);
 
                 float btnY = GetScreenHeight()/2 - DIALOG_HEIGHT/2 + SAVE_DIALOG_BTN_Y_OFFSET;
                 float startX = GetScreenWidth()/2 - SAVE_DIALOG_BTN_WIDTH - SAVE_DIALOG_BTN_SPACING/2;
@@ -368,8 +371,8 @@ void drawUI(AppState& state)
 
                 DrawRectangleRounded(confirmBtn, 0.2f, 8, LIGHTGRAY);
                 DrawRectangleRoundedLines(confirmBtn, 0.2f, 8, DARKGRAY);
-                int oW = MeasureText("Overwrite", 10);
-                DrawText("Overwrite", confirmBtn.x + confirmBtn.width/2 - oW/2, confirmBtn.y + confirmBtn.height/2 - 5, 10, BLACK);
+                int overW = MeasureText("Overwrite", 10);
+                DrawText("Overwrite", confirmBtn.x + confirmBtn.width/2 - overW/2, confirmBtn.y + confirmBtn.height/2 - 5, 10, BLACK);
         }
 
         if (state.showDeleteConfirm)
@@ -378,7 +381,9 @@ void drawUI(AppState& state)
                 DrawRectangle(GetScreenWidth()/2 - DIALOG_WIDTH/2, GetScreenHeight()/2 - DIALOG_HEIGHT/2, DIALOG_WIDTH, DIALOG_HEIGHT, uiBg);
                 DrawRectangleLines(GetScreenWidth()/2 - DIALOG_WIDTH/2, GetScreenHeight()/2 - DIALOG_HEIGHT/2, DIALOG_WIDTH, DIALOG_HEIGHT, uiBorder);
 
-                DrawText("Confirm Delete?", GetScreenWidth()/2 - 80, GetScreenHeight()/2 - 30, 20, textC);
+                const char* dText = "Confirm Delete?";
+                int dW = MeasureText(dText, 20);
+                DrawText(dText, GetScreenWidth()/2 - dW/2, GetScreenHeight()/2 - 30, 20, textC);
 
                 float btnY = GetScreenHeight()/2 - DIALOG_HEIGHT/2 + SAVE_DIALOG_BTN_Y_OFFSET;
                 float startX = GetScreenWidth()/2 - SAVE_DIALOG_BTN_WIDTH - SAVE_DIALOG_BTN_SPACING/2;
@@ -393,8 +398,8 @@ void drawUI(AppState& state)
 
                 DrawRectangleRounded(confirmBtn, 0.2f, 8, LIGHTGRAY);
                 DrawRectangleRoundedLines(confirmBtn, 0.2f, 8, DARKGRAY);
-                int dW = MeasureText("Delete", 10);
-                DrawText("Delete", confirmBtn.x + confirmBtn.width/2 - dW/2, confirmBtn.y + confirmBtn.height/2 - 5, 10, BLACK);
+                int delW = MeasureText("Delete", 10);
+                DrawText("Delete", confirmBtn.x + confirmBtn.width/2 - delW/2, confirmBtn.y + confirmBtn.height/2 - 5, 10, BLACK);
         }
 
         if (state.showQuitConfirm)
@@ -403,7 +408,9 @@ void drawUI(AppState& state)
                 DrawRectangle(GetScreenWidth()/2 - DIALOG_WIDTH/2, GetScreenHeight()/2 - DIALOG_HEIGHT/2, DIALOG_WIDTH, DIALOG_HEIGHT, uiBg);
                 DrawRectangleLines(GetScreenWidth()/2 - DIALOG_WIDTH/2, GetScreenHeight()/2 - DIALOG_HEIGHT/2, DIALOG_WIDTH, DIALOG_HEIGHT, uiBorder);
 
-                DrawText("Are you sure you want to quit?", GetScreenWidth()/2 - 150, GetScreenHeight()/2 - 30, 20, textC);
+                const char* qText = "Are you sure you want to quit?";
+                int qW = MeasureText(qText, 20);
+                DrawText(qText, GetScreenWidth()/2 - qW/2, GetScreenHeight()/2 - 30, 20, textC);
 
                 float btnY = GetScreenHeight()/2 - DIALOG_HEIGHT/2 + SAVE_DIALOG_BTN_Y_OFFSET;
                 float startX = GetScreenWidth()/2 - SAVE_DIALOG_BTN_WIDTH - SAVE_DIALOG_BTN_SPACING/2;
@@ -418,8 +425,8 @@ void drawUI(AppState& state)
 
                 DrawRectangleRounded(confirmBtn, 0.2f, 8, LIGHTGRAY);
                 DrawRectangleRoundedLines(confirmBtn, 0.2f, 8, DARKGRAY);
-                int qW = MeasureText("Quit", 10);
-                DrawText("Quit", confirmBtn.x + confirmBtn.width/2 - qW/2, confirmBtn.y + confirmBtn.height/2 - 5, 10, BLACK);
+                int qbW = MeasureText("Quit", 10);
+                DrawText("Quit", confirmBtn.x + confirmBtn.width/2 - qbW/2, confirmBtn.y + confirmBtn.height/2 - 5, 10, BLACK);
         }
 
         if (state.contextMenu.active)

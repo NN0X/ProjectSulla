@@ -94,70 +94,6 @@ void handleInput(AppState& state)
 
         if (IsKeyPressed(KEY_F11)) ToggleFullscreen();
 
-        if (!isDialogActive)
-        {
-                if (mousePos.y < TOOLBAR_HEIGHT && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
-                {
-                        float x = TOOLBAR_PADDING;
-                        for (int i = 0; i < 9; ++i)
-                        {
-                                Rectangle btn = {x, TOOLBAR_PADDING, TOOLBAR_BTN_WIDTH, TOOLBAR_BTN_HEIGHT};
-                                if (CheckCollisionPointRec(mousePos, btn))
-                                {
-                                        if (i == 0) state.showSaveDialog = true;
-                                        if (i == 1) state.showLoadDialog = true;
-                                        if (i == 2)
-                                        {
-                                                state.selectedParts.clear();
-                                                for(auto const& [id, pos] : state.positions)
-                                                {
-                                                        state.selectedParts.insert(id);
-                                                }
-                                                deleteParts(state);
-                                        }
-                                        if (i == 3) state.showHelp = !state.showHelp;
-                                        if (i == 4) state.darkMode = !state.darkMode;
-                                        if (i == 5) state.isSimulating = !state.isSimulating;
-                                        if (i == 6)
-                                        {
-                                                state.isSimulating = false;
-                                                recompileSimulation(state);
-                                                if(state.simulation)
-                                                {
-                                                        state.lastOutputStates = state.simulation(state.runtimeInput);
-                                                        state.stepCount++;
-                                                }
-                                        }
-                                        if (i == 7) state.targetHZ *= 2.0f;
-                                        if (i == 8) state.targetHZ *= 0.5f;
-                                }
-                                x += TOOLBAR_BTN_WIDTH + TOOLBAR_BTN_SPACING;
-                        }
-                }
-
-                float wheel = GetMouseWheelMove();
-                if (wheel != 0)
-                {
-                        Vector2 mouseWorldBefore = GetScreenToWorld2D(mousePos, state.camera);
-                        state.camera.zoom += (wheel * ZOOM_SPEED);
-                        if (state.camera.zoom < ZOOM_MIN) state.camera.zoom = ZOOM_MIN;
-                        if (state.camera.zoom > ZOOM_MAX) state.camera.zoom = ZOOM_MAX;
-                        Vector2 mouseWorldAfter = GetScreenToWorld2D(mousePos, state.camera);
-                        state.camera.target = Vector2Add(state.camera.target, Vector2Subtract(mouseWorldBefore, mouseWorldAfter));
-                }
-                if (IsMouseButtonDown(MOUSE_BUTTON_MIDDLE))
-                {
-                        Vector2 delta = GetMouseDelta();
-                        delta = Vector2Scale(delta, -1.0f / state.camera.zoom);
-                        state.camera.target = Vector2Add(state.camera.target, delta);
-                }
-
-                if (IsKeyPressed(KEY_TAB)) state.showSideMenu = !state.showSideMenu;
-                if (IsKeyPressed(KEY_H)) state.showHelp = !state.showHelp;
-                if (IsKeyPressed(KEY_D)) state.darkMode = !state.darkMode;
-                if (IsKeyPressed(KEY_ESCAPE)) state.showQuitConfirm = true;
-        }
-
         if (state.showQuitConfirm)
         {
                 bool confirm = false;
@@ -306,6 +242,70 @@ void handleInput(AppState& state)
                 return;
         }
 
+        if (!isDialogActive)
+        {
+                if (mousePos.y < TOOLBAR_HEIGHT && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+                {
+                        float x = TOOLBAR_PADDING;
+                        for (int i = 0; i < 9; ++i)
+                        {
+                                Rectangle btn = {x, TOOLBAR_PADDING, TOOLBAR_BTN_WIDTH, TOOLBAR_BTN_HEIGHT};
+                                if (CheckCollisionPointRec(mousePos, btn))
+                                {
+                                        if (i == 0) state.showSaveDialog = true;
+                                        if (i == 1) state.showLoadDialog = true;
+                                        if (i == 2)
+                                        {
+                                                state.selectedParts.clear();
+                                                for(auto const& [id, pos] : state.positions)
+                                                {
+                                                        state.selectedParts.insert(id);
+                                                }
+                                                deleteParts(state);
+                                        }
+                                        if (i == 3) state.showHelp = !state.showHelp;
+                                        if (i == 4) state.darkMode = !state.darkMode;
+                                        if (i == 5) state.isSimulating = !state.isSimulating;
+                                        if (i == 6)
+                                        {
+                                                state.isSimulating = false;
+                                                recompileSimulation(state);
+                                                if(state.simulation)
+                                                {
+                                                        state.lastOutputStates = state.simulation(state.runtimeInput);
+                                                        state.stepCount++;
+                                                }
+                                        }
+                                        if (i == 7) state.targetHZ *= 2.0f;
+                                        if (i == 8) state.targetHZ *= 0.5f;
+                                }
+                                x += TOOLBAR_BTN_WIDTH + TOOLBAR_BTN_SPACING;
+                        }
+                }
+
+                float wheel = GetMouseWheelMove();
+                if (wheel != 0)
+                {
+                        Vector2 mouseWorldBefore = GetScreenToWorld2D(mousePos, state.camera);
+                        state.camera.zoom += (wheel * ZOOM_SPEED);
+                        if (state.camera.zoom < ZOOM_MIN) state.camera.zoom = ZOOM_MIN;
+                        if (state.camera.zoom > ZOOM_MAX) state.camera.zoom = ZOOM_MAX;
+                        Vector2 mouseWorldAfter = GetScreenToWorld2D(mousePos, state.camera);
+                        state.camera.target = Vector2Add(state.camera.target, Vector2Subtract(mouseWorldBefore, mouseWorldAfter));
+                }
+                if (IsMouseButtonDown(MOUSE_BUTTON_MIDDLE))
+                {
+                        Vector2 delta = GetMouseDelta();
+                        delta = Vector2Scale(delta, -1.0f / state.camera.zoom);
+                        state.camera.target = Vector2Add(state.camera.target, delta);
+                }
+
+                if (IsKeyPressed(KEY_TAB)) state.showSideMenu = !state.showSideMenu;
+                if (IsKeyPressed(KEY_H)) state.showHelp = !state.showHelp;
+                if (IsKeyPressed(KEY_D)) state.darkMode = !state.darkMode;
+                if (IsKeyPressed(KEY_ESCAPE)) state.showQuitConfirm = true;
+        }
+
         if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
         {
                 if (state.draggingNewPartType != -1 && !mouseOverUI)
@@ -397,11 +397,11 @@ void handleInput(AppState& state)
                 return;
         }
 
-        if (IsKeyPressed(KEY_SPACE)) state.isSimulating = !state.isSimulating;
+        if (IsKeyPressed(KEY_SPACE) && !isDialogActive) state.isSimulating = !state.isSimulating;
 
         bool up = IsKeyDown(KEY_UP);
         bool down = IsKeyDown(KEY_DOWN);
-        if (up || down)
+        if ((up || down) && !isDialogActive)
         {
                 state.hzKeyTimer += GetFrameTime();
                 if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_DOWN) || state.hzKeyTimer > INPUT_REPEAT_DELAY)
@@ -413,10 +413,10 @@ void handleInput(AppState& state)
         }
         else state.hzKeyTimer = 0.0f;
 
-        if (IsKeyPressed(KEY_S)) state.showSaveDialog = true;
-        if (IsKeyPressed(KEY_L)) state.showLoadDialog = true;
+        if (IsKeyPressed(KEY_S) && !isDialogActive) state.showSaveDialog = true;
+        if (IsKeyPressed(KEY_L) && !isDialogActive) state.showLoadDialog = true;
 
-        if (IsKeyPressed(KEY_DELETE))
+        if (IsKeyPressed(KEY_DELETE) && !isDialogActive)
         {
                  if (state.selectedConnection.first != -1)
                  {
