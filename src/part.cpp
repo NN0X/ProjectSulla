@@ -136,6 +136,8 @@ Part getPartFromType(PartType type)
                 return xorPart;
         case PART_TYPE_XNOR:
                 return xnorPart;
+        case PART_TYPE_CLOCK:
+                return getClockPart();
         default:
                 std::cerr << "Error: Unknown part type " << PART_TYPE_NAMES[type] << std::endl;
                 std::exit(1);

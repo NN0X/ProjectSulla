@@ -160,7 +160,7 @@ void drawParts(AppState& state)
                         Color ledColor = (s == STATE_HIGH) ? COLOR_LED_OUT_ON : COLOR_LED_OUT_OFF;
                         DrawRectangle(body.x + size.x/2 - PART_LED_SIZE/2, body.y + size.y - PART_LED_SIZE - 5, PART_LED_SIZE, PART_LED_SIZE, ledColor);
                 }
-                if (type != PART_TYPE_SOURCE)
+                if (type != PART_TYPE_SOURCE && type != PART_TYPE_CLOCK)
                 {
                         float pinYStep = (inCount > 1) ? (size.y - PIN_Y_OFFSET_BASE*2) / (inCount - 1) : 0;
                         for (int i = 0; i < inCount; ++i)
@@ -219,8 +219,10 @@ void drawUI(AppState& state)
                 float y = SIDEMENU_Y_START;
                 DrawText("Parts Library", SIDEMENU_PADDING_X, y, SIDEMENU_HEADER_TEXT_SIZE, textC);
                 y += SIDEMENU_HEADER_MARGIN;
-                for (int i = 0; i <= PART_TYPE_OUTPUT; ++i)
+                for (int i = 0; i <= PART_TYPE_CLOCK; ++i)
                 {
+                        if (i == PART_TYPE_CUSTOM) continue;
+
                         Rectangle btn = {SIDEMENU_BUTTON_MARGIN, y, DEFAULT_SIDEMENU_WIDTH - SIDEMENU_BUTTON_MARGIN*2, SIDEMENU_BUTTON_HEIGHT};
                         bool hovered = CheckCollisionPointRec(GetMousePosition(), btn);
                         DrawRectangleRounded(btn, 0.2f, 8, hovered ? LIGHTGRAY : GRAY);
@@ -409,7 +411,7 @@ void drawUI(AppState& state)
         {
                 Vector2 p = state.contextMenu.position;
                 PartType type = state.partTypes[state.contextMenu.targetPartID];
-                bool canModPins = (type != PART_TYPE_CUSTOM && type != PART_TYPE_OUTPUT);
+                bool canModPins = (type != PART_TYPE_CUSTOM && type != PART_TYPE_OUTPUT && type != PART_TYPE_CLOCK);
                 DrawRectangle(p.x, p.y, CM_WIDTH, CM_ROW_HEIGHT*4, uiBg);
                 DrawRectangleLines(p.x, p.y, CM_WIDTH, CM_ROW_HEIGHT*4, uiBorder);
                 DrawText("Edit Label", p.x + CM_TEXT_OFFSET_X, p.y + CM_TEXT_OFFSET_Y, CM_TEXT_SIZE, textC);

@@ -78,3 +78,11 @@ std::vector<State> xnorPart(std::vector<State> input)
         std::vector<State> res = xorPart(input);
         return {(res[0] == STATE_HIGH) ? STATE_LOW : STATE_HIGH};
 }
+
+Part getClockPart()
+{
+        return [state = STATE_LOW](std::vector<State> input) mutable -> std::vector<State> {
+                state = (state == STATE_HIGH) ? STATE_LOW : STATE_HIGH;
+                return {state};
+        };
+}

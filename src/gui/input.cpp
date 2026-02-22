@@ -54,6 +54,11 @@ void dropPart(AppState& state, int type, Vector2 pos)
                 state.inputCounts[id] = 1;
                 state.outputCounts[id] = 0;
         }
+        else if (type == PART_TYPE_CLOCK)
+        {
+                state.inputCounts[id] = 0;
+                state.outputCounts[id] = 1;
+        }
         else
         {
                 state.inputCounts[id] = 2;
@@ -368,7 +373,7 @@ void handleInput(AppState& state)
                         Rectangle rRem = {p.x, p.y + CM_ROW_HEIGHT*2, CM_WIDTH, CM_ROW_HEIGHT};
                         Rectangle rDel = {p.x, p.y + CM_ROW_HEIGHT*3, CM_WIDTH, CM_ROW_HEIGHT};
                         PartType type = state.partTypes[state.contextMenu.targetPartID];
-                        bool canModPins = (type != PART_TYPE_CUSTOM && type != PART_TYPE_OUTPUT);
+                        bool canModPins = (type != PART_TYPE_CUSTOM && type != PART_TYPE_OUTPUT && type != PART_TYPE_CLOCK);
                         if (CheckCollisionPointRec(mousePos, rLabel))
                         {
                                 state.showRenameDialog = true;

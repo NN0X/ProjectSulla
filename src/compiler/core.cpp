@@ -17,6 +17,13 @@ std::string transpileToCpp(const AppState& state)
                 {
                         code << "static uint8_t n_" << id << "_out_" << p << " = 0;\n";
                 }
+
+                PartType type = PART_TYPE_CUSTOM;
+                if (state.partTypes.count(id)) type = state.partTypes.at(id);
+                if (type == PART_TYPE_CLOCK)
+                {
+                        code << "static uint8_t clk_" << id << " = 0;\n";
+                }
         }
 
         code << "\nextern \"C\" {\n";
@@ -111,7 +118,7 @@ std::string transpileToCpp(const AppState& state)
                         }
                 }
 
-                if (inC == 0 && type != PART_TYPE_CUSTOM) continue;
+                if (inC == 0 && type != PART_TYPE_CUSTOM && type != PART_TYPE_CLOCK) continue;
 
                 if (type == PART_TYPE_AND)
                 {
@@ -152,6 +159,11 @@ std::string transpileToCpp(const AppState& state)
                         code << "        uint8_t t_" << u << " = " << inVars[0] << ";\n";
                         for (int p = 1; p < inC; ++p) code << "        t_" << u << " ^= " << inVars[p] << ";\n";
                         code << "        n_" << u << "_out_0 = !t_" << u << ";\n";
+                }
+                else if (type == PART_TYPE_CLOCK)
+                {
+                        code << "        clk_" << u << " = !clk_" << u << ";\n";
+                        code << "        n_" << u << "_out_0 = clk_" << u << ";\n";
                 }
         }
 

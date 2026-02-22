@@ -157,24 +157,31 @@ void updateSimulation(AppState& state)
                         state.runtimeInput.push_back(val);
                 }
         }
-        bool step = false;
+
+        int stepsToDo = 0;
         if (state.isSimulating)
         {
                 state.simTimer += GetFrameTime();
                 float stepTime = 1.0f / state.targetHZ;
-                if (state.simTimer >= stepTime)
+                if (stepTime < 0.000001f) stepTime = 0.000001f;
+                while (state.simTimer >= stepTime && stepsToDo < 10000)
                 {
-                        step = true;
-                        state.simTimer = 0.0f;
+                        stepsToDo++;
+                        state.simTimer -= stepTime;
                 }
+                if (state.simTimer >= stepTime) state.simTimer = fmod(state.simTimer, stepTime);
         }
         else if (IsKeyPressed(KEY_RIGHT))
         {
-                step = true;
+                stepsToDo = 1;
         }
-        if (step && state.simulation)
+
+        if (state.simulation)
         {
-                state.lastOutputStates = state.simulation(state.runtimeInput);
-                state.stepCount++;
+                for (int i = 0; i < stepsToDo; ++i)
+                {
+                        state.lastOutputStates = state.simulation(state.runtimeInput);
+                        state.stepCount++;
+                }
         }
 }
