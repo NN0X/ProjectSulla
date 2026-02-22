@@ -341,7 +341,7 @@ void handleInput(AppState& state)
                                         state.outputCounts[state.contextMenu.targetPartID]++;
                                         state.sourceValues[state.contextMenu.targetPartID].push_back(STATE_LOW);
                                 }
-                                else
+                                else if (state.partTypes[state.contextMenu.targetPartID] != PART_TYPE_OUTPUT)
                                 {
                                         state.inputCounts[state.contextMenu.targetPartID]++;
                                 }
@@ -354,15 +354,32 @@ void handleInput(AppState& state)
                                 {
                                         if (state.outputCounts[state.contextMenu.targetPartID] > 1)
                                         {
+                                                int deletedPin = state.outputCounts[state.contextMenu.targetPartID] - 1;
                                                 state.outputCounts[state.contextMenu.targetPartID]--;
                                                 state.sourceValues[state.contextMenu.targetPartID].pop_back();
+
+                                                std::vector<PartPin> toRemove;
+                                                for(std::map<PartPin, PartPin>::iterator it = state.connections.begin(); it != state.connections.end(); ++it)
+                                                {
+                                                        if (it->second.first == state.contextMenu.targetPartID && it->second.second == deletedPin)
+                                                        {
+                                                                toRemove.push_back(it->first);
+                                                        }
+                                                }
+                                                for(size_t i = 0; i < toRemove.size(); ++i)
+                                                {
+                                                        state.connections.erase(toRemove[i]);
+                                                }
                                         }
                                 }
                                 else
                                 {
-                                        if (state.inputCounts[state.contextMenu.targetPartID] > 0)
+                                        int minPins = (state.partTypes[state.contextMenu.targetPartID] == PART_TYPE_OUTPUT) ? 1 : 0;
+                                        if (state.inputCounts[state.contextMenu.targetPartID] > minPins)
                                         {
+                                                int deletedPin = state.inputCounts[state.contextMenu.targetPartID] - 1;
                                                 state.inputCounts[state.contextMenu.targetPartID]--;
+                                                state.connections.erase({state.contextMenu.targetPartID, deletedPin});
                                         }
                                 }
                                 state.simulation = nullptr;
@@ -530,6 +547,12 @@ void handleInput(AppState& state)
                         {
                                 int fromID = it->second.first;
                                 int toID = it->first.first;
+
+                                if (state.positions.find(fromID) == state.positions.end() || state.positions.find(toID) == state.positions.end())
+                                {
+                                        continue;
+                                }
+
                                 Vector2 startPos = {state.positions[fromID].first, state.positions[fromID].second};
                                 Vector2 fromSize = getPartSize(state, fromID);
 

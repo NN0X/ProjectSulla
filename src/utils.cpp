@@ -7,6 +7,7 @@
 #include <fstream>
 #include <algorithm>
 #include <cmath>
+#include <set>
 
 #include <glaze/glaze.hpp>
 
@@ -30,7 +31,6 @@ typedef struct SerializableConnectionPin
 {
         int id;
         int pin;
-        
 } SCPin;
 
 typedef struct SerializableConnection
@@ -108,10 +108,10 @@ int loadLayout(AppState& state, const std::string& filename)
         if (glz::read_json(layoutData, json)) return 0;
 
         state.parts.clear();
-        
+
         setSourcePart(state.parts, state.rootSourceID);
         setOutputPart(state.parts, state.rootSinkID);
-        
+
         state.partTypes.clear();
         state.connections.clear();
         state.labels.clear();
@@ -124,9 +124,12 @@ int loadLayout(AppState& state, const std::string& filename)
         state.stepCount = 0;
 
         int maxID = 0;
+        std::set<int> validIDs;
+
         for (size_t i = 0; i < layoutData.parts.size(); ++i)
         {
                 const SPart& part = layoutData.parts[i];
+                validIDs.insert(part.id);
                 if (part.id > maxID) maxID = part.id;
                 switch (part.type)
                 {
@@ -149,7 +152,10 @@ int loadLayout(AppState& state, const std::string& filename)
         for (size_t i = 0; i < layoutData.connections.size(); ++i)
         {
                 const SConn& conn = layoutData.connections[i];
-                state.connections[{conn.to.id, conn.to.pin}] = {conn.from.id, conn.from.pin};
+                if (validIDs.count(conn.to.id) && validIDs.count(conn.from.id))
+                {
+                        state.connections[{conn.to.id, conn.to.pin}] = {conn.from.id, conn.from.pin};
+                }
         }
 
         return maxID;
@@ -171,10 +177,12 @@ Part loadLayoutAsPart(const std::string& filename, int& nInputs, int& nOutputs)
         std::map<PartPin, PartPin> subConnections;
         std::vector<int> internalSources;
         std::vector<int> internalOutputs;
+        std::set<int> validIDs;
 
         for (size_t i = 0; i < layoutData.parts.size(); ++i)
         {
                 const SPart& part = layoutData.parts[i];
+                validIDs.insert(part.id);
                 subTypes[part.id] = part.type;
                 switch (part.type)
                 {
@@ -225,7 +233,10 @@ Part loadLayoutAsPart(const std::string& filename, int& nInputs, int& nOutputs)
         for (size_t i = 0; i < layoutData.connections.size(); ++i)
         {
                 const SConn& conn = layoutData.connections[i];
-                subConnections[{conn.to.id, conn.to.pin}] = {conn.from.id, conn.from.pin};
+                if (validIDs.count(conn.to.id) && validIDs.count(conn.from.id))
+                {
+                        subConnections[{conn.to.id, conn.to.pin}] = {conn.from.id, conn.from.pin};
+                }
         }
 
         int virtualSourceID = -9999;
