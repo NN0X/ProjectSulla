@@ -2,10 +2,19 @@
 CPPFLAGS_RELEASE := -O3 -Wall -Wextra -Wpedantic -std=c++23 -Iinclude
 CPPFLAGS_DEBUG := -g -Wall -Wextra -Wpedantic -std=c++23 -Iinclude
 LDFLAGS := -Llib -lraylib
+
+ifeq ($(OS),Windows_NT)
+		EXCLUDE_PLATFORM := %platform_linux.cpp
+else
+		EXCLUDE_PLATFORM := %platform_win.cpp
+		LDFLAGS += -ldl
+endif
+
 SRC := src
 OUT := sulla
 
-SRCS := $(shell find $(SRC) -name "*.cpp")
+SRCS_ALL := $(shell find $(SRC) -name "*.cpp")
+SRCS := $(filter-out $(EXCLUDE_PLATFORM), $(SRCS_ALL))
 OBJS_DEBUG := $(SRCS:%=build/debug/%.o)
 
 .PHONY: debug release check clean build_debug_impl

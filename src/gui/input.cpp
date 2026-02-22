@@ -16,6 +16,7 @@
 #include "../primitives.h"
 #include "../utils.h"
 #include "../part.h"
+#include "../compiler/compiler.h"
 
 void dropPart(AppState& state, int type, Vector2 pos)
 {
@@ -110,7 +111,7 @@ void handleInput(AppState& state)
 
                 if (IsKeyPressed(KEY_ENTER) || confirm) state.shouldQuit = true;
                 if (IsKeyPressed(KEY_ESCAPE)) state.showQuitConfirm = false;
-                
+
                 return;
         }
 
@@ -256,7 +257,7 @@ void handleInput(AppState& state)
                 if (mousePos.y < TOOLBAR_HEIGHT && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
                 {
                         float x = TOOLBAR_PADDING;
-                        for (int i = 0; i < 10; ++i)
+                        for (int i = 0; i < 11; ++i)
                         {
                                 Rectangle btn = {x, TOOLBAR_PADDING, TOOLBAR_BTN_WIDTH, TOOLBAR_BTN_HEIGHT};
                                 if (CheckCollisionPointRec(mousePos, btn))
@@ -288,6 +289,23 @@ void handleInput(AppState& state)
                                         if (i == 7) state.stepCount = 0;
                                         if (i == 8) state.targetHZ *= 2.0f;
                                         if (i == 9) state.targetHZ *= 0.5f;
+                                        if (i == 10)
+                                        {
+                                                std::string cpp = transpileToCpp(state);
+                                                std::string modName = "custom_mod_" + std::to_string(state.compiledModules.size());
+                                                if (compileSharedLibrary(cpp, modName))
+                                                {
+                                                        int inC = 0, outC = 0;
+                                                        for (std::map<int, PartType>::iterator it = state.partTypes.begin(); it != state.partTypes.end(); ++it)
+                                                        {
+                                                                if (it->second == PART_TYPE_SOURCE) inC += state.outputCounts[it->first];
+                                                                if (it->second == PART_TYPE_OUTPUT) outC += state.inputCounts[it->first];
+                                                        }
+                                                        state.compiledModules.push_back(modName);
+                                                        state.compiledInputs[modName] = inC;
+                                                        state.compiledOutputs[modName] = outC;
+                                                }
+                                        }
                                 }
                                 x += TOOLBAR_BTN_WIDTH + TOOLBAR_BTN_SPACING;
                         }
@@ -314,38 +332,6 @@ void handleInput(AppState& state)
                 if (IsKeyPressed(KEY_H)) state.showHelp = !state.showHelp;
                 if (IsKeyPressed(KEY_D)) state.darkMode = !state.darkMode;
                 if (IsKeyPressed(KEY_ESCAPE)) state.showQuitConfirm = true;
-        }
-
-        if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
-        {
-                if (state.draggingNewPartType != -1 && !mouseOverUI)
-                {
-                        float gx = round(worldMouse.x / GRID_SIZE) * GRID_SIZE;
-                        float gy = round(worldMouse.y / GRID_SIZE) * GRID_SIZE;
-                        dropPart(state, state.draggingNewPartType, {gx, gy});
-                }
-                else if (state.draggingLayoutFile != "" && !mouseOverUI)
-                {
-                        float gx = round(worldMouse.x / GRID_SIZE) * GRID_SIZE;
-                        float gy = round(worldMouse.y / GRID_SIZE) * GRID_SIZE;
-                        int nIn;
-                        int nOut;
-                        Part p = loadLayoutAsPart("layouts/" + state.draggingLayoutFile, nIn, nOut);
-                        if (p)
-                        {
-                                int id = state.nextID++;
-                                setPart(state.parts, id, p);
-                                state.partTypes[id] = PART_TYPE_CUSTOM;
-                                state.positions[id] = {gx, gy};
-                                state.inputCounts[id] = nIn;
-                                state.outputCounts[id] = nOut;
-                                std::filesystem::path path(state.draggingLayoutFile);
-                                state.labels[id] = path.stem().string();
-                                state.simulation = nullptr;
-                        }
-                }
-                state.draggingNewPartType = -1;
-                state.draggingLayoutFile = "";
         }
 
         if (state.contextMenu.active)
@@ -450,7 +436,7 @@ void handleInput(AppState& state)
                  }
         }
 
-        if (mouseOverUI && state.draggingNewPartType == -1 && state.draggingLayoutFile == "") return;
+        if (mouseOverUI && state.draggingNewPartType == -1 && state.draggingLayoutFile == "" && state.draggingCompiledFile == "") return;
 
         if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
         {
@@ -643,9 +629,57 @@ void handleInput(AppState& state)
                                 if (CheckCollisionPointRec(pos, box)) state.selectedParts.insert(it->first);
                         }
                 }
+                if (state.draggingNewPartType != -1 && !mouseOverUI)
+                {
+                        float gx = round(worldMouse.x / GRID_SIZE) * GRID_SIZE;
+                        float gy = round(worldMouse.y / GRID_SIZE) * GRID_SIZE;
+                        dropPart(state, state.draggingNewPartType, {gx, gy});
+                }
+                else if (state.draggingLayoutFile != "" && !mouseOverUI)
+                {
+                        float gx = round(worldMouse.x / GRID_SIZE) * GRID_SIZE;
+                        float gy = round(worldMouse.y / GRID_SIZE) * GRID_SIZE;
+                        int nIn;
+                        int nOut;
+                        Part p = loadLayoutAsPart("layouts/" + state.draggingLayoutFile, nIn, nOut);
+                        if (p)
+                        {
+                                int id = state.nextID++;
+                                setPart(state.parts, id, p);
+                                state.partTypes[id] = PART_TYPE_CUSTOM;
+                                state.positions[id] = {gx, gy};
+                                state.inputCounts[id] = nIn;
+                                state.outputCounts[id] = nOut;
+                                std::filesystem::path path(state.draggingLayoutFile);
+                                state.labels[id] = path.stem().string();
+                                state.simulation = nullptr;
+                        }
+                }
+                else if (state.draggingCompiledFile != "" && !mouseOverUI)
+                {
+                        float gx = round(worldMouse.x / GRID_SIZE) * GRID_SIZE;
+                        float gy = round(worldMouse.y / GRID_SIZE) * GRID_SIZE;
+                        int nIn = state.compiledInputs[state.draggingCompiledFile];
+                        int nOut = state.compiledOutputs[state.draggingCompiledFile];
+                        Part p = loadCompiledPart(state.draggingCompiledFile, nOut);
+                        if (p)
+                        {
+                                int id = state.nextID++;
+                                setPart(state.parts, id, p);
+                                state.partTypes[id] = PART_TYPE_CUSTOM;
+                                state.positions[id] = {gx, gy};
+                                state.inputCounts[id] = nIn;
+                                state.outputCounts[id] = nOut;
+                                state.labels[id] = state.draggingCompiledFile;
+                                state.simulation = nullptr;
+                        }
+                }
                 state.dragPartID = -1;
                 state.isDragging = false;
                 state.isBoxSelecting = false;
+                state.draggingNewPartType = -1;
+                state.draggingLayoutFile = "";
+                state.draggingCompiledFile = "";
         }
 
         if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT))

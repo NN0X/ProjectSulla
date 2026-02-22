@@ -73,9 +73,13 @@ struct AppState
 
         int draggingNewPartType = -1;
         std::string draggingLayoutFile = "";
+        std::string draggingCompiledFile = "";
 
         ContextMenu contextMenu;
         std::vector<std::string> layoutFiles;
+        std::vector<std::string> compiledModules;
+        std::map<std::string, int> compiledInputs;
+        std::map<std::string, int> compiledOutputs;
 
         Camera2D camera = { {0,0}, {0,0}, 0.0f, 1.0f };
 

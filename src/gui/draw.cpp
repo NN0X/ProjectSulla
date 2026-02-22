@@ -200,9 +200,9 @@ void drawUI(AppState& state)
         Color textC = getThemeColor(state, COLOR_TEXT_LIGHT, COLOR_TEXT_DARK);
         DrawRectangle(0, 0, GetScreenWidth(), TOOLBAR_HEIGHT, uiBg);
         DrawLine(0, TOOLBAR_HEIGHT, GetScreenWidth(), TOOLBAR_HEIGHT, uiBorder);
-        const char* btnLabels[] = { "Save", "Load", "Clear", "Help", state.darkMode ? "Light" : "Dark", state.isSimulating ? "Pause" : "Play", "Step", "Reset", "+", "-" };
+        const char* btnLabels[] = { "Save", "Load", "Clear", "Help", state.darkMode ? "Light" : "Dark", state.isSimulating ? "Pause" : "Play", "Step", "Reset", "+", "-", "Compile" };
         float x = TOOLBAR_PADDING;
-        for (int i = 0; i < 10; ++i)
+        for (int i = 0; i < 11; ++i)
         {
                 Rectangle btn = {x, TOOLBAR_PADDING, TOOLBAR_BTN_WIDTH, TOOLBAR_BTN_HEIGHT};
                 bool hovered = CheckCollisionPointRec(GetMousePosition(), btn);
@@ -259,6 +259,23 @@ void drawUI(AppState& state)
                         }
                         y += SIDEMENU_LIST_SPACING;
                 }
+                y += 20;
+                DrawText("Compiled Modules", SIDEMENU_PADDING_X, y, SIDEMENU_HEADER_TEXT_SIZE, textC);
+                y += SIDEMENU_HEADER_MARGIN;
+                for (size_t i = 0; i < state.compiledModules.size(); ++i)
+                {
+                        std::string mod = state.compiledModules[i];
+                        Rectangle btn = {SIDEMENU_BUTTON_MARGIN, y, DEFAULT_SIDEMENU_WIDTH - SIDEMENU_BUTTON_MARGIN*2, SIDEMENU_BUTTON_HEIGHT};
+                        bool hovered = CheckCollisionPointRec(GetMousePosition(), btn);
+                        DrawRectangleRounded(btn, 0.2f, 8, hovered ? LIGHTGRAY : GRAY);
+                        drawTextFit(mod.c_str(), btn.x + 5, btn.y + 5, btn.width - 10, SIDEMENU_LIST_TEXT_SIZE, BLACK);
+                        if (hovered)
+                        {
+                                DrawRectangleRoundedLines(btn, 0.2f, 8, BLUE);
+                                if (IsMouseButtonDown(MOUSE_BUTTON_LEFT) && Vector2Distance(GetMouseDelta(), {0,0}) > 1.0f) state.draggingCompiledFile = mod;
+                        }
+                        y += SIDEMENU_LIST_SPACING;
+                }
         }
         if (state.draggingNewPartType != -1)
         {
@@ -271,6 +288,12 @@ void drawUI(AppState& state)
                 Vector2 m = GetMousePosition();
                 DrawRectangle(m.x - BASE_PART_WIDTH/2, m.y - BASE_PART_HEIGHT/2, BASE_PART_WIDTH, BASE_PART_HEIGHT, Fade(GRAY, 0.5f));
                 DrawText(state.draggingLayoutFile.c_str(), m.x, m.y, 10, textC);
+        }
+        else if (state.draggingCompiledFile != "")
+        {
+                Vector2 m = GetMousePosition();
+                DrawRectangle(m.x - BASE_PART_WIDTH/2, m.y - BASE_PART_HEIGHT/2, BASE_PART_WIDTH, BASE_PART_HEIGHT, Fade(GRAY, 0.5f));
+                DrawText(state.draggingCompiledFile.c_str(), m.x, m.y, 10, textC);
         }
         if (state.showSaveDialog || state.showLoadDialog || state.showRenameDialog)
         {
