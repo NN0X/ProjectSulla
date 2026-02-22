@@ -21,4 +21,8 @@ int loadLayout(AppState& state, const std::string& filename);
 
 Part loadLayoutAsPart(const std::string& filename, int& nInputs, int& nOutputs);
 
+void refreshLayouts(AppState& state);
+void recompileSimulation(AppState& state);
+void updateSimulation(AppState& state);
+
 #endif

@@ -405,6 +405,25 @@ void drawUI(AppState& state)
                 int qbW = MeasureText("Quit", 10);
                 DrawText("Quit", confirmBtn.x + confirmBtn.width/2 - qbW/2, confirmBtn.y + confirmBtn.height/2 - 5, 10, BLACK);
         }
+        if (state.showCompilerWarning)
+        {
+                DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), Fade(BLACK, 0.5f));
+                DrawRectangle(GetScreenWidth()/2 - DIALOG_WIDTH/2, GetScreenHeight()/2 - DIALOG_HEIGHT/2, DIALOG_WIDTH, DIALOG_HEIGHT, uiBg);
+                DrawRectangleLines(GetScreenWidth()/2 - DIALOG_WIDTH/2, GetScreenHeight()/2 - DIALOG_HEIGHT/2, DIALOG_WIDTH, DIALOG_HEIGHT, uiBorder);
+                const char* warnText = "TCC not found in PATH!";
+                int wW = MeasureText(warnText, 20);
+                DrawText(warnText, GetScreenWidth()/2 - wW/2, GetScreenHeight()/2 - 30, 20, RED);
+
+                float btnY = GetScreenHeight()/2 - DIALOG_HEIGHT/2 + SAVE_DIALOG_BTN_Y_OFFSET;
+                float startX = GetScreenWidth()/2 - SAVE_DIALOG_BTN_WIDTH/2;
+                Rectangle okBtn = {startX, btnY, SAVE_DIALOG_BTN_WIDTH, SAVE_DIALOG_BTN_HEIGHT};
+
+                bool hovered = CheckCollisionPointRec(GetMousePosition(), okBtn);
+                DrawRectangleRounded(okBtn, 0.2f, 8, hovered ? LIGHTGRAY : GRAY);
+                DrawRectangleRoundedLines(okBtn, 0.2f, 8, DARKGRAY);
+                int oW = MeasureText("OK", 10);
+                DrawText("OK", okBtn.x + okBtn.width/2 - oW/2, okBtn.y + okBtn.height/2 - 5, 10, BLACK);
+        }
         if (state.contextMenu.active)
         {
                 Vector2 p = state.contextMenu.position;

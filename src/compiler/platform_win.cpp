@@ -5,18 +5,29 @@
 #include <filesystem>
 #include <windows.h>
 
-bool compileSharedLibrary(const std::string& cppCode, const std::string& moduleName)
+std::string getExportSignature()
+{
+        return "__declspec(dllexport) void executeTick(const uint8_t* in, uint8_t* out) {\n";
+}
+
+bool checkCompilerAvailability()
+{
+        int res = std::system("tcc -v > NUL 2>&1");
+        return (res == 0);
+}
+
+bool compileSharedLibrary(const std::string& cCode, const std::string& moduleName)
 {
         if (!std::filesystem::exists("parts")) std::filesystem::create_directory("parts");
 
-        std::string srcFile = "parts/" + moduleName + ".cpp";
+        std::string srcFile = "parts/" + moduleName + ".c";
         std::string outFile = "parts/lib" + moduleName + ".dll";
 
         std::ofstream out(srcFile);
-        out << cppCode;
+        out << cCode;
         out.close();
 
-        std::string command = "clang++ -O3 -shared " + srcFile + " -o " + outFile;
+        std::string command = "tcc -shared " + srcFile + " -o " + outFile;
         int result = std::system(command.c_str());
 
         std::filesystem::remove(srcFile);
