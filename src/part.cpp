@@ -72,16 +72,11 @@ Part assemblePart(std::map<int, Part> parts, const std::map<PartPin, PartPin>& c
                         recursionStack.push_back(currentID);
 
                         std::vector<State> collectedInputs;
-                        int maxInputIndex = -1;
                         std::map<PartPin, PartPin>::const_iterator it = connections.lower_bound(std::make_pair(currentID, -1));
                         bool hasConnections = (it != connections.end() && it->first.first == currentID);
 
                         while (it != connections.end() && it->first.first == currentID)
                         {
-                                if (it->first.second > maxInputIndex)
-                                {
-                                        maxInputIndex = it->first.second;
-                                }
                                 int inputIdx = it->first.second;
                                 int sourceID = it->second.first;
                                 int sourceOutputIdx = it->second.second;
@@ -110,13 +105,16 @@ Part assemblePart(std::map<int, Part> parts, const std::map<PartPin, PartPin>& c
                         }
 
                         recursionStack.pop_back();
-
                         cache[currentID] = result;
-                        lastOutputs[currentID] = result;
                         return result;
                 };
 
-                return resolve(partID);
+                std::vector<State> finalResult = resolve(partID);
+                for (std::map<int, std::vector<State>>::iterator it = cache.begin(); it != cache.end(); ++it)
+                {
+                        lastOutputs[it->first] = it->second;
+                }
+                return finalResult;
         };
 }
 

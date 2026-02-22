@@ -269,7 +269,7 @@ void handleInput(AppState& state)
                                         if (i == 6)
                                         {
                                                 state.isSimulating = false;
-                                                recompileSimulation(state);
+                                                if (!state.simulation) recompileSimulation(state);
                                                 if(state.simulation)
                                                 {
                                                         state.lastOutputStates = state.simulation(state.runtimeInput);

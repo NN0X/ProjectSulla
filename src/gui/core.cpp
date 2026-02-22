@@ -28,7 +28,6 @@ Vector2 getPartSize(const AppState& state, int id)
         {
                 w = txtW + TEXT_PADDING * 2;
         }
-
         int inCount = state.inputCounts.at(id);
         int outCount = state.outputCounts.at(id);
         int maxPins = (inCount > outCount) ? inCount : outCount;
@@ -38,7 +37,6 @@ Vector2 getPartSize(const AppState& state, int id)
         {
                 h = pinsH;
         }
-
         return {w, h};
 }
 
@@ -66,17 +64,32 @@ void initApp(AppState& state)
 
 void recompileSimulation(AppState& state)
 {
+        std::map<int, Part> simulationParts = state.parts;
         std::map<PartPin, PartPin> simConnections = state.connections;
         state.runtimeInput.clear();
-        int globalInputIdx = 0;
 
-        for(std::map<int, std::vector<State>>::iterator it = state.sourceValues.begin(); it != state.sourceValues.end(); ++it)
+        int globalInputIdx = 0;
+        for (std::map<int, std::vector<State>>::iterator it = state.sourceValues.begin(); it != state.sourceValues.end(); ++it)
         {
                 int partID = it->first;
                 std::vector<State>& vals = it->second;
+                int startIdx = globalInputIdx;
+                int count = (int)vals.size();
+
+                simulationParts[partID] = [startIdx, count](std::vector<State> runtimeInput) -> std::vector<State> {
+                        std::vector<State> result;
+                        for (int i = 0; i < count; ++i) {
+                                if ((size_t)(startIdx + i) < runtimeInput.size()) {
+                                        result.push_back(runtimeInput[startIdx + i]);
+                                } else {
+                                        result.push_back(STATE_UNDEFINED);
+                                }
+                        }
+                        return result;
+                };
+
                 for (size_t i = 0; i < vals.size(); ++i)
                 {
-                        simConnections[{partID, (int)i}] = {state.rootSourceID, globalInputIdx};
                         state.runtimeInput.push_back(vals[i]);
                         globalInputIdx++;
                 }
@@ -90,13 +103,21 @@ void recompileSimulation(AppState& state)
                         simConnections[{state.rootSinkID, outIdx++}] = {it->first, 0};
                 }
         }
-        state.simulation = assemblePart(state.parts, simConnections, state.rootSinkID);
+
+        state.simulation = assemblePart(simulationParts, simConnections, state.rootSinkID);
 }
 
 void updateSimulation(AppState& state)
 {
         if (!state.simulation) recompileSimulation(state);
-
+        state.runtimeInput.clear();
+        for (std::map<int, std::vector<State>>::iterator it = state.sourceValues.begin(); it != state.sourceValues.end(); ++it)
+        {
+                for (State val : it->second)
+                {
+                        state.runtimeInput.push_back(val);
+                }
+        }
         bool step = false;
         if (state.isSimulating)
         {
@@ -112,7 +133,6 @@ void updateSimulation(AppState& state)
         {
                 step = true;
         }
-
         if (step && state.simulation)
         {
                 state.lastOutputStates = state.simulation(state.runtimeInput);
