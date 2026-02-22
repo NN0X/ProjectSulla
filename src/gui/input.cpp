@@ -119,9 +119,17 @@ void handleInput(AppState& state)
                                         if (i == 6)
                                         {
                                                 state.isSimulating = false;
-                                                recompileSimulation(state);
+                                                if (!state.simulation) recompileSimulation(state);
                                                 if(state.simulation)
                                                 {
+                                                        state.runtimeInput.clear();
+                                                        for(std::map<int, std::vector<State>>::iterator it = state.sourceValues.begin(); it != state.sourceValues.end(); ++it)
+                                                        {
+                                                                for (size_t k = 0; k < it->second.size(); ++k)
+                                                                {
+                                                                        state.runtimeInput.push_back(it->second[k]);
+                                                                }
+                                                        }
                                                         state.lastOutputStates = state.simulation(state.runtimeInput);
                                                         state.stepCount++;
                                                 }

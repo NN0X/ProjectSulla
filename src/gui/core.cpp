@@ -116,6 +116,15 @@ void updateSimulation(AppState& state)
 
         if (step && state.simulation)
         {
+                state.runtimeInput.clear();
+                for(std::map<int, std::vector<State>>::iterator it = state.sourceValues.begin(); it != state.sourceValues.end(); ++it)
+                {
+                        for (size_t i = 0; i < it->second.size(); ++i)
+                        {
+                                state.runtimeInput.push_back(it->second[i]);
+                        }
+                }
+
                 state.lastOutputStates = state.simulation(state.runtimeInput);
                 state.stepCount++;
         }
