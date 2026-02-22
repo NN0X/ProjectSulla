@@ -1,28 +1,33 @@
 #include <raylib/raylib.h>
-
+#include "config.h"
 #include "appstate.h"
 #include "gui/gui.h"
-#include "utils.h"
-#include "compiler/compiler.h"
 
 int main()
 {
         SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_VSYNC_HINT);
-        InitWindow(1280, 720, "Sulla");
-        SetTargetFPS(60);
+        InitWindow(DEFAULT_SCREEN_WIDTH, DEFAULT_SCREEN_HEIGHT, WINDOW_TITLE);
+        SetTargetFPS(GetMonitorRefreshRate(GetCurrentMonitor()));
+        SetExitKey(KEY_NULL);
 
-        AppState appState;
-        appState.hasCompiler = checkCompilerAvailability();
+        AppState state;
+        initApp(state);
 
-        refreshLayouts(appState);
-
-        while (!WindowShouldClose() && !appState.shouldQuit)
+        while (!state.shouldQuit)
         {
-                handleInput(appState);
-                updateSimulation(appState);
+                if (WindowShouldClose() && !state.showQuitConfirm)
+                {
+                        state.showQuitConfirm = true;
+                }
+
+                handleInput(state);
+                updateSimulation(state);
 
                 BeginDrawing();
-                drawApp(appState);
+                ClearBackground(RAYWHITE);
+
+                drawApp(state);
+
                 EndDrawing();
         }
 

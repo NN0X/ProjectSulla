@@ -5,29 +5,18 @@
 #include <filesystem>
 #include <dlfcn.h>
 
-std::string getExportSignature()
-{
-        return "void executeTick(const uint8_t* in, uint8_t* out) {\n";
-}
-
-bool checkCompilerAvailability()
-{
-        int res = std::system("tcc -v > /dev/null 2>&1");
-        return (res == 0);
-}
-
-bool compileSharedLibrary(const std::string& cCode, const std::string& moduleName)
+bool compileSharedLibrary(const std::string& cppCode, const std::string& moduleName)
 {
         if (!std::filesystem::exists("parts")) std::filesystem::create_directory("parts");
 
-        std::string srcFile = "parts/" + moduleName + ".c";
+        std::string srcFile = "parts/" + moduleName + ".cpp";
         std::string outFile = "parts/lib" + moduleName + ".so";
 
         std::ofstream out(srcFile);
-        out << cCode;
+        out << cppCode;
         out.close();
 
-        std::string command = "tcc -shared -fPIC " + srcFile + " -o " + outFile;
+        std::string command = "clang++ -O3 -shared -fPIC " + srcFile + " -o " + outFile;
         int result = std::system(command.c_str());
 
         std::filesystem::remove(srcFile);

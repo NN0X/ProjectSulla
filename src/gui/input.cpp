@@ -91,24 +91,10 @@ void handleInput(AppState& state)
         Vector2 mousePos = GetMousePosition();
         Vector2 worldMouse = GetScreenToWorld2D(mousePos, state.camera);
 
-        bool isDialogActive = state.showSaveDialog || state.showLoadDialog || state.showRenameDialog || state.showDeleteConfirm || state.showOverwriteConfirm || state.showQuitConfirm || state.showCompilerWarning;
+        bool isDialogActive = state.showSaveDialog || state.showLoadDialog || state.showRenameDialog || state.showDeleteConfirm || state.showOverwriteConfirm || state.showQuitConfirm;
         bool mouseOverUI = (mousePos.x < sideMenuWidth) || (mousePos.y < TOOLBAR_HEIGHT) || isDialogActive;
 
         if (IsKeyPressed(KEY_F11)) ToggleFullscreen();
-
-        if (state.showCompilerWarning)
-        {
-                bool confirm = false;
-                if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
-                {
-                        float btnY = GetScreenHeight()/2 - DIALOG_HEIGHT/2 + SAVE_DIALOG_BTN_Y_OFFSET;
-                        float startX = GetScreenWidth()/2 - SAVE_DIALOG_BTN_WIDTH/2;
-                        Rectangle okBtn = {startX, btnY, SAVE_DIALOG_BTN_WIDTH, SAVE_DIALOG_BTN_HEIGHT};
-                        if (CheckCollisionPointRec(mousePos, okBtn)) confirm = true;
-                }
-                if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_ESCAPE) || confirm) state.showCompilerWarning = false;
-                return;
-        }
 
         if (state.showQuitConfirm)
         {
@@ -305,14 +291,9 @@ void handleInput(AppState& state)
                                         if (i == 9) state.targetHZ *= 0.5f;
                                         if (i == 10)
                                         {
-                                                if (!state.hasCompiler)
-                                                {
-                                                        state.showCompilerWarning = true;
-                                                        continue;
-                                                }
-                                                std::string cCode = transpileToC(state);
+                                                std::string cpp = transpileToCpp(state);
                                                 std::string modName = std::string(state.fileNameBuffer);
-                                                if (compileSharedLibrary(cCode, modName))
+                                                if (compileSharedLibrary(cpp, modName))
                                                 {
                                                         int inC = 0, outC = 0;
                                                         for (std::map<int, PartType>::iterator it = state.partTypes.begin(); it != state.partTypes.end(); ++it)

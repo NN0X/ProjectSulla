@@ -85,9 +85,6 @@ struct AppState
 
         float hzKeyTimer = 0.0f;
         float cursorTimer = 0.0f;
-
-        bool hasCompiler = true;
-        bool showCompilerWarning = false;
 };
 
 #endif

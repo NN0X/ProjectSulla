@@ -4,7 +4,7 @@
 #include <vector>
 #include <algorithm>
 
-std::string transpileToC(const AppState& state)
+std::string transpileToCpp(const AppState& state)
 {
         std::ostringstream code;
         code << "#include <stdint.h>\n\n";
@@ -19,7 +19,8 @@ std::string transpileToC(const AppState& state)
                 }
         }
 
-        code << "\n" << getExportSignature();
+        code << "\nextern \"C\" {\n";
+        code << "void executeTick(const uint8_t* in, uint8_t* out) {\n";
 
         std::vector<int> sources;
         std::vector<int> outputs;
@@ -173,6 +174,6 @@ std::string transpileToC(const AppState& state)
                 }
         }
 
-        code << "}\n";
+        code << "}\n}\n";
         return code.str();
 }
