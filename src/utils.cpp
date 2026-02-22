@@ -30,6 +30,7 @@ typedef struct SerializableConnectionPin
 {
         int id;
         int pin;
+        
 } SCPin;
 
 typedef struct SerializableConnection
@@ -107,6 +108,10 @@ int loadLayout(AppState& state, const std::string& filename)
         if (glz::read_json(layoutData, json)) return 0;
 
         state.parts.clear();
+        
+        setSourcePart(state.parts, state.rootSourceID);
+        setOutputPart(state.parts, state.rootSinkID);
+        
         state.partTypes.clear();
         state.connections.clear();
         state.labels.clear();
@@ -250,6 +255,7 @@ Part loadLayoutAsPart(const std::string& filename, int& nInputs, int& nOutputs)
         }
 
         setSourcePart(subParts, virtualSourceID);
+        setOutputPart(subParts, virtualSinkID);
 
         Part subSim = assemblePart(subParts, subConnections, virtualSinkID);
 

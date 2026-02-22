@@ -64,6 +64,11 @@ Part assemblePart(std::map<int, Part> parts, const std::map<PartPin, PartPin>& c
                                 }
                         }
 
+                        if (parts.find(currentID) == parts.end())
+                        {
+                                return {STATE_UNDEFINED};
+                        }
+
                         recursionStack.push_back(currentID);
 
                         std::vector<State> collectedInputs;
