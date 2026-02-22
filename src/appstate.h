@@ -5,7 +5,9 @@
 #include <vector>
 #include <set>
 #include <string>
+
 #include <raylib/raylib.h>
+
 #include "part.h"
 
 struct ContextMenu
@@ -58,12 +60,14 @@ struct AppState
         bool showDeleteConfirm = false;
         bool showOverwriteConfirm = false;
         bool showQuitConfirm = false;
+        bool showRenameDialog = false;
         bool showSideMenu = true;
         bool showHelp = false;
         bool darkMode = true;
         bool shouldQuit = false;
 
         char fileNameBuffer[64] = "circuit";
+        int renamePartID = -1;
         std::string layoutToDelete = "";
         std::string pendingSaveFilename = "";
 

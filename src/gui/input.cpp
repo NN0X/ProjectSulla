@@ -7,6 +7,7 @@
 #include <cmath>
 #include <format>
 #include <set>
+#include <cstdio>
 
 #include <raylib/raylib.h>
 #include <raylib/raymath.h>
@@ -89,7 +90,7 @@ void handleInput(AppState& state)
         Vector2 mousePos = GetMousePosition();
         Vector2 worldMouse = GetScreenToWorld2D(mousePos, state.camera);
 
-        bool isDialogActive = state.showSaveDialog || state.showLoadDialog || state.showDeleteConfirm || state.showOverwriteConfirm || state.showQuitConfirm;
+        bool isDialogActive = state.showSaveDialog || state.showLoadDialog || state.showRenameDialog || state.showDeleteConfirm || state.showOverwriteConfirm || state.showQuitConfirm;
         bool mouseOverUI = (mousePos.x < sideMenuWidth) || (mousePos.y < TOOLBAR_HEIGHT) || isDialogActive;
 
         if (IsKeyPressed(KEY_F11)) ToggleFullscreen();
@@ -113,7 +114,7 @@ void handleInput(AppState& state)
                 return;
         }
 
-        if (state.showSaveDialog || state.showLoadDialog)
+        if (state.showSaveDialog || state.showLoadDialog || state.showRenameDialog)
         {
                 int key = GetCharPressed();
                 while (key > 0)
@@ -146,12 +147,19 @@ void handleInput(AppState& state)
                         {
                                 state.showSaveDialog = false;
                                 state.showLoadDialog = false;
+                                state.showRenameDialog = false;
                         }
                         if (CheckCollisionPointRec(mousePos, confirmBtn)) confirm = true;
                 }
 
                 if (IsKeyPressed(KEY_ENTER) || confirm)
                 {
+                        if (state.showRenameDialog)
+                        {
+                                state.labels[state.renamePartID] = state.fileNameBuffer;
+                                state.showRenameDialog = false;
+                                return;
+                        }
                         std::string fname = "layouts/" + std::string(state.fileNameBuffer) + ".json";
                         if (state.showSaveDialog)
                         {
@@ -182,6 +190,7 @@ void handleInput(AppState& state)
                 {
                         state.showSaveDialog = false;
                         state.showLoadDialog = false;
+                        state.showRenameDialog = false;
                 }
                 return;
         }
@@ -247,7 +256,7 @@ void handleInput(AppState& state)
                 if (mousePos.y < TOOLBAR_HEIGHT && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
                 {
                         float x = TOOLBAR_PADDING;
-                        for (int i = 0; i < 9; ++i)
+                        for (int i = 0; i < 10; ++i)
                         {
                                 Rectangle btn = {x, TOOLBAR_PADDING, TOOLBAR_BTN_WIDTH, TOOLBAR_BTN_HEIGHT};
                                 if (CheckCollisionPointRec(mousePos, btn))
@@ -276,8 +285,9 @@ void handleInput(AppState& state)
                                                         state.stepCount++;
                                                 }
                                         }
-                                        if (i == 7) state.targetHZ *= 2.0f;
-                                        if (i == 8) state.targetHZ *= 0.5f;
+                                        if (i == 7) state.stepCount = 0;
+                                        if (i == 8) state.targetHZ *= 2.0f;
+                                        if (i == 9) state.targetHZ *= 0.5f;
                                 }
                                 x += TOOLBAR_BTN_WIDTH + TOOLBAR_BTN_SPACING;
                         }
@@ -343,11 +353,21 @@ void handleInput(AppState& state)
                 if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
                 {
                         Vector2 p = state.contextMenu.position;
-                        Rectangle rAdd = {p.x, p.y, CM_WIDTH, CM_ROW_HEIGHT};
-                        Rectangle rRem = {p.x, p.y + CM_ROW_HEIGHT, CM_WIDTH, CM_ROW_HEIGHT};
-                        Rectangle rDel = {p.x, p.y + CM_ROW_HEIGHT*2, CM_WIDTH, CM_ROW_HEIGHT};
-
-                        if (CheckCollisionPointRec(mousePos, rAdd))
+                        Rectangle rLabel = {p.x, p.y, CM_WIDTH, CM_ROW_HEIGHT};
+                        Rectangle rAdd = {p.x, p.y + CM_ROW_HEIGHT, CM_WIDTH, CM_ROW_HEIGHT};
+                        Rectangle rRem = {p.x, p.y + CM_ROW_HEIGHT*2, CM_WIDTH, CM_ROW_HEIGHT};
+                        Rectangle rDel = {p.x, p.y + CM_ROW_HEIGHT*3, CM_WIDTH, CM_ROW_HEIGHT};
+                        PartType type = state.partTypes[state.contextMenu.targetPartID];
+                        bool canModPins = (type != PART_TYPE_CUSTOM && type != PART_TYPE_OUTPUT);
+                        if (CheckCollisionPointRec(mousePos, rLabel))
+                        {
+                                state.showRenameDialog = true;
+                                state.renamePartID = state.contextMenu.targetPartID;
+                                std::string current = state.labels[state.renamePartID];
+                                snprintf(state.fileNameBuffer, sizeof(state.fileNameBuffer), "%s", current.c_str());
+                                state.contextMenu.active = false;
+                        }
+                        else if (canModPins && CheckCollisionPointRec(mousePos, rAdd))
                         {
                                 if (state.partTypes[state.contextMenu.targetPartID] == PART_TYPE_SOURCE)
                                 {
@@ -361,7 +381,7 @@ void handleInput(AppState& state)
                                 state.simulation = nullptr;
                                 state.contextMenu.active = false;
                         }
-                        else if (CheckCollisionPointRec(mousePos, rRem))
+                        else if (canModPins && CheckCollisionPointRec(mousePos, rRem))
                         {
                                 if (state.partTypes[state.contextMenu.targetPartID] == PART_TYPE_SOURCE)
                                 {

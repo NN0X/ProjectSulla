@@ -200,9 +200,9 @@ void drawUI(AppState& state)
         Color textC = getThemeColor(state, COLOR_TEXT_LIGHT, COLOR_TEXT_DARK);
         DrawRectangle(0, 0, GetScreenWidth(), TOOLBAR_HEIGHT, uiBg);
         DrawLine(0, TOOLBAR_HEIGHT, GetScreenWidth(), TOOLBAR_HEIGHT, uiBorder);
-        const char* btnLabels[] = { "Save", "Load", "Clear", "Help", "Dark", state.isSimulating ? "Pause" : "Play", "Step", "+", "-" };
+        const char* btnLabels[] = { "Save", "Load", "Clear", "Help", state.darkMode ? "Light" : "Dark", state.isSimulating ? "Pause" : "Play", "Step", "Reset", "+", "-" };
         float x = TOOLBAR_PADDING;
-        for (int i = 0; i < 9; ++i)
+        for (int i = 0; i < 10; ++i)
         {
                 Rectangle btn = {x, TOOLBAR_PADDING, TOOLBAR_BTN_WIDTH, TOOLBAR_BTN_HEIGHT};
                 bool hovered = CheckCollisionPointRec(GetMousePosition(), btn);
@@ -272,12 +272,12 @@ void drawUI(AppState& state)
                 DrawRectangle(m.x - BASE_PART_WIDTH/2, m.y - BASE_PART_HEIGHT/2, BASE_PART_WIDTH, BASE_PART_HEIGHT, Fade(GRAY, 0.5f));
                 DrawText(state.draggingLayoutFile.c_str(), m.x, m.y, 10, textC);
         }
-        if (state.showSaveDialog || state.showLoadDialog)
+        if (state.showSaveDialog || state.showLoadDialog || state.showRenameDialog)
         {
                 DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), Fade(BLACK, 0.5f));
                 DrawRectangle(GetScreenWidth()/2 - DIALOG_WIDTH/2, GetScreenHeight()/2 - DIALOG_HEIGHT/2, DIALOG_WIDTH, DIALOG_HEIGHT, uiBg);
                 DrawRectangleLines(GetScreenWidth()/2 - DIALOG_WIDTH/2, GetScreenHeight()/2 - DIALOG_HEIGHT/2, DIALOG_WIDTH, DIALOG_HEIGHT, uiBorder);
-                const char* title = state.showSaveDialog ? "Save As:" : "Load Layout:";
+                const char* title = state.showRenameDialog ? "Rename Part:" : (state.showSaveDialog ? "Save As:" : "Load Layout:");
                 int tW = MeasureText(title, 20);
                 DrawText(title, GetScreenWidth()/2 - tW/2, GetScreenHeight()/2 - SAVE_DIALOG_TEXT_Y_OFFSET, 20, textC);
                 Rectangle box = { (float)GetScreenWidth()/2 - SAVE_DIALOG_INPUT_WIDTH/2, (float)GetScreenHeight()/2 - SAVE_DIALOG_INPUT_Y_OFFSET, SAVE_DIALOG_INPUT_WIDTH, SAVE_DIALOG_INPUT_HEIGHT };
@@ -300,8 +300,11 @@ void drawUI(AppState& state)
                                 DrawRectangle(box.x + 5 + (SAVE_DIALOG_INPUT_WIDTH - 60) + 2, box.y + 5 + (20 - newSize)/2, 5, newSize, BLACK);
                         }
                 }
-                int extWidth = MeasureText(".json", 20);
-                DrawText(".json", box.x + box.width - extWidth - 5, box.y + 5, 20, BLACK);
+                if (!state.showRenameDialog)
+                {
+                        int extWidth = MeasureText(".json", 20);
+                        DrawText(".json", box.x + box.width - extWidth - 5, box.y + 5, 20, BLACK);
+                }
                 float btnY = GetScreenHeight()/2 - DIALOG_HEIGHT/2 + SAVE_DIALOG_BTN_Y_OFFSET;
                 float startX = GetScreenWidth()/2 - SAVE_DIALOG_BTN_WIDTH - SAVE_DIALOG_BTN_SPACING/2;
                 Rectangle cancelBtn = {startX, btnY, SAVE_DIALOG_BTN_WIDTH, SAVE_DIALOG_BTN_HEIGHT};
@@ -312,7 +315,7 @@ void drawUI(AppState& state)
                 DrawText("Cancel", cancelBtn.x + cancelBtn.width/2 - cW/2, cancelBtn.y + cancelBtn.height/2 - 5, 10, BLACK);
                 DrawRectangleRounded(confirmBtn, 0.2f, 8, LIGHTGRAY);
                 DrawRectangleRoundedLines(confirmBtn, 0.2f, 8, DARKGRAY);
-                const char* confirmLabel = state.showSaveDialog ? "Save" : "Load";
+                const char* confirmLabel = state.showRenameDialog ? "Rename" : (state.showSaveDialog ? "Save" : "Load");
                 int fW = MeasureText(confirmLabel, 10);
                 DrawText(confirmLabel, confirmBtn.x + confirmBtn.width/2 - fW/2, confirmBtn.y + confirmBtn.height/2 - 5, 10, BLACK);
         }
@@ -382,22 +385,21 @@ void drawUI(AppState& state)
         if (state.contextMenu.active)
         {
                 Vector2 p = state.contextMenu.position;
-                DrawRectangle(p.x, p.y, CM_WIDTH, CM_ROW_HEIGHT*3, uiBg);
-                DrawRectangleLines(p.x, p.y, CM_WIDTH, CM_ROW_HEIGHT*3, uiBorder);
-                DrawText("Add Pin", p.x + CM_TEXT_OFFSET_X, p.y + CM_TEXT_OFFSET_Y, CM_TEXT_SIZE, textC);
-                DrawText("Remove Pin", p.x + CM_TEXT_OFFSET_X, p.y + CM_ROW_HEIGHT + CM_TEXT_OFFSET_Y, CM_TEXT_SIZE, textC);
-                DrawText("Delete Part", p.x + CM_TEXT_OFFSET_X, p.y + CM_ROW_HEIGHT*2 + CM_TEXT_OFFSET_Y, CM_TEXT_SIZE, RED);
-                if (CheckCollisionPointRec(GetMousePosition(), {p.x, p.y, CM_WIDTH, CM_ROW_HEIGHT}))
+                PartType type = state.partTypes[state.contextMenu.targetPartID];
+                bool canModPins = (type != PART_TYPE_CUSTOM && type != PART_TYPE_OUTPUT);
+                DrawRectangle(p.x, p.y, CM_WIDTH, CM_ROW_HEIGHT*4, uiBg);
+                DrawRectangleLines(p.x, p.y, CM_WIDTH, CM_ROW_HEIGHT*4, uiBorder);
+                DrawText("Edit Label", p.x + CM_TEXT_OFFSET_X, p.y + CM_TEXT_OFFSET_Y, CM_TEXT_SIZE, textC);
+                DrawText("Add Pin", p.x + CM_TEXT_OFFSET_X, p.y + CM_ROW_HEIGHT + CM_TEXT_OFFSET_Y, CM_TEXT_SIZE, canModPins ? textC : GRAY);
+                DrawText("Remove Pin", p.x + CM_TEXT_OFFSET_X, p.y + CM_ROW_HEIGHT*2 + CM_TEXT_OFFSET_Y, CM_TEXT_SIZE, canModPins ? textC : GRAY);
+                DrawText("Delete Part", p.x + CM_TEXT_OFFSET_X, p.y + CM_ROW_HEIGHT*3 + CM_TEXT_OFFSET_Y, CM_TEXT_SIZE, RED);
+                for (int i=0; i<4; ++i)
                 {
-                        DrawRectangleLines(p.x, p.y, CM_WIDTH, CM_ROW_HEIGHT, BLUE);
-                }
-                if (CheckCollisionPointRec(GetMousePosition(), {p.x, p.y+CM_ROW_HEIGHT, CM_WIDTH, CM_ROW_HEIGHT}))
-                {
-                        DrawRectangleLines(p.x, p.y+CM_ROW_HEIGHT, CM_WIDTH, CM_ROW_HEIGHT, BLUE);
-                }
-                if (CheckCollisionPointRec(GetMousePosition(), {p.x, p.y+CM_ROW_HEIGHT*2, CM_WIDTH, CM_ROW_HEIGHT}))
-                {
-                        DrawRectangleLines(p.x, p.y+CM_ROW_HEIGHT*2, CM_WIDTH, CM_ROW_HEIGHT, BLUE);
+                        if (i == 1 || i == 2) if (!canModPins) continue;
+                        if (CheckCollisionPointRec(GetMousePosition(), {p.x, p.y + CM_ROW_HEIGHT*i, CM_WIDTH, CM_ROW_HEIGHT}))
+                        {
+                                DrawRectangleLines(p.x, p.y + CM_ROW_HEIGHT*i, CM_WIDTH, CM_ROW_HEIGHT, BLUE);
+                        }
                 }
         }
         if (state.showHelp)
@@ -447,13 +449,6 @@ void drawUI(AppState& state)
         else hzStr = std::format("{:.1f} Hz", state.targetHZ);
         DrawText(hzStr.c_str(), GetScreenWidth() - HUD_X_OFFSET, HUD_Y, HUD_FONT_SIZE, textC);
         DrawText(std::format("Tick: {}", state.stepCount).c_str(), GetScreenWidth() - HUD_X_OFFSET, HUD_Y + 25, HUD_FONT_SIZE, textC);
-        Rectangle resetBtn = { (float)GetScreenWidth() - HUD_X_OFFSET, HUD_Y + 50, 60, HUD_BTN_SIZE };
-        DrawRectangleRec(resetBtn, LIGHTGRAY);
-        DrawText("Reset", resetBtn.x + 5, resetBtn.y + 2, 10, BLACK);
-        if (CheckCollisionPointRec(GetMousePosition(), resetBtn) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
-        {
-                state.stepCount = 0;
-        }
 }
 
 void drawApp(AppState& state)
