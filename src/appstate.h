@@ -57,9 +57,11 @@ struct AppState
         bool showLoadDialog = false;
         bool showDeleteConfirm = false;
         bool showOverwriteConfirm = false;
+        bool showQuitConfirm = false;
         bool showSideMenu = true;
         bool showHelp = false;
         bool darkMode = true;
+        bool shouldQuit = false;
 
         char fileNameBuffer[64] = "circuit";
         std::string layoutToDelete = "";
@@ -74,6 +76,7 @@ struct AppState
         Camera2D camera = { {0,0}, {0,0}, 0.0f, 1.0f };
 
         float hzKeyTimer = 0.0f;
+        float cursorTimer = 0.0f;
 };
 
 #endif

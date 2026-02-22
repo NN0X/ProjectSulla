@@ -308,8 +308,43 @@ void drawUI(AppState& state)
                 DrawRectangleLinesEx(box, 1, DARKGRAY);
 
                 drawTextFit(state.fileNameBuffer, box.x + 5, box.y + 5, SAVE_DIALOG_INPUT_WIDTH - 60, 20, BLACK);
+                
+                state.cursorTimer += GetFrameTime();
+                if (fmod(state.cursorTimer, 1.0f) < 0.5f)
+                {
+                        int defaultSize = MeasureText(state.fileNameBuffer, 20);
+                        if (defaultSize <= SAVE_DIALOG_INPUT_WIDTH - 60)
+                        {
+                                DrawRectangle(box.x + 5 + defaultSize + 2, box.y + 5, 10, 20, BLACK);
+                        }
+                        else
+                        {
+                                float scale = (SAVE_DIALOG_INPUT_WIDTH - 60) / (float)defaultSize;
+                                int newSize = (int)(20 * scale);
+                                if (newSize < 5) newSize = 5;
+                                DrawRectangle(box.x + 5 + (SAVE_DIALOG_INPUT_WIDTH - 60) + 2, box.y + 5 + (20 - newSize)/2, 5, newSize, BLACK);
+                        }
+                }
+
                 int extWidth = MeasureText(".json", 20);
                 DrawText(".json", box.x + box.width - extWidth - 5, box.y + 5, 20, BLACK);
+
+                float btnY = GetScreenHeight()/2 - DIALOG_HEIGHT/2 + SAVE_DIALOG_BTN_Y_OFFSET;
+                float startX = GetScreenWidth()/2 - SAVE_DIALOG_BTN_WIDTH - SAVE_DIALOG_BTN_SPACING/2;
+
+                Rectangle cancelBtn = {startX, btnY, SAVE_DIALOG_BTN_WIDTH, SAVE_DIALOG_BTN_HEIGHT};
+                Rectangle confirmBtn = {startX + SAVE_DIALOG_BTN_WIDTH + SAVE_DIALOG_BTN_SPACING, btnY, SAVE_DIALOG_BTN_WIDTH, SAVE_DIALOG_BTN_HEIGHT};
+
+                DrawRectangleRounded(cancelBtn, 0.2f, 8, LIGHTGRAY);
+                DrawRectangleRoundedLines(cancelBtn, 0.2f, 8, DARKGRAY);
+                int cW = MeasureText("Cancel", 10);
+                DrawText("Cancel", cancelBtn.x + cancelBtn.width/2 - cW/2, cancelBtn.y + cancelBtn.height/2 - 5, 10, BLACK);
+
+                DrawRectangleRounded(confirmBtn, 0.2f, 8, LIGHTGRAY);
+                DrawRectangleRoundedLines(confirmBtn, 0.2f, 8, DARKGRAY);
+                const char* confirmLabel = state.showSaveDialog ? "Save" : "Load";
+                int fW = MeasureText(confirmLabel, 10);
+                DrawText(confirmLabel, confirmBtn.x + confirmBtn.width/2 - fW/2, confirmBtn.y + confirmBtn.height/2 - 5, 10, BLACK);
         }
 
         if (state.showOverwriteConfirm)
@@ -328,11 +363,13 @@ void drawUI(AppState& state)
 
                 DrawRectangleRounded(cancelBtn, 0.2f, 8, LIGHTGRAY);
                 DrawRectangleRoundedLines(cancelBtn, 0.2f, 8, DARKGRAY);
-                DrawText("Cancel", cancelBtn.x + 10, cancelBtn.y + 5, 10, BLACK);
+                int cW = MeasureText("Cancel", 10);
+                DrawText("Cancel", cancelBtn.x + cancelBtn.width/2 - cW/2, cancelBtn.y + cancelBtn.height/2 - 5, 10, BLACK);
 
                 DrawRectangleRounded(confirmBtn, 0.2f, 8, LIGHTGRAY);
                 DrawRectangleRoundedLines(confirmBtn, 0.2f, 8, DARKGRAY);
-                DrawText("Overwrite", confirmBtn.x + 10, confirmBtn.y + 5, 10, BLACK);
+                int oW = MeasureText("Overwrite", 10);
+                DrawText("Overwrite", confirmBtn.x + confirmBtn.width/2 - oW/2, confirmBtn.y + confirmBtn.height/2 - 5, 10, BLACK);
         }
 
         if (state.showDeleteConfirm)
@@ -351,11 +388,38 @@ void drawUI(AppState& state)
 
                 DrawRectangleRounded(cancelBtn, 0.2f, 8, LIGHTGRAY);
                 DrawRectangleRoundedLines(cancelBtn, 0.2f, 8, DARKGRAY);
-                DrawText("Cancel", cancelBtn.x + 10, cancelBtn.y + 5, 10, BLACK);
+                int cW = MeasureText("Cancel", 10);
+                DrawText("Cancel", cancelBtn.x + cancelBtn.width/2 - cW/2, cancelBtn.y + cancelBtn.height/2 - 5, 10, BLACK);
 
                 DrawRectangleRounded(confirmBtn, 0.2f, 8, LIGHTGRAY);
                 DrawRectangleRoundedLines(confirmBtn, 0.2f, 8, DARKGRAY);
-                DrawText("Delete", confirmBtn.x + 15, confirmBtn.y + 5, 10, BLACK);
+                int dW = MeasureText("Delete", 10);
+                DrawText("Delete", confirmBtn.x + confirmBtn.width/2 - dW/2, confirmBtn.y + confirmBtn.height/2 - 5, 10, BLACK);
+        }
+
+        if (state.showQuitConfirm)
+        {
+                DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), Fade(BLACK, 0.5f));
+                DrawRectangle(GetScreenWidth()/2 - DIALOG_WIDTH/2, GetScreenHeight()/2 - DIALOG_HEIGHT/2, DIALOG_WIDTH, DIALOG_HEIGHT, uiBg);
+                DrawRectangleLines(GetScreenWidth()/2 - DIALOG_WIDTH/2, GetScreenHeight()/2 - DIALOG_HEIGHT/2, DIALOG_WIDTH, DIALOG_HEIGHT, uiBorder);
+
+                DrawText("Are you sure you want to quit?", GetScreenWidth()/2 - 150, GetScreenHeight()/2 - 30, 20, textC);
+
+                float btnY = GetScreenHeight()/2 - DIALOG_HEIGHT/2 + SAVE_DIALOG_BTN_Y_OFFSET;
+                float startX = GetScreenWidth()/2 - SAVE_DIALOG_BTN_WIDTH - SAVE_DIALOG_BTN_SPACING/2;
+
+                Rectangle cancelBtn = {startX, btnY, SAVE_DIALOG_BTN_WIDTH, SAVE_DIALOG_BTN_HEIGHT};
+                Rectangle confirmBtn = {startX + SAVE_DIALOG_BTN_WIDTH + SAVE_DIALOG_BTN_SPACING, btnY, SAVE_DIALOG_BTN_WIDTH, SAVE_DIALOG_BTN_HEIGHT};
+
+                DrawRectangleRounded(cancelBtn, 0.2f, 8, LIGHTGRAY);
+                DrawRectangleRoundedLines(cancelBtn, 0.2f, 8, DARKGRAY);
+                int cW = MeasureText("Cancel", 10);
+                DrawText("Cancel", cancelBtn.x + cancelBtn.width/2 - cW/2, cancelBtn.y + cancelBtn.height/2 - 5, 10, BLACK);
+
+                DrawRectangleRounded(confirmBtn, 0.2f, 8, LIGHTGRAY);
+                DrawRectangleRoundedLines(confirmBtn, 0.2f, 8, DARKGRAY);
+                int qW = MeasureText("Quit", 10);
+                DrawText("Quit", confirmBtn.x + confirmBtn.width/2 - qW/2, confirmBtn.y + confirmBtn.height/2 - 5, 10, BLACK);
         }
 
         if (state.contextMenu.active)
