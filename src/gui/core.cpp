@@ -2,6 +2,7 @@
 #include "common.h"
 
 #include <iostream>
+#include <fstream>
 #include <filesystem>
 #include <algorithm>
 #include <cmath>
@@ -9,11 +10,18 @@
 
 #include <raylib/raylib.h>
 #include <raylib/raymath.h>
+#include <glaze/glaze.hpp>
 
 #include "../config.h"
 #include "../primitives.h"
 #include "../utils.h"
 #include "../part.h"
+
+struct CompiledMeta
+{
+        int inputs;
+        int outputs;
+};
 
 Color getThemeColor(const AppState& state, Color light, Color dark)
 {
@@ -55,11 +63,42 @@ void refreshLayouts(AppState& state)
         }
 }
 
+void refreshCompiledModules(AppState& state)
+{
+        state.compiledModules.clear();
+        state.compiledInputs.clear();
+        state.compiledOutputs.clear();
+        if (std::filesystem::exists("parts"))
+        {
+                for (const auto& entry : std::filesystem::directory_iterator("parts"))
+                {
+                        if (entry.path().extension() == ".json")
+                        {
+                                std::string modName = entry.path().stem().string();
+                                std::ifstream file(entry.path());
+                                if (file.is_open())
+                                {
+                                        std::string json((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+                                        file.close();
+                                        CompiledMeta meta{};
+                                        if (!glz::read_json(meta, json))
+                                        {
+                                                state.compiledModules.push_back(modName);
+                                                state.compiledInputs[modName] = meta.inputs;
+                                                state.compiledOutputs[modName] = meta.outputs;
+                                        }
+                                }
+                        }
+                }
+        }
+}
+
 void initApp(AppState& state)
 {
         setSourcePart(state.parts, state.rootSourceID);
         setSourcePart(state.parts, state.rootSinkID);
         refreshLayouts(state);
+        refreshCompiledModules(state);
 }
 
 void recompileSimulation(AppState& state)

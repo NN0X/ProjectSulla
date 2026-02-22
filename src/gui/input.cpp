@@ -8,15 +8,23 @@
 #include <format>
 #include <set>
 #include <cstdio>
+#include <fstream>
 
 #include <raylib/raylib.h>
 #include <raylib/raymath.h>
+#include <glaze/glaze.hpp>
 
 #include "../config.h"
 #include "../primitives.h"
 #include "../utils.h"
 #include "../part.h"
 #include "../compiler/compiler.h"
+
+struct CompiledMeta
+{
+        int inputs;
+        int outputs;
+};
 
 void dropPart(AppState& state, int type, Vector2 pos)
 {
@@ -111,7 +119,7 @@ void handleInput(AppState& state)
 
                 if (IsKeyPressed(KEY_ENTER) || confirm) state.shouldQuit = true;
                 if (IsKeyPressed(KEY_ESCAPE)) state.showQuitConfirm = false;
-                
+
                 return;
         }
 
@@ -307,6 +315,19 @@ void handleInput(AppState& state)
                                                         }
                                                         state.compiledInputs[modName] = inC;
                                                         state.compiledOutputs[modName] = outC;
+
+                                                        if (!std::filesystem::exists("parts")) std::filesystem::create_directory("parts");
+                                                        CompiledMeta meta{inC, outC};
+                                                        std::string json;
+                                                        if (!glz::write<glz::opts{.prettify = true}>(meta, json))
+                                                        {
+                                                                std::ofstream file("parts/" + modName + ".json");
+                                                                if (file.is_open())
+                                                                {
+                                                                        file << json;
+                                                                        file.close();
+                                                                }
+                                                        }
                                                 }
                                         }
                                 }
