@@ -20,7 +20,7 @@
 
 void dropPart(AppState& state, int type, Vector2 pos)
 {
-        int id = state.nextID++;
+        int id = state.parts.empty() ? 100 : state.parts.rbegin()->first + 1;
         if (type == PART_TYPE_SOURCE) setSourcePart(state.parts, id);
         else if (type == PART_TYPE_OUTPUT) setOutputPart(state.parts, id);
         else setPart(state.parts, id, getPartFromType((PartType)type));
@@ -111,7 +111,7 @@ void handleInput(AppState& state)
 
                 if (IsKeyPressed(KEY_ENTER) || confirm) state.shouldQuit = true;
                 if (IsKeyPressed(KEY_ESCAPE)) state.showQuitConfirm = false;
-
+                
                 return;
         }
 
@@ -292,7 +292,7 @@ void handleInput(AppState& state)
                                         if (i == 10)
                                         {
                                                 std::string cpp = transpileToCpp(state);
-                                                std::string modName = "custom_mod_" + std::to_string(state.compiledModules.size());
+                                                std::string modName = std::string(state.fileNameBuffer);
                                                 if (compileSharedLibrary(cpp, modName))
                                                 {
                                                         int inC = 0, outC = 0;
@@ -301,7 +301,10 @@ void handleInput(AppState& state)
                                                                 if (it->second == PART_TYPE_SOURCE) inC += state.outputCounts[it->first];
                                                                 if (it->second == PART_TYPE_OUTPUT) outC += state.inputCounts[it->first];
                                                         }
-                                                        state.compiledModules.push_back(modName);
+                                                        if (std::find(state.compiledModules.begin(), state.compiledModules.end(), modName) == state.compiledModules.end())
+                                                        {
+                                                                state.compiledModules.push_back(modName);
+                                                        }
                                                         state.compiledInputs[modName] = inC;
                                                         state.compiledOutputs[modName] = outC;
                                                 }
@@ -644,7 +647,7 @@ void handleInput(AppState& state)
                         Part p = loadLayoutAsPart("layouts/" + state.draggingLayoutFile, nIn, nOut);
                         if (p)
                         {
-                                int id = state.nextID++;
+                                int id = state.parts.empty() ? 100 : state.parts.rbegin()->first + 1;
                                 setPart(state.parts, id, p);
                                 state.partTypes[id] = PART_TYPE_CUSTOM;
                                 state.positions[id] = {gx, gy};
@@ -664,7 +667,7 @@ void handleInput(AppState& state)
                         Part p = loadCompiledPart(state.draggingCompiledFile, nOut);
                         if (p)
                         {
-                                int id = state.nextID++;
+                                int id = state.parts.empty() ? 100 : state.parts.rbegin()->first + 1;
                                 setPart(state.parts, id, p);
                                 state.partTypes[id] = PART_TYPE_CUSTOM;
                                 state.positions[id] = {gx, gy};

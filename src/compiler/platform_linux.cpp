@@ -18,6 +18,9 @@ bool compileSharedLibrary(const std::string& cppCode, const std::string& moduleN
 
         std::string command = "clang++ -O3 -shared -fPIC " + srcFile + " -o " + outFile;
         int result = std::system(command.c_str());
+
+        std::filesystem::remove(srcFile);
+
         return (result == 0);
 }
 
