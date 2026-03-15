@@ -48,6 +48,26 @@ struct LayoutData
         std::vector<SConn> connections;
 };
 
+static void loadPinLabelsForCustom(AppState& state, int partID, const std::string& label, int numOutputs)
+{
+        std::string metaPath = "parts/" + label + ".json";
+        if (std::filesystem::exists(metaPath))
+        {
+                std::ifstream mf(metaPath);
+                if (mf.is_open())
+                {
+                        std::string mjson((std::istreambuf_iterator<char>(mf)), std::istreambuf_iterator<char>());
+                        mf.close();
+                        CompiledMeta meta{};
+                        if (!glz::read_json(meta, mjson))
+                        {
+                                if (!meta.inputLabels.empty()) state.inputPinLabels[partID] = meta.inputLabels;
+                                if (!meta.outputLabels.empty()) state.outputPinLabels[partID] = meta.outputLabels;
+                        }
+                }
+        }
+}
+
 void saveLayout(const std::map<int, PartType>& partTypes,
                 const std::map<PartPin, PartPin>& connections,
                 const std::map<int, std::string>& labels,
@@ -123,6 +143,8 @@ int loadLayout(AppState& state, const std::string& filename)
         state.outputCounts.clear();
         state.sourceValues.clear();
         state.selectedParts.clear();
+        state.inputPinLabels.clear();
+        state.outputPinLabels.clear();
         state.simulation = nullptr;
         state.stepCount = 0;
 
@@ -154,6 +176,7 @@ int loadLayout(AppState& state, const std::string& filename)
                                 if (compiledPart)
                                 {
                                         setPart(state.parts, part.id, compiledPart);
+                                        loadPinLabelsForCustom(state, part.id, part.label, part.numOutputs);
                                 }
                                 else
                                 {
@@ -384,6 +407,7 @@ std::set<int> importLayout(AppState& state, const std::string& filename, float m
                                 if (compiledPart) 
                                 {
                                         setPart(state.parts, newID, compiledPart);
+                                        loadPinLabelsForCustom(state, newID, part.label, part.numOutputs);
                                 }
                                 else
                                 {

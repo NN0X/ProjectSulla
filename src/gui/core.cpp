@@ -16,12 +16,7 @@
 #include "../primitives.h"
 #include "../utils.h"
 #include "../part.h"
-
-struct CompiledMeta
-{
-        int inputs;
-        int outputs;
-};
+#include "../compiler/compiler.h"
 
 Color getThemeColor(const AppState& state, Color light, Color dark)
 {
@@ -68,6 +63,8 @@ void refreshCompiledModules(AppState& state)
         state.compiledModules.clear();
         state.compiledInputs.clear();
         state.compiledOutputs.clear();
+        state.compiledInputLabels.clear();
+        state.compiledOutputLabels.clear();
         if (std::filesystem::exists("parts"))
         {
                 for (const auto& entry : std::filesystem::directory_iterator("parts"))
@@ -86,6 +83,8 @@ void refreshCompiledModules(AppState& state)
                                                 state.compiledModules.push_back(modName);
                                                 state.compiledInputs[modName] = meta.inputs;
                                                 state.compiledOutputs[modName] = meta.outputs;
+                                                state.compiledInputLabels[modName] = meta.inputLabels;
+                                                state.compiledOutputLabels[modName] = meta.outputLabels;
                                         }
                                 }
                         }
@@ -137,11 +136,7 @@ void recompileSimulation(AppState& state)
         int outIdx = 0;
         for(std::map<int, PartType>::iterator it = state.partTypes.begin(); it != state.partTypes.end(); ++it)
         {
-                if (it->second == PART_TYPE_OUTPUT)
-                {
-                        simConnections[{state.rootSinkID, outIdx++}] = {it->first, 0};
-                }
-                else if (it->second == PART_TYPE_DISPLAY)
+                if (it->second == PART_TYPE_OUTPUT || it->second == PART_TYPE_DISPLAY)
                 {
                         int inC = state.inputCounts[it->first];
                         for (int p = 0; p < inC; ++p)

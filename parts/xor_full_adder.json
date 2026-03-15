@@ -1,4 +1,13 @@
 {
    "inputs": 3,
-   "outputs": 2
+   "outputs": 2,
+   "inputLabels": [
+      "A",
+      "B",
+      "Carry in"
+   ],
+   "outputLabels": [
+      "Sum",
+      "Carry out"
+   ]
 }

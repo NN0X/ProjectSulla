@@ -29,6 +29,9 @@ struct AppState
 
         std::map<int, std::vector<State>> sourceValues;
 
+        std::map<int, std::vector<std::string>> inputPinLabels;
+        std::map<int, std::vector<std::string>> outputPinLabels;
+
         Part simulation;
         bool isSimulating = false;
         float targetHZ = 1.0f;
@@ -57,6 +60,7 @@ struct AppState
 
         bool showSaveDialog = false;
         bool showLoadDialog = false;
+        bool showCompileDialog = false;
         bool showDeleteConfirm = false;
         bool showOverwriteConfirm = false;
         bool showQuitConfirm = false;
@@ -80,6 +84,8 @@ struct AppState
         std::vector<std::string> compiledModules;
         std::map<std::string, int> compiledInputs;
         std::map<std::string, int> compiledOutputs;
+        std::map<std::string, std::vector<std::string>> compiledInputLabels;
+        std::map<std::string, std::vector<std::string>> compiledOutputLabels;
 
         Camera2D camera = { {0,0}, {0,0}, 0.0f, 1.0f };
 

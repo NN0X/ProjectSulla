@@ -15,6 +15,22 @@
 #include "../utils.h"
 #include "../part.h"
 
+static const Color WIRE_PALETTE[] = {
+        {66, 135, 245, 255},
+        {235, 64, 52, 255},
+        {46, 184, 46, 255},
+        {168, 50, 186, 255},
+        {230, 150, 20, 255},
+        {20, 184, 184, 255},
+        {184, 62, 120, 255},
+        {120, 100, 50, 255},
+        {100, 100, 220, 255},
+        {200, 200, 40, 255},
+        {50, 150, 100, 255},
+        {180, 80, 80, 255},
+};
+static const int WIRE_PALETTE_SIZE = sizeof(WIRE_PALETTE) / sizeof(WIRE_PALETTE[0]);
+
 void drawTextFit(const char* text, float x, float y, float width, int fontSize, Color color)
 {
         int defaultSize = MeasureText(text, fontSize);
@@ -48,10 +64,23 @@ void drawGrid(const AppState& state)
         }
 }
 
+static size_t computeOutputSlotIndex(const AppState& state, int targetID)
+{
+        size_t index = 0;
+        for (std::map<int, PartType>::const_iterator it = state.partTypes.begin(); it != state.partTypes.end(); ++it)
+        {
+                if (it->first == targetID) break;
+                if (it->second == PART_TYPE_OUTPUT || it->second == PART_TYPE_DISPLAY)
+                {
+                        index += state.inputCounts.at(it->first);
+                }
+        }
+        return index;
+}
+
 void drawWires(AppState& state)
 {
         const float KINK_OFFSET = 20.0f; 
-        Color colorOff = state.darkMode ? COLOR_WIRE_OFF_DARK : COLOR_WIRE_OFF;
         for (std::map<PartPin, PartPin>::iterator it = state.connections.begin(); it != state.connections.end(); ++it)
         {
                 int fromID = it->second.first;
@@ -68,7 +97,19 @@ void drawWires(AppState& state)
                 float pinYStep = (inCount > 1) ? (toSize.y - PIN_Y_OFFSET_BASE*2) / (inCount - 1) : 0;
                 float yOff = (inCount <= 1) ? 0 : -toSize.y/2 + PIN_Y_OFFSET_BASE + it->first.second * pinYStep;
                 Vector2 end = {endPos.x - toSize.x/2 - PIN_SIZE, endPos.y + yOff};
-                Color c = (state.selectedConnection == it->first) ? COLOR_WIRE_SELECTED : colorOff;
+
+                Color c;
+                if (state.selectedConnection == it->first)
+                {
+                        c = COLOR_WIRE_SELECTED;
+                }
+                else
+                {
+                        int hash = fromID * 7919 + it->second.second * 31 + toID * 131 + it->first.second;
+                        int idx = ((hash % WIRE_PALETTE_SIZE) + WIRE_PALETTE_SIZE) % WIRE_PALETTE_SIZE;
+                        c = WIRE_PALETTE[idx];
+                }
+
                 Vector2 p1 = start;
                 Vector2 p2 = {start.x + KINK_OFFSET, start.y};
                 Vector2 p5 = end;
@@ -108,6 +149,7 @@ void drawWires(AppState& state)
                 Vector2 start = {pos.x + size.x/2 + PIN_SIZE, pos.y + yOff};
                 Vector2 mouse = GetScreenToWorld2D(GetMousePosition(), state.camera);
                 Vector2 kink = {start.x + KINK_OFFSET, start.y};
+                Color colorOff = state.darkMode ? COLOR_WIRE_OFF_DARK : COLOR_WIRE_OFF;
                 DrawLineEx(start, kink, WIRE_THICKNESS, colorOff);
                 DrawLineEx(kink, mouse, WIRE_THICKNESS, colorOff);
         }
@@ -147,22 +189,15 @@ void drawParts(AppState& state)
                 }
                 else if (type == PART_TYPE_OUTPUT)
                 {
-                        size_t index = 0;
-                        for(std::map<int, PartType>::iterator outIt = state.partTypes.begin(); outIt != state.partTypes.end(); ++outIt)
+                        size_t index = computeOutputSlotIndex(state, id);
+                        float pinYStep = (inCount > 1) ? (size.y - PIN_Y_OFFSET_BASE*2) / (inCount - 1) : 0;
+                        for (int i = 0; i < inCount; ++i)
                         {
-                                if (outIt->first == id) break;
-                                if (outIt->second == PART_TYPE_OUTPUT)
-                                {
-                                        index++;
-                                }
-                                else if (outIt->second == PART_TYPE_DISPLAY)
-                                {
-                                        index += state.inputCounts.at(outIt->first);
-                                }
+                                float yOff = (inCount <= 1) ? 0 : -size.y/2 + PIN_Y_OFFSET_BASE + i * pinYStep;
+                                State s = (index + i < state.lastOutputStates.size()) ? state.lastOutputStates[index + i] : STATE_LOW;
+                                Color ledColor = (s == STATE_HIGH) ? COLOR_LED_OUT_ON : COLOR_LED_OUT_OFF;
+                                DrawRectangle(pos.x + size.x/2 - PART_LED_SIZE - 5, pos.y + yOff - PART_LED_SIZE/2, PART_LED_SIZE, PART_LED_SIZE, ledColor);
                         }
-                        State s = (index < state.lastOutputStates.size()) ? state.lastOutputStates[index] : STATE_LOW;
-                        Color ledColor = (s == STATE_HIGH) ? COLOR_LED_OUT_ON : COLOR_LED_OUT_OFF;
-                        DrawRectangle(body.x + size.x/2 - PART_LED_SIZE/2, body.y + size.y - PART_LED_SIZE - 5, PART_LED_SIZE, PART_LED_SIZE, ledColor);
                 }
                 else if (type == PART_TYPE_DISPLAY)
                 {
@@ -170,22 +205,9 @@ void drawParts(AppState& state)
                         Color screenColor = DISPLAY_SCREEN_COLOR;
                         DrawRectangleRec(screen, screenColor);
 
-                        size_t index = 0;
-                        for (std::map<int, PartType>::iterator outIt = state.partTypes.begin(); outIt != state.partTypes.end(); ++outIt)
-                        {
-                                if (outIt->first == id) break;
-                                if (outIt->second == PART_TYPE_OUTPUT)
-                                {
-                                        index++;
-                                }
-                                else if (outIt->second == PART_TYPE_DISPLAY)
-                                {
-                                        index += state.inputCounts.at(outIt->first);
-                                }
-                        }
-                        int inC = state.inputCounts.at(id);
+                        size_t index = computeOutputSlotIndex(state, id);
                         int decimalValue = 0;
-                        for (int i = 0; i < inC; ++i)
+                        for (int i = 0; i < inCount; ++i)
                         {
                                 State s = (index + i < state.lastOutputStates.size()) ? state.lastOutputStates[index + i] : STATE_LOW;
                                 if (s == STATE_HIGH) decimalValue |= (1 << i);
@@ -203,6 +225,14 @@ void drawParts(AppState& state)
                                 float yOff = (inCount <= 1) ? 0 : -size.y/2 + PIN_Y_OFFSET_BASE + i * pinYStep;
                                 Rectangle pinRect = {pos.x - size.x/2 - PIN_SIZE, pos.y + yOff - PIN_SIZE/2, PIN_SIZE, PIN_SIZE};
                                 DrawRectangleRec(pinRect, cBorder);
+                                if (state.inputPinLabels.count(id) && i < (int)state.inputPinLabels.at(id).size())
+                                {
+                                        const std::string& lbl = state.inputPinLabels.at(id)[i];
+                                        if (!lbl.empty())
+                                        {
+                                                DrawText(lbl.c_str(), (int)(pos.x - size.x/2 + PIN_LABEL_INSET), (int)(pos.y + yOff - PIN_LABEL_FONT_SIZE/2), PIN_LABEL_FONT_SIZE, cText);
+                                        }
+                                }
                         }
                 }
                 if (outCount > 0)
@@ -213,6 +243,15 @@ void drawParts(AppState& state)
                                 float yOff = (outCount <= 1) ? 0 : -size.y/2 + PIN_Y_OFFSET_BASE + i * pinYStep;
                                 Rectangle pinRect = {pos.x + size.x/2, pos.y + yOff - PIN_SIZE/2, PIN_SIZE, PIN_SIZE};
                                 DrawRectangleRec(pinRect, cBorder);
+                                if (state.outputPinLabels.count(id) && i < (int)state.outputPinLabels.at(id).size())
+                                {
+                                        const std::string& lbl = state.outputPinLabels.at(id)[i];
+                                        if (!lbl.empty())
+                                        {
+                                                int lblW = MeasureText(lbl.c_str(), PIN_LABEL_FONT_SIZE);
+                                                DrawText(lbl.c_str(), (int)(pos.x + size.x/2 - PIN_LABEL_INSET - lblW), (int)(pos.y + yOff - PIN_LABEL_FONT_SIZE/2), PIN_LABEL_FONT_SIZE, cText);
+                                        }
+                                }
                         }
                 }
         }
@@ -247,6 +286,7 @@ void drawUI(AppState& state)
                 DrawText(btnLabels[i], btn.x + btn.width/2 - tw/2, btn.y + btn.height/2 - 5, 10, BLACK);
                 x += TOOLBAR_BTN_WIDTH + TOOLBAR_BTN_SPACING;
         }
+        bool notDragging = (state.draggingNewPartType == -1 && state.draggingLayoutFile == "" && state.draggingCompiledFile == "");
         if (state.showSideMenu)
         {
                 DrawRectangle(0, TOOLBAR_HEIGHT, DEFAULT_SIDEMENU_WIDTH, GetScreenHeight() - TOOLBAR_HEIGHT, uiBg);
@@ -262,7 +302,7 @@ void drawUI(AppState& state)
                         bool hovered = CheckCollisionPointRec(GetMousePosition(), btn);
                         DrawRectangleRounded(btn, 0.2f, 8, hovered ? LIGHTGRAY : GRAY);
                         DrawText(PART_TYPE_NAMES[i], btn.x + SIDEMENU_BUTTON_TEXT_OFFSET_X, btn.y + SIDEMENU_BUTTON_TEXT_OFFSET_Y, SIDEMENU_BUTTON_TEXT_SIZE, BLACK);
-                        if (hovered)
+                        if (hovered && notDragging)
                         {
                                 DrawRectangleRoundedLines(btn, 0.2f, 8, BLUE);
                                 if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) state.draggingNewPartType = i;
@@ -282,7 +322,7 @@ void drawUI(AppState& state)
                         DrawRectangleRounded(btn, 0.2f, 8, hovered ? LIGHTGRAY : GRAY);
                         std::filesystem::path p(file);
                         drawTextFit(p.stem().string().c_str(), btn.x + 5, btn.y + 5, btn.width - 10, SIDEMENU_LIST_TEXT_SIZE, BLACK);
-                        if (hovered)
+                        if (hovered && notDragging)
                         {
                                 DrawRectangleRoundedLines(btn, 0.2f, 8, BLUE);
                                 if (IsMouseButtonDown(MOUSE_BUTTON_LEFT) && Vector2Distance(GetMouseDelta(), {0,0}) > 1.0f) state.draggingLayoutFile = file;
@@ -306,7 +346,7 @@ void drawUI(AppState& state)
                         bool hovered = CheckCollisionPointRec(GetMousePosition(), btn);
                         DrawRectangleRounded(btn, 0.2f, 8, hovered ? LIGHTGRAY : GRAY);
                         drawTextFit(mod.c_str(), btn.x + 5, btn.y + 5, btn.width - 10, SIDEMENU_LIST_TEXT_SIZE, BLACK);
-                        if (hovered)
+                        if (hovered && notDragging)
                         {
                                 DrawRectangleRoundedLines(btn, 0.2f, 8, BLUE);
                                 if (IsMouseButtonDown(MOUSE_BUTTON_LEFT) && Vector2Distance(GetMouseDelta(), {0,0}) > 1.0f) state.draggingCompiledFile = mod;
@@ -332,12 +372,12 @@ void drawUI(AppState& state)
                 DrawRectangle(m.x - BASE_PART_WIDTH/2, m.y - BASE_PART_HEIGHT/2, BASE_PART_WIDTH, BASE_PART_HEIGHT, Fade(GRAY, 0.5f));
                 DrawText(state.draggingCompiledFile.c_str(), m.x, m.y, 10, textC);
         }
-        if (state.showSaveDialog || state.showLoadDialog || state.showRenameDialog)
+        if (state.showSaveDialog || state.showLoadDialog || state.showRenameDialog || state.showCompileDialog)
         {
                 DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), Fade(BLACK, 0.5f));
                 DrawRectangle(GetScreenWidth()/2 - DIALOG_WIDTH/2, GetScreenHeight()/2 - DIALOG_HEIGHT/2, DIALOG_WIDTH, DIALOG_HEIGHT, uiBg);
                 DrawRectangleLines(GetScreenWidth()/2 - DIALOG_WIDTH/2, GetScreenHeight()/2 - DIALOG_HEIGHT/2, DIALOG_WIDTH, DIALOG_HEIGHT, uiBorder);
-                const char* title = state.showRenameDialog ? "Rename Part:" : (state.showSaveDialog ? "Save As:" : "Load Layout:");
+                const char* title = state.showRenameDialog ? "Rename Part:" : (state.showCompileDialog ? "Compile As:" : (state.showSaveDialog ? "Save As:" : "Load Layout:"));
                 int tW = MeasureText(title, 20);
                 DrawText(title, GetScreenWidth()/2 - tW/2, GetScreenHeight()/2 - SAVE_DIALOG_TEXT_Y_OFFSET, 20, textC);
                 Rectangle box = { (float)GetScreenWidth()/2 - SAVE_DIALOG_INPUT_WIDTH/2, (float)GetScreenHeight()/2 - SAVE_DIALOG_INPUT_Y_OFFSET, SAVE_DIALOG_INPUT_WIDTH, SAVE_DIALOG_INPUT_HEIGHT };
@@ -360,7 +400,7 @@ void drawUI(AppState& state)
                                 DrawRectangle(box.x + 5 + (SAVE_DIALOG_INPUT_WIDTH - 60) + 2, box.y + 5 + (20 - newSize)/2, 5, newSize, BLACK);
                         }
                 }
-                if (!state.showRenameDialog)
+                if (!state.showRenameDialog && !state.showCompileDialog)
                 {
                         int extWidth = MeasureText(".json", 20);
                         DrawText(".json", box.x + box.width - extWidth - 5, box.y + 5, 20, BLACK);
@@ -375,7 +415,7 @@ void drawUI(AppState& state)
                 DrawText("Cancel", cancelBtn.x + cancelBtn.width/2 - cW/2, cancelBtn.y + cancelBtn.height/2 - 5, 10, BLACK);
                 DrawRectangleRounded(confirmBtn, 0.2f, 8, LIGHTGRAY);
                 DrawRectangleRoundedLines(confirmBtn, 0.2f, 8, DARKGRAY);
-                const char* confirmLabel = state.showRenameDialog ? "Rename" : (state.showSaveDialog ? "Save" : "Load");
+                const char* confirmLabel = state.showRenameDialog ? "Rename" : (state.showCompileDialog ? "Compile" : (state.showSaveDialog ? "Save" : "Load"));
                 int fW = MeasureText(confirmLabel, 10);
                 DrawText(confirmLabel, confirmBtn.x + confirmBtn.width/2 - fW/2, confirmBtn.y + confirmBtn.height/2 - 5, 10, BLACK);
         }
@@ -446,19 +486,40 @@ void drawUI(AppState& state)
         {
                 Vector2 p = state.contextMenu.position;
                 PartType type = state.partTypes[state.contextMenu.targetPartID];
-                bool canModPins = (type != PART_TYPE_CUSTOM && type != PART_TYPE_OUTPUT && type != PART_TYPE_CLOCK);
-                DrawRectangle(p.x, p.y, CM_WIDTH, CM_ROW_HEIGHT*4, uiBg);
-                DrawRectangleLines(p.x, p.y, CM_WIDTH, CM_ROW_HEIGHT*4, uiBorder);
-                DrawText("Edit Label", p.x + CM_TEXT_OFFSET_X, p.y + CM_TEXT_OFFSET_Y, CM_TEXT_SIZE, textC);
-                DrawText("Add Pin", p.x + CM_TEXT_OFFSET_X, p.y + CM_ROW_HEIGHT + CM_TEXT_OFFSET_Y, CM_TEXT_SIZE, canModPins ? textC : GRAY);
-                DrawText("Remove Pin", p.x + CM_TEXT_OFFSET_X, p.y + CM_ROW_HEIGHT*2 + CM_TEXT_OFFSET_Y, CM_TEXT_SIZE, canModPins ? textC : GRAY);
-                DrawText("Delete Part", p.x + CM_TEXT_OFFSET_X, p.y + CM_ROW_HEIGHT*3 + CM_TEXT_OFFSET_Y, CM_TEXT_SIZE, RED);
-                for (int i=0; i<4; ++i)
+                bool isOutput = (type == PART_TYPE_OUTPUT);
+                bool canModPins = (type != PART_TYPE_CUSTOM);
+                int numRows = isOutput ? 6 : 4;
+                DrawRectangle(p.x, p.y, CM_WIDTH, CM_ROW_HEIGHT*numRows, uiBg);
+                DrawRectangleLines(p.x, p.y, CM_WIDTH, CM_ROW_HEIGHT*numRows, uiBorder);
+                if (isOutput)
                 {
-                        if (i == 1 || i == 2) if (!canModPins) continue;
-                        if (CheckCollisionPointRec(GetMousePosition(), {p.x, p.y + CM_ROW_HEIGHT*i, CM_WIDTH, CM_ROW_HEIGHT}))
+                        DrawText("Edit Label", p.x + CM_TEXT_OFFSET_X, p.y + CM_TEXT_OFFSET_Y, CM_TEXT_SIZE, textC);
+                        DrawText("Add Input", p.x + CM_TEXT_OFFSET_X, p.y + CM_ROW_HEIGHT + CM_TEXT_OFFSET_Y, CM_TEXT_SIZE, textC);
+                        DrawText("Remove Input", p.x + CM_TEXT_OFFSET_X, p.y + CM_ROW_HEIGHT*2 + CM_TEXT_OFFSET_Y, CM_TEXT_SIZE, textC);
+                        DrawText("Add Output", p.x + CM_TEXT_OFFSET_X, p.y + CM_ROW_HEIGHT*3 + CM_TEXT_OFFSET_Y, CM_TEXT_SIZE, textC);
+                        DrawText("Remove Output", p.x + CM_TEXT_OFFSET_X, p.y + CM_ROW_HEIGHT*4 + CM_TEXT_OFFSET_Y, CM_TEXT_SIZE, textC);
+                        DrawText("Delete Part", p.x + CM_TEXT_OFFSET_X, p.y + CM_ROW_HEIGHT*5 + CM_TEXT_OFFSET_Y, CM_TEXT_SIZE, RED);
+                        for (int i = 0; i < numRows; ++i)
                         {
-                                DrawRectangleLines(p.x, p.y + CM_ROW_HEIGHT*i, CM_WIDTH, CM_ROW_HEIGHT, BLUE);
+                                if (CheckCollisionPointRec(GetMousePosition(), {p.x, p.y + CM_ROW_HEIGHT*i, CM_WIDTH, CM_ROW_HEIGHT}))
+                                {
+                                        DrawRectangleLines(p.x, p.y + CM_ROW_HEIGHT*i, CM_WIDTH, CM_ROW_HEIGHT, BLUE);
+                                }
+                        }
+                }
+                else
+                {
+                        DrawText("Edit Label", p.x + CM_TEXT_OFFSET_X, p.y + CM_TEXT_OFFSET_Y, CM_TEXT_SIZE, textC);
+                        DrawText("Add Pin", p.x + CM_TEXT_OFFSET_X, p.y + CM_ROW_HEIGHT + CM_TEXT_OFFSET_Y, CM_TEXT_SIZE, canModPins ? textC : GRAY);
+                        DrawText("Remove Pin", p.x + CM_TEXT_OFFSET_X, p.y + CM_ROW_HEIGHT*2 + CM_TEXT_OFFSET_Y, CM_TEXT_SIZE, canModPins ? textC : GRAY);
+                        DrawText("Delete Part", p.x + CM_TEXT_OFFSET_X, p.y + CM_ROW_HEIGHT*3 + CM_TEXT_OFFSET_Y, CM_TEXT_SIZE, RED);
+                        for (int i = 0; i < 4; ++i)
+                        {
+                                if (i == 1 || i == 2) if (!canModPins) continue;
+                                if (CheckCollisionPointRec(GetMousePosition(), {p.x, p.y + CM_ROW_HEIGHT*i, CM_WIDTH, CM_ROW_HEIGHT}))
+                                {
+                                        DrawRectangleLines(p.x, p.y + CM_ROW_HEIGHT*i, CM_WIDTH, CM_ROW_HEIGHT, BLUE);
+                                }
                         }
                 }
         }

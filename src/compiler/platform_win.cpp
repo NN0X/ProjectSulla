@@ -3,7 +3,10 @@
 #include <fstream>
 #include <cstdlib>
 #include <filesystem>
+#include <map>
 #include <windows.h>
+
+static std::map<std::string, HINSTANCE> loadedHandles;
 
 bool compileSharedLibrary(const std::string& cppCode, const std::string& moduleName)
 {
@@ -24,11 +27,25 @@ bool compileSharedLibrary(const std::string& cppCode, const std::string& moduleN
         return (result == 0);
 }
 
+void unloadCompiledPart(const std::string& moduleName)
+{
+        std::map<std::string, HINSTANCE>::iterator it = loadedHandles.find(moduleName);
+        if (it != loadedHandles.end())
+        {
+                FreeLibrary(it->second);
+                loadedHandles.erase(it);
+        }
+}
+
 Part loadCompiledPart(const std::string& moduleName, int outCount)
 {
+        unloadCompiledPart(moduleName);
+
         std::string libPath = "./parts/lib" + moduleName + ".dll";
         HINSTANCE handle = LoadLibraryA(libPath.c_str());
         if (!handle) return nullptr;
+
+        loadedHandles[moduleName] = handle;
 
         void (*executeTick)(const uint8_t*, uint8_t*) = (void(*)(const uint8_t*, uint8_t*))GetProcAddress(handle, "executeTick");
 

@@ -20,11 +20,106 @@
 #include "../part.h"
 #include "../compiler/compiler.h"
 
-struct CompiledMeta
+static void cleanupInputPinConnections(AppState& state, int partID, int removedIdx)
 {
-        int inputs;
-        int outputs;
-};
+        std::vector<PartPin> toRemove;
+        for (std::map<PartPin, PartPin>::iterator it = state.connections.begin(); it != state.connections.end(); ++it)
+        {
+                if (it->first.first == partID && it->first.second == removedIdx)
+                {
+                        toRemove.push_back(it->first);
+                }
+        }
+        for (size_t i = 0; i < toRemove.size(); ++i)
+        {
+                state.connections.erase(toRemove[i]);
+        }
+}
+
+static void cleanupOutputPinConnections(AppState& state, int partID, int removedIdx)
+{
+        std::vector<PartPin> toRemove;
+        for (std::map<PartPin, PartPin>::iterator it = state.connections.begin(); it != state.connections.end(); ++it)
+        {
+                if (it->second.first == partID && it->second.second == removedIdx)
+                {
+                        toRemove.push_back(it->first);
+                }
+        }
+        for (size_t i = 0; i < toRemove.size(); ++i)
+        {
+                state.connections.erase(toRemove[i]);
+        }
+}
+
+static void doCompile(AppState& state, const std::string& modName)
+{
+        std::string cpp = transpileToCpp(state);
+        if (compileSharedLibrary(cpp, modName))
+        {
+                int inC = 0, outC = 0;
+                std::vector<std::string> inLabels;
+                std::vector<std::string> outLabels;
+
+                std::vector<int> sortedSources;
+                std::vector<int> sortedOutputs;
+                for (std::map<int, PartType>::iterator it = state.partTypes.begin(); it != state.partTypes.end(); ++it)
+                {
+                        if (it->second == PART_TYPE_SOURCE) sortedSources.push_back(it->first);
+                        if (it->second == PART_TYPE_OUTPUT || it->second == PART_TYPE_DISPLAY) sortedOutputs.push_back(it->first);
+                }
+                std::sort(sortedSources.begin(), sortedSources.end());
+                std::sort(sortedOutputs.begin(), sortedOutputs.end());
+
+                for (size_t s = 0; s < sortedSources.size(); ++s)
+                {
+                        int sid = sortedSources[s];
+                        int pins = state.outputCounts[sid];
+                        std::string lbl = state.labels[sid];
+                        for (int p = 0; p < pins; ++p)
+                        {
+                                if (pins == 1) inLabels.push_back(lbl);
+                                else inLabels.push_back(lbl + "[" + std::to_string(p) + "]");
+                        }
+                        inC += pins;
+                }
+                for (size_t s = 0; s < sortedOutputs.size(); ++s)
+                {
+                        int oid = sortedOutputs[s];
+                        int pins = state.inputCounts[oid];
+                        std::string lbl = state.labels[oid];
+                        for (int p = 0; p < pins; ++p)
+                        {
+                                if (pins == 1) outLabels.push_back(lbl);
+                                else outLabels.push_back(lbl + "[" + std::to_string(p) + "]");
+                        }
+                        outC += pins;
+                }
+
+                if (std::find(state.compiledModules.begin(), state.compiledModules.end(), modName) == state.compiledModules.end())
+                {
+                        state.compiledModules.push_back(modName);
+                }
+                state.compiledInputs[modName] = inC;
+                state.compiledOutputs[modName] = outC;
+                state.compiledInputLabels[modName] = inLabels;
+                state.compiledOutputLabels[modName] = outLabels;
+
+                if (!std::filesystem::exists("parts")) std::filesystem::create_directory("parts");
+                CompiledMeta meta{inC, outC, inLabels, outLabels};
+                std::string json;
+                if (!glz::write<glz::opts{.prettify = true}>(meta, json))
+                {
+                        std::ofstream file("parts/" + modName + ".json");
+                        if (file.is_open())
+                        {
+                                file << json;
+                                file.close();
+                        }
+                }
+                refreshCompiledModules(state);
+        }
+}
 
 void dropPart(AppState& state, int type, Vector2 pos)
 {
@@ -85,6 +180,8 @@ void deleteParts(AppState& state)
                 state.outputCounts.erase(id);
                 state.sourceValues.erase(id);
                 state.labels.erase(id);
+                state.inputPinLabels.erase(id);
+                state.outputPinLabels.erase(id);
 
                 std::vector<PartPin> toRemove;
                 for(std::map<PartPin, PartPin>::iterator connIt = state.connections.begin(); connIt != state.connections.end(); ++connIt)
@@ -109,7 +206,7 @@ void handleInput(AppState& state)
         Vector2 mousePos = GetMousePosition();
         Vector2 worldMouse = GetScreenToWorld2D(mousePos, state.camera);
 
-        bool isDialogActive = state.showSaveDialog || state.showLoadDialog || state.showRenameDialog || state.showDeleteConfirm || state.showOverwriteConfirm || state.showQuitConfirm;
+        bool isDialogActive = state.showSaveDialog || state.showLoadDialog || state.showRenameDialog || state.showCompileDialog || state.showDeleteConfirm || state.showOverwriteConfirm || state.showQuitConfirm;
         bool mouseOverUI = (mousePos.x < sideMenuWidth) || (mousePos.y < TOOLBAR_HEIGHT) || isDialogActive;
 
         if (IsKeyPressed(KEY_F11)) ToggleFullscreen();
@@ -133,7 +230,7 @@ void handleInput(AppState& state)
                 return;
         }
 
-        if (state.showSaveDialog || state.showLoadDialog || state.showRenameDialog)
+        if (state.showSaveDialog || state.showLoadDialog || state.showRenameDialog || state.showCompileDialog)
         {
                 int key = GetCharPressed();
                 while (key > 0)
@@ -167,6 +264,7 @@ void handleInput(AppState& state)
                                 state.showSaveDialog = false;
                                 state.showLoadDialog = false;
                                 state.showRenameDialog = false;
+                                state.showCompileDialog = false;
                         }
                         if (CheckCollisionPointRec(mousePos, confirmBtn)) confirm = true;
                 }
@@ -177,6 +275,13 @@ void handleInput(AppState& state)
                         {
                                 state.labels[state.renamePartID] = state.fileNameBuffer;
                                 state.showRenameDialog = false;
+                                return;
+                        }
+                        if (state.showCompileDialog)
+                        {
+                                std::string modName = std::string(state.fileNameBuffer);
+                                doCompile(state, modName);
+                                state.showCompileDialog = false;
                                 return;
                         }
                         std::string fname = "layouts/" + std::string(state.fileNameBuffer) + ".json";
@@ -210,6 +315,7 @@ void handleInput(AppState& state)
                         state.showSaveDialog = false;
                         state.showLoadDialog = false;
                         state.showRenameDialog = false;
+                        state.showCompileDialog = false;
                 }
                 return;
         }
@@ -307,39 +413,7 @@ void handleInput(AppState& state)
                                         if (i == 7) state.stepCount = 0;
                                         if (i == 8) state.targetHZ *= 2.0f;
                                         if (i == 9) state.targetHZ *= 0.5f;
-                                        if (i == 10)
-                                        {
-                                                std::string cpp = transpileToCpp(state);
-                                                std::string modName = std::string(state.fileNameBuffer);
-                                                if (compileSharedLibrary(cpp, modName))
-                                                {
-                                                        int inC = 0, outC = 0;
-                                                        for (std::map<int, PartType>::iterator it = state.partTypes.begin(); it != state.partTypes.end(); ++it)
-                                                        {
-                                                                if (it->second == PART_TYPE_SOURCE) inC += state.outputCounts[it->first];
-                                                                if (it->second == PART_TYPE_OUTPUT || it->second == PART_TYPE_DISPLAY) outC += state.inputCounts[it->first];
-                                                        }
-                                                        if (std::find(state.compiledModules.begin(), state.compiledModules.end(), modName) == state.compiledModules.end())
-                                                        {
-                                                                state.compiledModules.push_back(modName);
-                                                        }
-                                                        state.compiledInputs[modName] = inC;
-                                                        state.compiledOutputs[modName] = outC;
-
-                                                        if (!std::filesystem::exists("parts")) std::filesystem::create_directory("parts");
-                                                        CompiledMeta meta{inC, outC};
-                                                        std::string json;
-                                                        if (!glz::write<glz::opts{.prettify = true}>(meta, json))
-                                                        {
-                                                                std::ofstream file("parts/" + modName + ".json");
-                                                                if (file.is_open())
-                                                                {
-                                                                        file << json;
-                                                                        file.close();
-                                                                }
-                                                        }
-                                                }
-                                        }
+                                        if (i == 10) state.showCompileDialog = true;
                                 }
                                 x += TOOLBAR_BTN_WIDTH + TOOLBAR_BTN_SPACING;
                         }
@@ -373,64 +447,151 @@ void handleInput(AppState& state)
                 if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
                 {
                         Vector2 p = state.contextMenu.position;
-                        Rectangle rLabel = {p.x, p.y, CM_WIDTH, CM_ROW_HEIGHT};
-                        Rectangle rAdd = {p.x, p.y + CM_ROW_HEIGHT, CM_WIDTH, CM_ROW_HEIGHT};
-                        Rectangle rRem = {p.x, p.y + CM_ROW_HEIGHT*2, CM_WIDTH, CM_ROW_HEIGHT};
-                        Rectangle rDel = {p.x, p.y + CM_ROW_HEIGHT*3, CM_WIDTH, CM_ROW_HEIGHT};
-                        PartType type = state.partTypes[state.contextMenu.targetPartID];
-                        bool canModPins = (type != PART_TYPE_CUSTOM && type != PART_TYPE_OUTPUT && type != PART_TYPE_CLOCK);
-                        if (CheckCollisionPointRec(mousePos, rLabel))
+                        int tid = state.contextMenu.targetPartID;
+                        PartType type = state.partTypes[tid];
+                        bool isOutput = (type == PART_TYPE_OUTPUT);
+
+                        if (isOutput)
                         {
-                                state.showRenameDialog = true;
-                                state.renamePartID = state.contextMenu.targetPartID;
-                                std::string current = state.labels[state.renamePartID];
-                                snprintf(state.fileNameBuffer, sizeof(state.fileNameBuffer), "%s", current.c_str());
-                                state.contextMenu.active = false;
-                        }
-                        else if (canModPins && CheckCollisionPointRec(mousePos, rAdd))
-                        {
-                                if (state.partTypes[state.contextMenu.targetPartID] == PART_TYPE_SOURCE)
+                                Rectangle rLabel = {p.x, p.y, CM_WIDTH, CM_ROW_HEIGHT};
+                                Rectangle rAddIn = {p.x, p.y + CM_ROW_HEIGHT, CM_WIDTH, CM_ROW_HEIGHT};
+                                Rectangle rRemIn = {p.x, p.y + CM_ROW_HEIGHT*2, CM_WIDTH, CM_ROW_HEIGHT};
+                                Rectangle rAddOut = {p.x, p.y + CM_ROW_HEIGHT*3, CM_WIDTH, CM_ROW_HEIGHT};
+                                Rectangle rRemOut = {p.x, p.y + CM_ROW_HEIGHT*4, CM_WIDTH, CM_ROW_HEIGHT};
+                                Rectangle rDel = {p.x, p.y + CM_ROW_HEIGHT*5, CM_WIDTH, CM_ROW_HEIGHT};
+
+                                if (CheckCollisionPointRec(mousePos, rLabel))
                                 {
-                                        state.outputCounts[state.contextMenu.targetPartID]++;
-                                        state.sourceValues[state.contextMenu.targetPartID].push_back(STATE_LOW);
+                                        state.showRenameDialog = true;
+                                        state.renamePartID = tid;
+                                        std::string current = state.labels[tid];
+                                        snprintf(state.fileNameBuffer, sizeof(state.fileNameBuffer), "%s", current.c_str());
+                                        state.contextMenu.active = false;
+                                }
+                                else if (CheckCollisionPointRec(mousePos, rAddIn))
+                                {
+                                        state.inputCounts[tid]++;
+                                        state.simulation = nullptr;
+                                        state.contextMenu.active = false;
+                                }
+                                else if (CheckCollisionPointRec(mousePos, rRemIn))
+                                {
+                                        if (state.inputCounts[tid] > 0)
+                                        {
+                                                int removedIdx = state.inputCounts[tid] - 1;
+                                                cleanupInputPinConnections(state, tid, removedIdx);
+                                                state.inputCounts[tid]--;
+                                        }
+                                        state.simulation = nullptr;
+                                        state.contextMenu.active = false;
+                                }
+                                else if (CheckCollisionPointRec(mousePos, rAddOut))
+                                {
+                                        state.outputCounts[tid]++;
+                                        state.simulation = nullptr;
+                                        state.contextMenu.active = false;
+                                }
+                                else if (CheckCollisionPointRec(mousePos, rRemOut))
+                                {
+                                        if (state.outputCounts[tid] > 0)
+                                        {
+                                                int removedIdx = state.outputCounts[tid] - 1;
+                                                cleanupOutputPinConnections(state, tid, removedIdx);
+                                                state.outputCounts[tid]--;
+                                        }
+                                        state.simulation = nullptr;
+                                        state.contextMenu.active = false;
+                                }
+                                else if (CheckCollisionPointRec(mousePos, rDel))
+                                {
+                                        state.selectedParts.clear();
+                                        state.selectedParts.insert(tid);
+                                        deleteParts(state);
+                                        state.contextMenu.active = false;
                                 }
                                 else
                                 {
-                                        state.inputCounts[state.contextMenu.targetPartID]++;
+                                        state.contextMenu.active = false;
                                 }
-                                state.simulation = nullptr;
-                                state.contextMenu.active = false;
-                        }
-                        else if (canModPins && CheckCollisionPointRec(mousePos, rRem))
-                        {
-                                if (state.partTypes[state.contextMenu.targetPartID] == PART_TYPE_SOURCE)
-                                {
-                                        if (state.outputCounts[state.contextMenu.targetPartID] > 1)
-                                        {
-                                                state.outputCounts[state.contextMenu.targetPartID]--;
-                                                state.sourceValues[state.contextMenu.targetPartID].pop_back();
-                                        }
-                                }
-                                else
-                                {
-                                        if (state.inputCounts[state.contextMenu.targetPartID] > 0)
-                                        {
-                                                state.inputCounts[state.contextMenu.targetPartID]--;
-                                        }
-                                }
-                                state.simulation = nullptr;
-                                state.contextMenu.active = false;
-                        }
-                        else if (CheckCollisionPointRec(mousePos, rDel))
-                        {
-                                state.selectedParts.clear();
-                                state.selectedParts.insert(state.contextMenu.targetPartID);
-                                deleteParts(state);
-                                state.contextMenu.active = false;
                         }
                         else
                         {
-                                state.contextMenu.active = false;
+                                Rectangle rLabel = {p.x, p.y, CM_WIDTH, CM_ROW_HEIGHT};
+                                Rectangle rAdd = {p.x, p.y + CM_ROW_HEIGHT, CM_WIDTH, CM_ROW_HEIGHT};
+                                Rectangle rRem = {p.x, p.y + CM_ROW_HEIGHT*2, CM_WIDTH, CM_ROW_HEIGHT};
+                                Rectangle rDel = {p.x, p.y + CM_ROW_HEIGHT*3, CM_WIDTH, CM_ROW_HEIGHT};
+                                bool canModPins = (type != PART_TYPE_CUSTOM);
+
+                                if (CheckCollisionPointRec(mousePos, rLabel))
+                                {
+                                        state.showRenameDialog = true;
+                                        state.renamePartID = tid;
+                                        std::string current = state.labels[tid];
+                                        snprintf(state.fileNameBuffer, sizeof(state.fileNameBuffer), "%s", current.c_str());
+                                        state.contextMenu.active = false;
+                                }
+                                else if (canModPins && CheckCollisionPointRec(mousePos, rAdd))
+                                {
+                                        if (type == PART_TYPE_SOURCE)
+                                        {
+                                                state.outputCounts[tid]++;
+                                                state.sourceValues[tid].push_back(STATE_LOW);
+                                        }
+                                        else if (type == PART_TYPE_CLOCK)
+                                        {
+                                                state.outputCounts[tid]++;
+                                        }
+                                        else
+                                        {
+                                                state.inputCounts[tid]++;
+                                        }
+                                        state.simulation = nullptr;
+                                        state.contextMenu.active = false;
+                                }
+                                else if (canModPins && CheckCollisionPointRec(mousePos, rRem))
+                                {
+                                        if (type == PART_TYPE_SOURCE)
+                                        {
+                                                if (state.outputCounts[tid] > 1)
+                                                {
+                                                        int removedIdx = state.outputCounts[tid] - 1;
+                                                        cleanupOutputPinConnections(state, tid, removedIdx);
+                                                        state.outputCounts[tid]--;
+                                                        state.sourceValues[tid].pop_back();
+                                                }
+                                        }
+                                        else if (type == PART_TYPE_CLOCK)
+                                        {
+                                                if (state.outputCounts[tid] > 1)
+                                                {
+                                                        int removedIdx = state.outputCounts[tid] - 1;
+                                                        cleanupOutputPinConnections(state, tid, removedIdx);
+                                                        state.outputCounts[tid]--;
+                                                }
+                                        }
+                                        else
+                                        {
+                                                if (state.inputCounts[tid] > 0)
+                                                {
+                                                        int removedIdx = state.inputCounts[tid] - 1;
+                                                        cleanupInputPinConnections(state, tid, removedIdx);
+                                                        state.inputCounts[tid]--;
+                                                }
+                                        }
+                                        state.simulation = nullptr;
+                                        state.contextMenu.active = false;
+                                }
+                                else if (CheckCollisionPointRec(mousePos, rDel))
+                                {
+                                        state.selectedParts.clear();
+                                        state.selectedParts.insert(tid);
+                                        deleteParts(state);
+                                        state.contextMenu.active = false;
+                                }
+                                else
+                                {
+                                        state.contextMenu.active = false;
+                                }
                         }
                 }
                 if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) state.contextMenu.active = false;
@@ -695,6 +856,10 @@ void handleInput(AppState& state)
                                 state.outputCounts[id] = nOut;
                                 state.labels[id] = state.draggingCompiledFile;
                                 state.simulation = nullptr;
+                                if (state.compiledInputLabels.count(state.draggingCompiledFile))
+                                        state.inputPinLabels[id] = state.compiledInputLabels[state.draggingCompiledFile];
+                                if (state.compiledOutputLabels.count(state.draggingCompiledFile))
+                                        state.outputPinLabels[id] = state.compiledOutputLabels[state.draggingCompiledFile];
                         }
                 }
                 state.dragPartID = -1;

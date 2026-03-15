@@ -1,5 +1,0 @@
-Add coloring to cables based on connections
-Add labels to in-out in compiled parts
-Add possibility to have one multiple out output part
-Add LCD primitive
-Fix so when a layout or compiled module is clicked and dragged from submenu it doesnt change when hovered over other
