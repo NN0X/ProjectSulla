@@ -1,0 +1,764 @@
+{
+   "parts": [
+      {
+         "id": 2,
+         "type": 9,
+         "label": "xor_full_adder",
+         "x": 256,
+         "y": 480,
+         "numInputs": 3,
+         "numOutputs": 2
+      },
+      {
+         "id": 3,
+         "type": 9,
+         "label": "half_adder",
+         "x": 96,
+         "y": 416,
+         "numInputs": 2,
+         "numOutputs": 2
+      },
+      {
+         "id": 4,
+         "type": 9,
+         "label": "xor_full_adder",
+         "x": 416,
+         "y": 544,
+         "numInputs": 3,
+         "numOutputs": 2
+      },
+      {
+         "id": 5,
+         "type": 9,
+         "label": "xor_full_adder",
+         "x": 576,
+         "y": 608,
+         "numInputs": 3,
+         "numOutputs": 2
+      },
+      {
+         "id": 6,
+         "type": 7,
+         "label": "A",
+         "x": -64,
+         "y": 672,
+         "numInputs": 0,
+         "numOutputs": 8
+      },
+      {
+         "id": 7,
+         "type": 7,
+         "label": "B",
+         "x": -32,
+         "y": 864,
+         "numInputs": 0,
+         "numOutputs": 8
+      },
+      {
+         "id": 8,
+         "type": 9,
+         "label": "xor_full_adder",
+         "x": 736,
+         "y": 672,
+         "numInputs": 3,
+         "numOutputs": 2
+      },
+      {
+         "id": 9,
+         "type": 9,
+         "label": "xor_full_adder",
+         "x": 896,
+         "y": 736,
+         "numInputs": 3,
+         "numOutputs": 2
+      },
+      {
+         "id": 10,
+         "type": 9,
+         "label": "xor_full_adder",
+         "x": 1056,
+         "y": 800,
+         "numInputs": 3,
+         "numOutputs": 2
+      },
+      {
+         "id": 11,
+         "type": 9,
+         "label": "xor_full_adder",
+         "x": 1216,
+         "y": 864,
+         "numInputs": 3,
+         "numOutputs": 2
+      },
+      {
+         "id": 12,
+         "type": 8,
+         "label": "b0",
+         "x": 1472,
+         "y": 448,
+         "numInputs": 1,
+         "numOutputs": 0
+      },
+      {
+         "id": 13,
+         "type": 8,
+         "label": "b1",
+         "x": 1472,
+         "y": 512,
+         "numInputs": 1,
+         "numOutputs": 0
+      },
+      {
+         "id": 14,
+         "type": 8,
+         "label": "b2",
+         "x": 1472,
+         "y": 576,
+         "numInputs": 1,
+         "numOutputs": 0
+      },
+      {
+         "id": 15,
+         "type": 8,
+         "label": "b3",
+         "x": 1472,
+         "y": 640,
+         "numInputs": 1,
+         "numOutputs": 0
+      },
+      {
+         "id": 16,
+         "type": 8,
+         "label": "b4",
+         "x": 1472,
+         "y": 704,
+         "numInputs": 1,
+         "numOutputs": 0
+      },
+      {
+         "id": 17,
+         "type": 8,
+         "label": "b5",
+         "x": 1472,
+         "y": 768,
+         "numInputs": 1,
+         "numOutputs": 0
+      },
+      {
+         "id": 18,
+         "type": 8,
+         "label": "b6",
+         "x": 1472,
+         "y": 832,
+         "numInputs": 1,
+         "numOutputs": 0
+      },
+      {
+         "id": 19,
+         "type": 8,
+         "label": "b7",
+         "x": 1472,
+         "y": 896,
+         "numInputs": 1,
+         "numOutputs": 0
+      },
+      {
+         "id": 20,
+         "type": 8,
+         "label": "Carry",
+         "x": 1472,
+         "y": 960,
+         "numInputs": 1,
+         "numOutputs": 0
+      },
+      {
+         "id": 21,
+         "type": 11,
+         "label": "DISPLAY",
+         "x": -224,
+         "y": 864,
+         "numInputs": 8,
+         "numOutputs": 0
+      },
+      {
+         "id": 22,
+         "type": 11,
+         "label": "DISPLAY",
+         "x": -224,
+         "y": 672,
+         "numInputs": 8,
+         "numOutputs": 0
+      },
+      {
+         "id": 23,
+         "type": 11,
+         "label": "DISPLAY",
+         "x": 1472,
+         "y": 288,
+         "numInputs": 8,
+         "numOutputs": 0
+      }
+   ],
+   "connections": [
+      {
+         "from": {
+            "id": 6,
+            "pin": 1
+         },
+         "to": {
+            "id": 2,
+            "pin": 0
+         }
+      },
+      {
+         "from": {
+            "id": 7,
+            "pin": 1
+         },
+         "to": {
+            "id": 2,
+            "pin": 1
+         }
+      },
+      {
+         "from": {
+            "id": 3,
+            "pin": 1
+         },
+         "to": {
+            "id": 2,
+            "pin": 2
+         }
+      },
+      {
+         "from": {
+            "id": 6,
+            "pin": 0
+         },
+         "to": {
+            "id": 3,
+            "pin": 0
+         }
+      },
+      {
+         "from": {
+            "id": 7,
+            "pin": 0
+         },
+         "to": {
+            "id": 3,
+            "pin": 1
+         }
+      },
+      {
+         "from": {
+            "id": 6,
+            "pin": 2
+         },
+         "to": {
+            "id": 4,
+            "pin": 0
+         }
+      },
+      {
+         "from": {
+            "id": 7,
+            "pin": 2
+         },
+         "to": {
+            "id": 4,
+            "pin": 1
+         }
+      },
+      {
+         "from": {
+            "id": 2,
+            "pin": 1
+         },
+         "to": {
+            "id": 4,
+            "pin": 2
+         }
+      },
+      {
+         "from": {
+            "id": 6,
+            "pin": 3
+         },
+         "to": {
+            "id": 5,
+            "pin": 0
+         }
+      },
+      {
+         "from": {
+            "id": 7,
+            "pin": 3
+         },
+         "to": {
+            "id": 5,
+            "pin": 1
+         }
+      },
+      {
+         "from": {
+            "id": 4,
+            "pin": 1
+         },
+         "to": {
+            "id": 5,
+            "pin": 2
+         }
+      },
+      {
+         "from": {
+            "id": 6,
+            "pin": 4
+         },
+         "to": {
+            "id": 8,
+            "pin": 0
+         }
+      },
+      {
+         "from": {
+            "id": 7,
+            "pin": 4
+         },
+         "to": {
+            "id": 8,
+            "pin": 1
+         }
+      },
+      {
+         "from": {
+            "id": 5,
+            "pin": 1
+         },
+         "to": {
+            "id": 8,
+            "pin": 2
+         }
+      },
+      {
+         "from": {
+            "id": 6,
+            "pin": 5
+         },
+         "to": {
+            "id": 9,
+            "pin": 0
+         }
+      },
+      {
+         "from": {
+            "id": 7,
+            "pin": 5
+         },
+         "to": {
+            "id": 9,
+            "pin": 1
+         }
+      },
+      {
+         "from": {
+            "id": 8,
+            "pin": 1
+         },
+         "to": {
+            "id": 9,
+            "pin": 2
+         }
+      },
+      {
+         "from": {
+            "id": 6,
+            "pin": 6
+         },
+         "to": {
+            "id": 10,
+            "pin": 0
+         }
+      },
+      {
+         "from": {
+            "id": 7,
+            "pin": 6
+         },
+         "to": {
+            "id": 10,
+            "pin": 1
+         }
+      },
+      {
+         "from": {
+            "id": 9,
+            "pin": 1
+         },
+         "to": {
+            "id": 10,
+            "pin": 2
+         }
+      },
+      {
+         "from": {
+            "id": 6,
+            "pin": 7
+         },
+         "to": {
+            "id": 11,
+            "pin": 0
+         }
+      },
+      {
+         "from": {
+            "id": 7,
+            "pin": 7
+         },
+         "to": {
+            "id": 11,
+            "pin": 1
+         }
+      },
+      {
+         "from": {
+            "id": 10,
+            "pin": 1
+         },
+         "to": {
+            "id": 11,
+            "pin": 2
+         }
+      },
+      {
+         "from": {
+            "id": 3,
+            "pin": 0
+         },
+         "to": {
+            "id": 12,
+            "pin": 0
+         }
+      },
+      {
+         "from": {
+            "id": 2,
+            "pin": 0
+         },
+         "to": {
+            "id": 13,
+            "pin": 0
+         }
+      },
+      {
+         "from": {
+            "id": 4,
+            "pin": 0
+         },
+         "to": {
+            "id": 14,
+            "pin": 0
+         }
+      },
+      {
+         "from": {
+            "id": 5,
+            "pin": 0
+         },
+         "to": {
+            "id": 15,
+            "pin": 0
+         }
+      },
+      {
+         "from": {
+            "id": 8,
+            "pin": 0
+         },
+         "to": {
+            "id": 16,
+            "pin": 0
+         }
+      },
+      {
+         "from": {
+            "id": 9,
+            "pin": 0
+         },
+         "to": {
+            "id": 17,
+            "pin": 0
+         }
+      },
+      {
+         "from": {
+            "id": 10,
+            "pin": 0
+         },
+         "to": {
+            "id": 18,
+            "pin": 0
+         }
+      },
+      {
+         "from": {
+            "id": 11,
+            "pin": 0
+         },
+         "to": {
+            "id": 19,
+            "pin": 0
+         }
+      },
+      {
+         "from": {
+            "id": 11,
+            "pin": 1
+         },
+         "to": {
+            "id": 20,
+            "pin": 0
+         }
+      },
+      {
+         "from": {
+            "id": 7,
+            "pin": 0
+         },
+         "to": {
+            "id": 21,
+            "pin": 0
+         }
+      },
+      {
+         "from": {
+            "id": 7,
+            "pin": 1
+         },
+         "to": {
+            "id": 21,
+            "pin": 1
+         }
+      },
+      {
+         "from": {
+            "id": 7,
+            "pin": 2
+         },
+         "to": {
+            "id": 21,
+            "pin": 2
+         }
+      },
+      {
+         "from": {
+            "id": 7,
+            "pin": 3
+         },
+         "to": {
+            "id": 21,
+            "pin": 3
+         }
+      },
+      {
+         "from": {
+            "id": 7,
+            "pin": 4
+         },
+         "to": {
+            "id": 21,
+            "pin": 4
+         }
+      },
+      {
+         "from": {
+            "id": 7,
+            "pin": 5
+         },
+         "to": {
+            "id": 21,
+            "pin": 5
+         }
+      },
+      {
+         "from": {
+            "id": 7,
+            "pin": 6
+         },
+         "to": {
+            "id": 21,
+            "pin": 6
+         }
+      },
+      {
+         "from": {
+            "id": 7,
+            "pin": 7
+         },
+         "to": {
+            "id": 21,
+            "pin": 7
+         }
+      },
+      {
+         "from": {
+            "id": 6,
+            "pin": 0
+         },
+         "to": {
+            "id": 22,
+            "pin": 0
+         }
+      },
+      {
+         "from": {
+            "id": 6,
+            "pin": 1
+         },
+         "to": {
+            "id": 22,
+            "pin": 1
+         }
+      },
+      {
+         "from": {
+            "id": 6,
+            "pin": 2
+         },
+         "to": {
+            "id": 22,
+            "pin": 2
+         }
+      },
+      {
+         "from": {
+            "id": 6,
+            "pin": 3
+         },
+         "to": {
+            "id": 22,
+            "pin": 3
+         }
+      },
+      {
+         "from": {
+            "id": 6,
+            "pin": 4
+         },
+         "to": {
+            "id": 22,
+            "pin": 4
+         }
+      },
+      {
+         "from": {
+            "id": 6,
+            "pin": 5
+         },
+         "to": {
+            "id": 22,
+            "pin": 5
+         }
+      },
+      {
+         "from": {
+            "id": 6,
+            "pin": 6
+         },
+         "to": {
+            "id": 22,
+            "pin": 6
+         }
+      },
+      {
+         "from": {
+            "id": 6,
+            "pin": 7
+         },
+         "to": {
+            "id": 22,
+            "pin": 7
+         }
+      },
+      {
+         "from": {
+            "id": 3,
+            "pin": 0
+         },
+         "to": {
+            "id": 23,
+            "pin": 0
+         }
+      },
+      {
+         "from": {
+            "id": 2,
+            "pin": 0
+         },
+         "to": {
+            "id": 23,
+            "pin": 1
+         }
+      },
+      {
+         "from": {
+            "id": 4,
+            "pin": 0
+         },
+         "to": {
+            "id": 23,
+            "pin": 2
+         }
+      },
+      {
+         "from": {
+            "id": 5,
+            "pin": 0
+         },
+         "to": {
+            "id": 23,
+            "pin": 3
+         }
+      },
+      {
+         "from": {
+            "id": 8,
+            "pin": 0
+         },
+         "to": {
+            "id": 23,
+            "pin": 4
+         }
+      },
+      {
+         "from": {
+            "id": 9,
+            "pin": 0
+         },
+         "to": {
+            "id": 23,
+            "pin": 5
+         }
+      },
+      {
+         "from": {
+            "id": 10,
+            "pin": 0
+         },
+         "to": {
+            "id": 23,
+            "pin": 6
+         }
+      },
+      {
+         "from": {
+            "id": 11,
+            "pin": 0
+         },
+         "to": {
+            "id": 23,
+            "pin": 7
+         }
+      }
+   ]
+}

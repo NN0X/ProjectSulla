@@ -150,15 +150,50 @@ void drawParts(AppState& state)
                         size_t index = 0;
                         for(std::map<int, PartType>::iterator outIt = state.partTypes.begin(); outIt != state.partTypes.end(); ++outIt)
                         {
+                                if (outIt->first == id) break;
                                 if (outIt->second == PART_TYPE_OUTPUT)
                                 {
-                                        if (outIt->first == id) break;
                                         index++;
+                                }
+                                else if (outIt->second == PART_TYPE_DISPLAY)
+                                {
+                                        index += state.inputCounts.at(outIt->first);
                                 }
                         }
                         State s = (index < state.lastOutputStates.size()) ? state.lastOutputStates[index] : STATE_LOW;
                         Color ledColor = (s == STATE_HIGH) ? COLOR_LED_OUT_ON : COLOR_LED_OUT_OFF;
                         DrawRectangle(body.x + size.x/2 - PART_LED_SIZE/2, body.y + size.y - PART_LED_SIZE - 5, PART_LED_SIZE, PART_LED_SIZE, ledColor);
+                }
+                else if (type == PART_TYPE_DISPLAY)
+                {
+                        Rectangle screen = {body.x + DISPLAY_SCREEN_MARGIN, body.y + 14, size.x - DISPLAY_SCREEN_MARGIN*2, size.y - 17};
+                        Color screenColor = DISPLAY_SCREEN_COLOR;
+                        DrawRectangleRec(screen, screenColor);
+
+                        size_t index = 0;
+                        for (std::map<int, PartType>::iterator outIt = state.partTypes.begin(); outIt != state.partTypes.end(); ++outIt)
+                        {
+                                if (outIt->first == id) break;
+                                if (outIt->second == PART_TYPE_OUTPUT)
+                                {
+                                        index++;
+                                }
+                                else if (outIt->second == PART_TYPE_DISPLAY)
+                                {
+                                        index += state.inputCounts.at(outIt->first);
+                                }
+                        }
+                        int inC = state.inputCounts.at(id);
+                        int decimalValue = 0;
+                        for (int i = 0; i < inC; ++i)
+                        {
+                                State s = (index + i < state.lastOutputStates.size()) ? state.lastOutputStates[index + i] : STATE_LOW;
+                                if (s == STATE_HIGH) decimalValue |= (1 << i);
+                        }
+                        std::string valStr = std::to_string(decimalValue);
+                        int valW = MeasureText(valStr.c_str(), DISPLAY_FONT_SIZE);
+                        Color valColor = DISPLAY_VALUE_COLOR;
+                        DrawText(valStr.c_str(), (int)(screen.x + screen.width/2 - valW/2), (int)(screen.y + screen.height/2 - DISPLAY_FONT_SIZE/2), DISPLAY_FONT_SIZE, valColor);
                 }
                 if (type != PART_TYPE_SOURCE && type != PART_TYPE_CLOCK)
                 {
@@ -219,7 +254,7 @@ void drawUI(AppState& state)
                 float y = SIDEMENU_Y_START;
                 DrawText("Parts Library", SIDEMENU_PADDING_X, y, SIDEMENU_HEADER_TEXT_SIZE, textC);
                 y += SIDEMENU_HEADER_MARGIN;
-                for (int i = 0; i <= PART_TYPE_CLOCK; ++i)
+                for (int i = 0; i <= PART_TYPE_DISPLAY; ++i)
                 {
                         if (i == PART_TYPE_CUSTOM) continue;
 

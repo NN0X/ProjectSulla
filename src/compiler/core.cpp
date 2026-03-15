@@ -42,7 +42,7 @@ std::string transpileToCpp(const AppState& state)
                 if (state.partTypes.count(id)) type = state.partTypes.at(id);
 
                 if (type == PART_TYPE_SOURCE) sources.push_back(id);
-                if (type == PART_TYPE_OUTPUT) outputs.push_back(id);
+                if (type == PART_TYPE_OUTPUT || type == PART_TYPE_DISPLAY) outputs.push_back(id);
         }
 
         std::sort(sources.begin(), sources.end());
@@ -83,7 +83,7 @@ std::string transpileToCpp(const AppState& state)
                 int id = it->first;
                 PartType type = PART_TYPE_CUSTOM;
                 if (state.partTypes.count(id)) type = state.partTypes.at(id);
-                if (type != PART_TYPE_SOURCE && type != PART_TYPE_OUTPUT && !emitted[id])
+                if (type != PART_TYPE_SOURCE && type != PART_TYPE_OUTPUT && type != PART_TYPE_DISPLAY && !emitted[id])
                 {
                         order.push_back(id);
                 }
@@ -105,7 +105,7 @@ std::string transpileToCpp(const AppState& state)
                 int u = order[i];
                 PartType type = PART_TYPE_CUSTOM;
                 if (state.partTypes.count(u)) type = state.partTypes.at(u);
-                if (type == PART_TYPE_SOURCE || type == PART_TYPE_OUTPUT) continue;
+                if (type == PART_TYPE_SOURCE || type == PART_TYPE_OUTPUT || type == PART_TYPE_DISPLAY) continue;
 
                 int inC = state.inputCounts.count(u) ? state.inputCounts.at(u) : 0;
                 std::vector<std::string> inVars(inC, "0");

@@ -141,6 +141,14 @@ void recompileSimulation(AppState& state)
                 {
                         simConnections[{state.rootSinkID, outIdx++}] = {it->first, 0};
                 }
+                else if (it->second == PART_TYPE_DISPLAY)
+                {
+                        int inC = state.inputCounts[it->first];
+                        for (int p = 0; p < inC; ++p)
+                        {
+                                simConnections[{state.rootSinkID, outIdx++}] = {it->first, p};
+                        }
+                }
         }
 
         state.simulation = assemblePart(simulationParts, simConnections, state.rootSinkID);

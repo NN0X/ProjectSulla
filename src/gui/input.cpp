@@ -59,6 +59,11 @@ void dropPart(AppState& state, int type, Vector2 pos)
                 state.inputCounts[id] = 0;
                 state.outputCounts[id] = 1;
         }
+        else if (type == PART_TYPE_DISPLAY)
+        {
+                state.inputCounts[id] = 8;
+                state.outputCounts[id] = 0;
+        }
         else
         {
                 state.inputCounts[id] = 2;
@@ -312,7 +317,7 @@ void handleInput(AppState& state)
                                                         for (std::map<int, PartType>::iterator it = state.partTypes.begin(); it != state.partTypes.end(); ++it)
                                                         {
                                                                 if (it->second == PART_TYPE_SOURCE) inC += state.outputCounts[it->first];
-                                                                if (it->second == PART_TYPE_OUTPUT) outC += state.inputCounts[it->first];
+                                                                if (it->second == PART_TYPE_OUTPUT || it->second == PART_TYPE_DISPLAY) outC += state.inputCounts[it->first];
                                                         }
                                                         if (std::find(state.compiledModules.begin(), state.compiledModules.end(), modName) == state.compiledModules.end())
                                                         {

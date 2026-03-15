@@ -168,7 +168,7 @@ int loadLayout(AppState& state, const std::string& filename)
                 state.labels[part.id] = part.label;
                 state.positions[part.id] = {part.x, part.y};
                 state.inputCounts[part.id] = part.numInputs;
-                state.outputCounts[part.id] = (part.type == PART_TYPE_OUTPUT) ? 0 : ((part.numOutputs > 0) ? part.numOutputs : 1);
+                state.outputCounts[part.id] = (part.type == PART_TYPE_OUTPUT || part.type == PART_TYPE_DISPLAY) ? 0 : ((part.numOutputs > 0) ? part.numOutputs : 1);
 
                 if (part.type == PART_TYPE_SOURCE)
                 {
@@ -405,7 +405,7 @@ std::set<int> importLayout(AppState& state, const std::string& filename, float m
 
                 state.positions[newID] = {gx, gy};
                 state.inputCounts[newID] = part.numInputs;
-                state.outputCounts[newID] = (part.type == PART_TYPE_OUTPUT) ? 0 : ((part.numOutputs > 0) ? part.numOutputs : 1);
+                state.outputCounts[newID] = (part.type == PART_TYPE_OUTPUT || part.type == PART_TYPE_DISPLAY) ? 0 : ((part.numOutputs > 0) ? part.numOutputs : 1);
 
                 if (part.type == PART_TYPE_SOURCE)
                 {
