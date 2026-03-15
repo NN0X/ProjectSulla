@@ -1,0 +1,120 @@
+{
+   "parts": [
+      {
+         "id": 2,
+         "type": 7,
+         "label": "A",
+         "x": 544,
+         "y": 352,
+         "numInputs": 0,
+         "numOutputs": 1
+      },
+      {
+         "id": 3,
+         "type": 7,
+         "label": "B",
+         "x": 544,
+         "y": 416,
+         "numInputs": 0,
+         "numOutputs": 1
+      },
+      {
+         "id": 4,
+         "type": 5,
+         "label": "XOR",
+         "x": 672,
+         "y": 352,
+         "numInputs": 2,
+         "numOutputs": 1
+      },
+      {
+         "id": 5,
+         "type": 8,
+         "label": "Sum",
+         "x": 736,
+         "y": 352,
+         "numInputs": 1,
+         "numOutputs": 0
+      },
+      {
+         "id": 6,
+         "type": 0,
+         "label": "AND",
+         "x": 640,
+         "y": 416,
+         "numInputs": 2,
+         "numOutputs": 1
+      },
+      {
+         "id": 7,
+         "type": 8,
+         "label": "Carry",
+         "x": 736,
+         "y": 416,
+         "numInputs": 1,
+         "numOutputs": 0
+      }
+   ],
+   "connections": [
+      {
+         "from": {
+            "id": 2,
+            "pin": 0
+         },
+         "to": {
+            "id": 4,
+            "pin": 0
+         }
+      },
+      {
+         "from": {
+            "id": 3,
+            "pin": 0
+         },
+         "to": {
+            "id": 4,
+            "pin": 1
+         }
+      },
+      {
+         "from": {
+            "id": 4,
+            "pin": 0
+         },
+         "to": {
+            "id": 5,
+            "pin": 0
+         }
+      },
+      {
+         "from": {
+            "id": 2,
+            "pin": 0
+         },
+         "to": {
+            "id": 6,
+            "pin": 0
+         }
+      },
+      {
+         "from": {
+            "id": 3,
+            "pin": 0
+         },
+         "to": {
+            "id": 6,
+            "pin": 1
+         }
+      },
+      {
+         "from": {
+            "id": 6,
+            "pin": 0
+         },
+         "to": {
+            "id": 7,
+            "pin": 0
+         }
+      }
+   ]
+}

@@ -1,0 +1,497 @@
+{
+   "parts": [
+      {
+         "id": 2,
+         "type": 9,
+         "label": "xor_full_adder",
+         "x": 640,
+         "y": -256,
+         "numInputs": 3,
+         "numOutputs": 2
+      },
+      {
+         "id": 3,
+         "type": 9,
+         "label": "half_adder",
+         "x": 480,
+         "y": -320,
+         "numInputs": 2,
+         "numOutputs": 2
+      },
+      {
+         "id": 4,
+         "type": 9,
+         "label": "xor_full_adder",
+         "x": 800,
+         "y": -192,
+         "numInputs": 3,
+         "numOutputs": 2
+      },
+      {
+         "id": 5,
+         "type": 9,
+         "label": "xor_full_adder",
+         "x": 960,
+         "y": -128,
+         "numInputs": 3,
+         "numOutputs": 2
+      },
+      {
+         "id": 6,
+         "type": 7,
+         "label": "A",
+         "x": 320,
+         "y": -64,
+         "numInputs": 0,
+         "numOutputs": 8
+      },
+      {
+         "id": 7,
+         "type": 7,
+         "label": "B",
+         "x": 352,
+         "y": 128,
+         "numInputs": 0,
+         "numOutputs": 8
+      },
+      {
+         "id": 8,
+         "type": 9,
+         "label": "xor_full_adder",
+         "x": 1120,
+         "y": -64,
+         "numInputs": 3,
+         "numOutputs": 2
+      },
+      {
+         "id": 9,
+         "type": 9,
+         "label": "xor_full_adder",
+         "x": 1280,
+         "y": -0,
+         "numInputs": 3,
+         "numOutputs": 2
+      },
+      {
+         "id": 10,
+         "type": 9,
+         "label": "xor_full_adder",
+         "x": 1440,
+         "y": 64,
+         "numInputs": 3,
+         "numOutputs": 2
+      },
+      {
+         "id": 11,
+         "type": 9,
+         "label": "xor_full_adder",
+         "x": 1600,
+         "y": 128,
+         "numInputs": 3,
+         "numOutputs": 2
+      },
+      {
+         "id": 12,
+         "type": 8,
+         "label": "b0",
+         "x": 1856,
+         "y": -288,
+         "numInputs": 1,
+         "numOutputs": 0
+      },
+      {
+         "id": 13,
+         "type": 8,
+         "label": "b1",
+         "x": 1856,
+         "y": -224,
+         "numInputs": 1,
+         "numOutputs": 0
+      },
+      {
+         "id": 14,
+         "type": 8,
+         "label": "b2",
+         "x": 1856,
+         "y": -160,
+         "numInputs": 1,
+         "numOutputs": 0
+      },
+      {
+         "id": 15,
+         "type": 8,
+         "label": "b3",
+         "x": 1856,
+         "y": -96,
+         "numInputs": 1,
+         "numOutputs": 0
+      },
+      {
+         "id": 16,
+         "type": 8,
+         "label": "b4",
+         "x": 1856,
+         "y": -32,
+         "numInputs": 1,
+         "numOutputs": 0
+      },
+      {
+         "id": 17,
+         "type": 8,
+         "label": "b5",
+         "x": 1856,
+         "y": 32,
+         "numInputs": 1,
+         "numOutputs": 0
+      },
+      {
+         "id": 18,
+         "type": 8,
+         "label": "b6",
+         "x": 1856,
+         "y": 96,
+         "numInputs": 1,
+         "numOutputs": 0
+      },
+      {
+         "id": 19,
+         "type": 8,
+         "label": "b7",
+         "x": 1856,
+         "y": 160,
+         "numInputs": 1,
+         "numOutputs": 0
+      },
+      {
+         "id": 20,
+         "type": 8,
+         "label": "Carry",
+         "x": 1856,
+         "y": 224,
+         "numInputs": 1,
+         "numOutputs": 0
+      }
+   ],
+   "connections": [
+      {
+         "from": {
+            "id": 6,
+            "pin": 1
+         },
+         "to": {
+            "id": 2,
+            "pin": 0
+         }
+      },
+      {
+         "from": {
+            "id": 7,
+            "pin": 1
+         },
+         "to": {
+            "id": 2,
+            "pin": 1
+         }
+      },
+      {
+         "from": {
+            "id": 3,
+            "pin": 1
+         },
+         "to": {
+            "id": 2,
+            "pin": 2
+         }
+      },
+      {
+         "from": {
+            "id": 6,
+            "pin": 0
+         },
+         "to": {
+            "id": 3,
+            "pin": 0
+         }
+      },
+      {
+         "from": {
+            "id": 7,
+            "pin": 0
+         },
+         "to": {
+            "id": 3,
+            "pin": 1
+         }
+      },
+      {
+         "from": {
+            "id": 6,
+            "pin": 2
+         },
+         "to": {
+            "id": 4,
+            "pin": 0
+         }
+      },
+      {
+         "from": {
+            "id": 7,
+            "pin": 2
+         },
+         "to": {
+            "id": 4,
+            "pin": 1
+         }
+      },
+      {
+         "from": {
+            "id": 2,
+            "pin": 1
+         },
+         "to": {
+            "id": 4,
+            "pin": 2
+         }
+      },
+      {
+         "from": {
+            "id": 6,
+            "pin": 3
+         },
+         "to": {
+            "id": 5,
+            "pin": 0
+         }
+      },
+      {
+         "from": {
+            "id": 7,
+            "pin": 3
+         },
+         "to": {
+            "id": 5,
+            "pin": 1
+         }
+      },
+      {
+         "from": {
+            "id": 4,
+            "pin": 1
+         },
+         "to": {
+            "id": 5,
+            "pin": 2
+         }
+      },
+      {
+         "from": {
+            "id": 6,
+            "pin": 4
+         },
+         "to": {
+            "id": 8,
+            "pin": 0
+         }
+      },
+      {
+         "from": {
+            "id": 7,
+            "pin": 4
+         },
+         "to": {
+            "id": 8,
+            "pin": 1
+         }
+      },
+      {
+         "from": {
+            "id": 5,
+            "pin": 1
+         },
+         "to": {
+            "id": 8,
+            "pin": 2
+         }
+      },
+      {
+         "from": {
+            "id": 6,
+            "pin": 5
+         },
+         "to": {
+            "id": 9,
+            "pin": 0
+         }
+      },
+      {
+         "from": {
+            "id": 7,
+            "pin": 5
+         },
+         "to": {
+            "id": 9,
+            "pin": 1
+         }
+      },
+      {
+         "from": {
+            "id": 8,
+            "pin": 1
+         },
+         "to": {
+            "id": 9,
+            "pin": 2
+         }
+      },
+      {
+         "from": {
+            "id": 6,
+            "pin": 6
+         },
+         "to": {
+            "id": 10,
+            "pin": 0
+         }
+      },
+      {
+         "from": {
+            "id": 7,
+            "pin": 6
+         },
+         "to": {
+            "id": 10,
+            "pin": 1
+         }
+      },
+      {
+         "from": {
+            "id": 9,
+            "pin": 1
+         },
+         "to": {
+            "id": 10,
+            "pin": 2
+         }
+      },
+      {
+         "from": {
+            "id": 6,
+            "pin": 7
+         },
+         "to": {
+            "id": 11,
+            "pin": 0
+         }
+      },
+      {
+         "from": {
+            "id": 7,
+            "pin": 7
+         },
+         "to": {
+            "id": 11,
+            "pin": 1
+         }
+      },
+      {
+         "from": {
+            "id": 10,
+            "pin": 1
+         },
+         "to": {
+            "id": 11,
+            "pin": 2
+         }
+      },
+      {
+         "from": {
+            "id": 3,
+            "pin": 0
+         },
+         "to": {
+            "id": 12,
+            "pin": 0
+         }
+      },
+      {
+         "from": {
+            "id": 2,
+            "pin": 0
+         },
+         "to": {
+            "id": 13,
+            "pin": 0
+         }
+      },
+      {
+         "from": {
+            "id": 4,
+            "pin": 0
+         },
+         "to": {
+            "id": 14,
+            "pin": 0
+         }
+      },
+      {
+         "from": {
+            "id": 5,
+            "pin": 0
+         },
+         "to": {
+            "id": 15,
+            "pin": 0
+         }
+      },
+      {
+         "from": {
+            "id": 8,
+            "pin": 0
+         },
+         "to": {
+            "id": 16,
+            "pin": 0
+         }
+      },
+      {
+         "from": {
+            "id": 9,
+            "pin": 0
+         },
+         "to": {
+            "id": 17,
+            "pin": 0
+         }
+      },
+      {
+         "from": {
+            "id": 10,
+            "pin": 0
+         },
+         "to": {
+            "id": 18,
+            "pin": 0
+         }
+      },
+      {
+         "from": {
+            "id": 11,
+            "pin": 0
+         },
+         "to": {
+            "id": 19,
+            "pin": 0
+         }
+      },
+      {
+         "from": {
+            "id": 11,
+            "pin": 1
+         },
+         "to": {
+            "id": 20,
+            "pin": 0
+         }
+      }
+   ]
+}
