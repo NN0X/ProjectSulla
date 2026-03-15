@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cmath>
 #include <set>
+#include <filesystem>
 
 #include <glaze/glaze.hpp>
 
@@ -15,6 +16,8 @@
 #include "primitives.h"
 #include "utils.h"
 #include "appstate.h"
+#include "config.h"
+#include "compiler/compiler.h"
 
 typedef struct SerializablePart
 {
@@ -135,13 +138,37 @@ int loadLayout(AppState& state, const std::string& filename)
                 {
                 case PART_TYPE_SOURCE: setSourcePart(state.parts, part.id); break;
                 case PART_TYPE_OUTPUT: setOutputPart(state.parts, part.id); break;
+                case PART_TYPE_CUSTOM:
+                {
+                        int dummyIn, dummyOut;
+                        std::string layoutPath = "layouts/" + part.label + ".json";
+
+                        if (std::filesystem::exists(layoutPath)) 
+                        {
+                                Part layoutPart = loadLayoutAsPart(layoutPath, dummyIn, dummyOut);
+                                if (layoutPart) setPart(state.parts, part.id, layoutPart); 
+                        }
+                        else
+                        {
+                                Part compiledPart = loadCompiledPart(part.label, part.numOutputs);
+                                if (compiledPart)
+                                {
+                                        setPart(state.parts, part.id, compiledPart);
+                                }
+                                else
+                                {
+                                        std::cerr << "Warning: Could not load custom part '" << part.label << "'" << std::endl;
+                                }
+                        }
+                }
+                break;
                 default: setPart(state.parts, part.id, getPartFromType(part.type)); break;
                 }
                 state.partTypes[part.id] = part.type;
                 state.labels[part.id] = part.label;
                 state.positions[part.id] = {part.x, part.y};
                 state.inputCounts[part.id] = part.numInputs;
-                state.outputCounts[part.id] = (part.numOutputs > 0) ? part.numOutputs : 1;
+                state.outputCounts[part.id] = (part.type == PART_TYPE_OUTPUT) ? 0 : ((part.numOutputs > 0) ? part.numOutputs : 1);
 
                 if (part.type == PART_TYPE_SOURCE)
                 {
@@ -186,14 +213,38 @@ Part loadLayoutAsPart(const std::string& filename, int& nInputs, int& nOutputs)
                 subTypes[part.id] = part.type;
                 switch (part.type)
                 {
-                case PART_TYPE_SOURCE: 
+                case PART_TYPE_SOURCE:
                         setSourcePart(subParts, part.id); 
                         internalSources.push_back(part.id);
                         break;
-                case PART_TYPE_OUTPUT: 
+                case PART_TYPE_OUTPUT:
                         setOutputPart(subParts, part.id); 
                         internalOutputs.push_back(part.id);
                         break;
+                case PART_TYPE_CUSTOM:
+                {
+                        int dummyIn, dummyOut;
+                        std::string layoutPath = "layouts/" + part.label + ".json";
+
+                        if (std::filesystem::exists(layoutPath)) 
+                        {
+                                Part layoutPart = loadLayoutAsPart(layoutPath, dummyIn, dummyOut);
+                                if (layoutPart) setPart(subParts, part.id, layoutPart); 
+                        }
+                        else 
+                        {
+                                Part compiledPart = loadCompiledPart(part.label, part.numOutputs);
+                                if (compiledPart) 
+                                {
+                                        setPart(subParts, part.id, compiledPart);
+                                }
+                                else
+                                {
+                                        std::cerr << "Warning: Could not load custom part '" << part.label << "'" << std::endl;
+                                }
+                        }
+                }
+                break;
                 default: setPart(subParts, part.id, getPartFromType(part.type)); break;
                 }
         }
@@ -274,4 +325,103 @@ Part loadLayoutAsPart(const std::string& filename, int& nInputs, int& nOutputs)
         {
                 return subSim(inputs);
         };
+}
+
+std::set<int> importLayout(AppState& state, const std::string& filename, float mouseX, float mouseY)
+{
+        std::set<int> newIDs;
+        std::ifstream file(filename);
+        if (!file.is_open()) return newIDs;
+
+        std::string json((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+        file.close();
+
+        LayoutData layoutData{};
+        if (glz::read_json(layoutData, json)) return newIDs;
+
+        int nextID = state.parts.empty() ? 100 : state.parts.rbegin()->first + 1;
+        std::map<int, int> idMap;
+
+        float minX = 9999999.0f, maxX = -9999999.0f, minY = 9999999.0f, maxY = -9999999.0f;
+        for (size_t i = 0; i < layoutData.parts.size(); ++i) {
+            float px = layoutData.parts[i].x;
+            float py = layoutData.parts[i].y;
+            if (px < minX) minX = px;
+            if (px > maxX) maxX = px;
+            if (py < minY) minY = py;
+            if (py > maxY) maxY = py;
+        }
+
+        float centerX = 0.0f, centerY = 0.0f;
+        if (layoutData.parts.size() > 0) {
+            centerX = (minX + maxX) / 2.0f;
+            centerY = (minY + maxY) / 2.0f;
+        }
+
+        for (size_t i = 0; i < layoutData.parts.size(); ++i)
+        {
+                const SPart& part = layoutData.parts[i];
+                int newID = nextID++;
+                idMap[part.id] = newID;
+                newIDs.insert(newID);
+
+                switch (part.type)
+                {
+                case PART_TYPE_SOURCE: setSourcePart(state.parts, newID); break;
+                case PART_TYPE_OUTPUT: setOutputPart(state.parts, newID); break;
+                case PART_TYPE_CUSTOM:
+                {
+                        int dummyIn, dummyOut;
+                        std::string layoutPath = "layouts/" + part.label + ".json";
+                        if (std::filesystem::exists(layoutPath)) 
+                        {
+                                Part layoutPart = loadLayoutAsPart(layoutPath, dummyIn, dummyOut);
+                                if (layoutPart) setPart(state.parts, newID, layoutPart); 
+                        }
+                        else 
+                        {
+                                Part compiledPart = loadCompiledPart(part.label, part.numOutputs);
+                                if (compiledPart) 
+                                {
+                                        setPart(state.parts, newID, compiledPart);
+                                }
+                                else
+                                {
+                                        std::cerr << "Warning: Could not load custom part '" << part.label << "'" << std::endl;
+                                }
+                        }
+                }
+                break;
+                default: setPart(state.parts, newID, getPartFromType(part.type)); break;
+                }
+
+                state.partTypes[newID] = part.type;
+                state.labels[newID] = part.label;
+
+                float dx = part.x - centerX;
+                float dy = part.y - centerY;
+                float gx = round((mouseX + dx) / GRID_SIZE) * GRID_SIZE;
+                float gy = round((mouseY + dy) / GRID_SIZE) * GRID_SIZE;
+
+                state.positions[newID] = {gx, gy};
+                state.inputCounts[newID] = part.numInputs;
+                state.outputCounts[newID] = (part.type == PART_TYPE_OUTPUT) ? 0 : ((part.numOutputs > 0) ? part.numOutputs : 1);
+
+                if (part.type == PART_TYPE_SOURCE)
+                {
+                        state.sourceValues[newID].resize(state.outputCounts[newID], STATE_LOW);
+                }
+        }
+
+        for (size_t i = 0; i < layoutData.connections.size(); ++i)
+        {
+                const SConn& conn = layoutData.connections[i];
+                if (idMap.count(conn.to.id) && idMap.count(conn.from.id))
+                {
+                        state.connections[{idMap[conn.to.id], conn.to.pin}] = {idMap[conn.from.id], conn.from.pin};
+                }
+        }
+
+        state.simulation = nullptr;
+        return newIDs;
 }

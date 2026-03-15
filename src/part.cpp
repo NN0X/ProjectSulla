@@ -138,6 +138,10 @@ Part getPartFromType(PartType type)
                 return xnorPart;
         case PART_TYPE_CLOCK:
                 return getClockPart();
+        case PART_TYPE_CUSTOM:
+                return [](std::vector<State> inputs) -> std::vector<State> {
+                        return std::vector<State>(1, STATE_UNDEFINED);
+                };
         default:
                 std::cerr << "Error: Unknown part type " << PART_TYPE_NAMES[type] << std::endl;
                 std::exit(1);

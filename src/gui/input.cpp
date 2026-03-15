@@ -666,22 +666,11 @@ void handleInput(AppState& state)
                 }
                 else if (state.draggingLayoutFile != "" && !mouseOverUI)
                 {
-                        float gx = round(worldMouse.x / GRID_SIZE) * GRID_SIZE;
-                        float gy = round(worldMouse.y / GRID_SIZE) * GRID_SIZE;
-                        int nIn;
-                        int nOut;
-                        Part p = loadLayoutAsPart("layouts/" + state.draggingLayoutFile, nIn, nOut);
-                        if (p)
+                        if (!IsKeyDown(KEY_LEFT_SHIFT)) state.selectedParts.clear();
+                        std::set<int> importedIDs = importLayout(state, "layouts/" + state.draggingLayoutFile, worldMouse.x, worldMouse.y);
+                        for (int id : importedIDs)
                         {
-                                int id = state.parts.empty() ? 100 : state.parts.rbegin()->first + 1;
-                                setPart(state.parts, id, p);
-                                state.partTypes[id] = PART_TYPE_CUSTOM;
-                                state.positions[id] = {gx, gy};
-                                state.inputCounts[id] = nIn;
-                                state.outputCounts[id] = nOut;
-                                std::filesystem::path path(state.draggingLayoutFile);
-                                state.labels[id] = path.stem().string();
-                                state.simulation = nullptr;
+                                state.selectedParts.insert(id);
                         }
                 }
                 else if (state.draggingCompiledFile != "" && !mouseOverUI)
