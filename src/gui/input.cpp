@@ -66,7 +66,7 @@ static void doCompile(AppState& state, const std::string& modName)
                 for (std::map<int, PartType>::iterator it = state.partTypes.begin(); it != state.partTypes.end(); ++it)
                 {
                         if (it->second == PART_TYPE_SOURCE) sortedSources.push_back(it->first);
-                        if (it->second == PART_TYPE_OUTPUT || it->second == PART_TYPE_DISPLAY) sortedOutputs.push_back(it->first);
+                        if (it->second == PART_TYPE_OUTPUT) sortedOutputs.push_back(it->first);
                 }
                 std::sort(sortedSources.begin(), sortedSources.end());
                 std::sort(sortedOutputs.begin(), sortedOutputs.end());

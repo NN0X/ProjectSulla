@@ -262,7 +262,7 @@ static std::string emitCpp(const FlatCircuit& c)
                 int id = it->first;
                 inDegree[id] = 0;
                 if (it->second == PART_TYPE_SOURCE) sources.push_back(id);
-                if (it->second == PART_TYPE_OUTPUT || it->second == PART_TYPE_DISPLAY) outputs.push_back(id);
+                if (it->second == PART_TYPE_OUTPUT) outputs.push_back(id);
         }
 
         std::sort(sources.begin(), sources.end());
