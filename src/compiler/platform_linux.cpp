@@ -19,7 +19,7 @@ bool compileSharedLibrary(const std::string& cppCode, const std::string& moduleN
         out << cppCode;
         out.close();
 
-        std::string command = "clang++ -O3 -shared -fPIC " + srcFile + " -o " + outFile;
+        std::string command = "clang++ -O3 -shared -fPIC " + srcFile + " -o " + outFile + " -ldl";
         int result = std::system(command.c_str());
 
         std::filesystem::remove(srcFile);

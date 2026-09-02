@@ -405,6 +405,18 @@ void drawUI(AppState& state)
                         int extWidth = MeasureText(".json", 20);
                         DrawText(".json", box.x + box.width - extWidth - 5, box.y + 5, 20, BLACK);
                 }
+                if (state.showCompileDialog)
+                {
+                        Rectangle chk = { box.x, GetScreenHeight()/2 - DIALOG_HEIGHT/2 + 6, 14, 14 };
+                        DrawRectangleRec(chk, LIGHTGRAY);
+                        DrawRectangleLinesEx(chk, 1, DARKGRAY);
+                        if (state.linkCustomParts)
+                        {
+                                DrawLineEx({chk.x + 3, chk.y + 7}, {chk.x + 6, chk.y + 11}, 2, DARKGREEN);
+                                DrawLineEx({chk.x + 6, chk.y + 11}, {chk.x + 12, chk.y + 2}, 2, DARKGREEN);
+                        }
+                        DrawText("Link compiled parts", chk.x + 20, chk.y + 2, 10, textC);
+                }
                 float btnY = GetScreenHeight()/2 - DIALOG_HEIGHT/2 + SAVE_DIALOG_BTN_Y_OFFSET;
                 float startX = GetScreenWidth()/2 - SAVE_DIALOG_BTN_WIDTH - SAVE_DIALOG_BTN_SPACING/2;
                 Rectangle cancelBtn = {startX, btnY, SAVE_DIALOG_BTN_WIDTH, SAVE_DIALOG_BTN_HEIGHT};

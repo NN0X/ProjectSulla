@@ -9,6 +9,7 @@
 #include <functional>
 #include <cmath>
 #include <fstream>
+#include <filesystem>
 
 #include <glaze/glaze.hpp>
 
@@ -20,6 +21,7 @@ struct FlatCircuit
         std::map<PartPin, PartPin> connections;
         std::map<int, int> inputCounts;
         std::map<int, int> outputCounts;
+        std::map<int, std::string> labels;
 };
 
 struct LSCPin { int id; int pin; };
@@ -36,9 +38,41 @@ static bool readLayout(const std::string& label, LLayoutData& out)
         return true;
 }
 
+enum CustomMode { CUSTOM_NONE, CUSTOM_INLINE, CUSTOM_LINK };
+
+static CustomMode decideCustom(const std::string& label, bool linkMode)
+{
+#ifdef _WIN32
+        bool lib = std::filesystem::exists("parts/lib" + label + ".dll");
+#else
+        bool lib = std::filesystem::exists("parts/lib" + label + ".so");
+#endif
+        bool layout = std::filesystem::exists("layouts/" + label + ".json");
+        if (linkMode && lib) return CUSTOM_LINK;
+        if (layout) return CUSTOM_INLINE;
+        if (lib) return CUSTOM_LINK;
+        return CUSTOM_NONE;
+}
+
+static std::vector<PartPin> linkCustom(FlatCircuit& fc, int nodeId, const std::string& label,
+                                       int inC, int outC, const std::vector<PartPin>& inputProducers)
+{
+        fc.partTypes[nodeId] = PART_TYPE_CUSTOM;
+        fc.inputCounts[nodeId] = inC;
+        fc.outputCounts[nodeId] = outC;
+        fc.labels[nodeId] = label;
+        for (int q = 0; q < inC && q < (int)inputProducers.size(); ++q)
+                if (inputProducers[q].first != -1) fc.connections[{nodeId, q}] = inputProducers[q];
+
+        std::vector<PartPin> outs(outC);
+        for (int p = 0; p < outC; ++p) outs[p] = {nodeId, p};
+        return outs;
+}
+
 static std::vector<PartPin> expandCustom(FlatCircuit& fc, int& idAlloc,
                                          const std::string& label,
-                                         const std::vector<PartPin>& inputProducers)
+                                         const std::vector<PartPin>& inputProducers,
+                                         bool linkMode)
 {
         std::vector<PartPin> outProducers;
 
@@ -111,13 +145,18 @@ static std::vector<PartPin> expandCustom(FlatCircuit& fc, int& idAlloc,
                         {
                                 expanding.insert(id);
                                 int inC = t->second->numInputs;
+                                int outC = t->second->numOutputs > 0 ? t->second->numOutputs : 1;
+                                std::string clabel = t->second->label;
                                 std::vector<PartPin> childIn(inC, PartPin{-1, -1});
                                 for (int q = 0; q < inC; ++q)
                                 {
                                         std::map<PartPin, PartPin>::iterator ci = conn.find({id, q});
                                         if (ci != conn.end()) childIn[q] = resolve(ci->second.first, ci->second.second);
                                 }
-                                customOut[id] = expandCustom(fc, idAlloc, t->second->label, childIn);
+                                if (decideCustom(clabel, linkMode) == CUSTOM_LINK)
+                                        customOut[id] = linkCustom(fc, idAlloc++, clabel, inC, outC, childIn);
+                                else
+                                        customOut[id] = expandCustom(fc, idAlloc, clabel, childIn, linkMode);
                                 expanding.erase(id);
                         }
                         std::vector<PartPin>& o = customOut[id];
@@ -153,7 +192,7 @@ static std::vector<PartPin> expandCustom(FlatCircuit& fc, int& idAlloc,
         return outProducers;
 }
 
-static FlatCircuit flattenState(const AppState& state)
+static FlatCircuit flattenState(const AppState& state, bool linkMode)
 {
         FlatCircuit fc;
 
@@ -182,6 +221,7 @@ static FlatCircuit flattenState(const AppState& state)
                 {
                         expanding.insert(id);
                         int inC = state.inputCounts.count(id) ? state.inputCounts.at(id) : 0;
+                        int outC = state.outputCounts.count(id) ? state.outputCounts.at(id) : 0;
                         std::string label = state.labels.count(id) ? state.labels.at(id) : "";
                         std::vector<PartPin> childIn(inC, PartPin{-1, -1});
                         for (int q = 0; q < inC; ++q)
@@ -189,7 +229,10 @@ static FlatCircuit flattenState(const AppState& state)
                                 std::map<PartPin, PartPin>::const_iterator ci = state.connections.find({id, q});
                                 if (ci != state.connections.end()) childIn[q] = resolve(ci->second.first, ci->second.second);
                         }
-                        customOut[id] = expandCustom(fc, idAlloc, label, childIn);
+                        if (decideCustom(label, linkMode) == CUSTOM_LINK)
+                                customOut[id] = linkCustom(fc, id, label, inC, outC, childIn);
+                        else
+                                customOut[id] = expandCustom(fc, idAlloc, label, childIn, linkMode);
                         expanding.erase(id);
                 }
                 std::vector<PartPin>& o = customOut[id];
@@ -239,7 +282,53 @@ static void resolvePassThrough(FlatCircuit& fc)
 static std::string emitCpp(const FlatCircuit& c)
 {
         std::ostringstream code;
-        code << "#include <stdint.h>\n\n";
+        code << "#include <stdint.h>\n";
+
+        bool hasLinked = false;
+        for (std::map<int, PartType>::const_iterator it = c.partTypes.begin(); it != c.partTypes.end(); ++it)
+                if (it->second == PART_TYPE_CUSTOM) hasLinked = true;
+        if (hasLinked)
+        {
+                code << "#include <stdio.h>\n";
+                code << "#ifdef _WIN32\n";
+                code << "#include <windows.h>\n";
+                code << "#define SULLA_EXT \".dll\"\n";
+                code << "#else\n";
+                code << "#include <dlfcn.h>\n";
+                code << "#include <unistd.h>\n";
+                code << "#define SULLA_EXT \".so\"\n";
+                code << "#endif\n";
+                code << "typedef void (*sulla_fn)(const uint8_t*, uint8_t*);\n";
+                code << "static void* sulla_load_unique(const char* base) {\n";
+                code << "        static unsigned long ctr = 0;\n";
+                code << "        char src[512], tmp[512];\n";
+                code << "        snprintf(src, sizeof(src), \"%s%s\", base, SULLA_EXT);\n";
+                code << "#ifdef _WIN32\n";
+                code << "        char dir[512]; GetTempPathA((DWORD)sizeof(dir), dir);\n";
+                code << "        snprintf(tmp, sizeof(tmp), \"%ssulla_%lu_%p_%lu.dll\", dir, (unsigned long)GetCurrentProcessId(), (void*)&ctr, ctr++);\n";
+                code << "#else\n";
+                code << "        snprintf(tmp, sizeof(tmp), \"/tmp/sulla_%ld_%p_%lu.so\", (long)getpid(), (void*)&ctr, ctr++);\n";
+                code << "#endif\n";
+                code << "        FILE* in = fopen(src, \"rb\"); if (!in) return 0;\n";
+                code << "        FILE* out = fopen(tmp, \"wb\"); if (!out) { fclose(in); return 0; }\n";
+                code << "        char buf[65536]; size_t n;\n";
+                code << "        while ((n = fread(buf, 1, sizeof(buf), in)) > 0) fwrite(buf, 1, n, out);\n";
+                code << "        fclose(in); fclose(out);\n";
+                code << "#ifdef _WIN32\n";
+                code << "        return (void*)LoadLibraryA(tmp);\n";
+                code << "#else\n";
+                code << "        void* h = dlopen(tmp, RTLD_LAZY | RTLD_LOCAL); remove(tmp); return h;\n";
+                code << "#endif\n";
+                code << "}\n";
+                code << "static sulla_fn sulla_sym(void* h) {\n";
+                code << "#ifdef _WIN32\n";
+                code << "        return h ? (sulla_fn)GetProcAddress((HMODULE)h, \"executeTick\") : 0;\n";
+                code << "#else\n";
+                code << "        return h ? (sulla_fn)dlsym(h, \"executeTick\") : 0;\n";
+                code << "#endif\n";
+                code << "}\n";
+        }
+        code << "\n";
 
         for (std::map<int, PartType>::const_iterator it = c.partTypes.begin(); it != c.partTypes.end(); ++it)
         {
@@ -319,6 +408,7 @@ static std::string emitCpp(const FlatCircuit& c)
                 if (type == PART_TYPE_SOURCE || type == PART_TYPE_OUTPUT || type == PART_TYPE_DISPLAY) continue;
 
                 int inC = c.inputCounts.count(u) ? c.inputCounts.at(u) : 0;
+                int outC = c.outputCounts.count(u) ? c.outputCounts.at(u) : 0;
                 std::vector<std::string> inVars(inC, "0");
                 for (int p = 0; p < inC; ++p)
                 {
@@ -374,6 +464,19 @@ static std::string emitCpp(const FlatCircuit& c)
                         code << "        clk_" << u << " = !clk_" << u << ";\n";
                         code << "        n_" << u << "_out_0 = clk_" << u << ";\n";
                 }
+                else if (type == PART_TYPE_CUSTOM)
+                {
+                        std::string lib = c.labels.count(u) ? c.labels.at(u) : "";
+                        code << "        {\n";
+                        code << "                static void* h = sulla_load_unique(\"./parts/lib" << lib << "\");\n";
+                        code << "                static sulla_fn fn = sulla_sym(h);\n";
+                        code << "                uint8_t ci[" << (inC > 0 ? inC : 1) << "] = {0};\n";
+                        code << "                uint8_t co[" << (outC > 0 ? outC : 1) << "] = {0};\n";
+                        for (int p = 0; p < inC; ++p) code << "                ci[" << p << "] = " << inVars[p] << ";\n";
+                        code << "                if (fn) fn(ci, co);\n";
+                        for (int p = 0; p < outC; ++p) code << "                n_" << u << "_out_" << p << " = co[" << p << "];\n";
+                        code << "        }\n";
+                }
         }
 
         int outIdx = 0;
@@ -395,9 +498,9 @@ static std::string emitCpp(const FlatCircuit& c)
         return code.str();
 }
 
-std::string transpileToCpp(const AppState& state)
+std::string transpileToCpp(const AppState& state, bool linkCustomParts)
 {
-        FlatCircuit fc = flattenState(state);
+        FlatCircuit fc = flattenState(state, linkCustomParts);
         resolvePassThrough(fc);
         return emitCpp(fc);
 }

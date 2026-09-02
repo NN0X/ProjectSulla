@@ -54,7 +54,7 @@ static void cleanupOutputPinConnections(AppState& state, int partID, int removed
 
 static void doCompile(AppState& state, const std::string& modName)
 {
-        std::string cpp = transpileToCpp(state);
+        std::string cpp = transpileToCpp(state, state.linkCustomParts);
         if (compileSharedLibrary(cpp, modName))
         {
                 int inC = 0, outC = 0;
@@ -253,12 +253,21 @@ void handleInput(AppState& state)
                 }
 
                 bool confirm = false;
+                if (state.showCompileDialog && IsKeyPressed(KEY_L))
+                {
+                        state.linkCustomParts = !state.linkCustomParts;
+                }
                 if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
                 {
                         float btnY = GetScreenHeight()/2 - DIALOG_HEIGHT/2 + SAVE_DIALOG_BTN_Y_OFFSET;
                         float startX = GetScreenWidth()/2 - SAVE_DIALOG_BTN_WIDTH - SAVE_DIALOG_BTN_SPACING/2;
                         Rectangle cancelBtn = {startX, btnY, SAVE_DIALOG_BTN_WIDTH, SAVE_DIALOG_BTN_HEIGHT};
                         Rectangle confirmBtn = {startX + SAVE_DIALOG_BTN_WIDTH + SAVE_DIALOG_BTN_SPACING, btnY, SAVE_DIALOG_BTN_WIDTH, SAVE_DIALOG_BTN_HEIGHT};
+                        if (state.showCompileDialog)
+                        {
+                                Rectangle linkChkHit = { GetScreenWidth()/2 - SAVE_DIALOG_INPUT_WIDTH/2, GetScreenHeight()/2 - DIALOG_HEIGHT/2 + 6, 150, 16 };
+                                if (CheckCollisionPointRec(mousePos, linkChkHit)) state.linkCustomParts = !state.linkCustomParts;
+                        }
                         if (CheckCollisionPointRec(mousePos, cancelBtn))
                         {
                                 state.showSaveDialog = false;
