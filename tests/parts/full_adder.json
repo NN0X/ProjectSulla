@@ -1,0 +1,6 @@
+{
+   "inputs": 3,
+   "outputs": 2,
+   "inputLabels": ["A", "B", "Cin"],
+   "outputLabels": ["Sum", "Cout"]
+}

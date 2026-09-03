@@ -1,0 +1,167 @@
+{
+   "parts": [
+      {
+         "id": 101,
+         "type": 7,
+         "label": "A0",
+         "x": 64,
+         "y": 96,
+         "numInputs": 0,
+         "numOutputs": 1
+      },
+      {
+         "id": 102,
+         "type": 7,
+         "label": "A1",
+         "x": 64,
+         "y": 160,
+         "numInputs": 0,
+         "numOutputs": 1
+      },
+      {
+         "id": 103,
+         "type": 7,
+         "label": "B0",
+         "x": 64,
+         "y": 224,
+         "numInputs": 0,
+         "numOutputs": 1
+      },
+      {
+         "id": 104,
+         "type": 7,
+         "label": "B1",
+         "x": 64,
+         "y": 288,
+         "numInputs": 0,
+         "numOutputs": 1
+      },
+      {
+         "id": 105,
+         "type": 9,
+         "label": "full_adder",
+         "x": 448,
+         "y": 96,
+         "numInputs": 3,
+         "numOutputs": 2
+      },
+      {
+         "id": 106,
+         "type": 9,
+         "label": "full_adder",
+         "x": 448,
+         "y": 320,
+         "numInputs": 3,
+         "numOutputs": 2
+      },
+      {
+         "id": 107,
+         "type": 8,
+         "label": "S0",
+         "x": 832,
+         "y": 96,
+         "numInputs": 1,
+         "numOutputs": 0
+      },
+      {
+         "id": 108,
+         "type": 8,
+         "label": "S1",
+         "x": 832,
+         "y": 160,
+         "numInputs": 1,
+         "numOutputs": 0
+      },
+      {
+         "id": 109,
+         "type": 8,
+         "label": "Cout",
+         "x": 832,
+         "y": 224,
+         "numInputs": 1,
+         "numOutputs": 0
+      }
+   ],
+   "connections": [
+      {
+         "from": {
+            "id": 101,
+            "pin": 0
+         },
+         "to": {
+            "id": 105,
+            "pin": 0
+         }
+      },
+      {
+         "from": {
+            "id": 103,
+            "pin": 0
+         },
+         "to": {
+            "id": 105,
+            "pin": 1
+         }
+      },
+      {
+         "from": {
+            "id": 102,
+            "pin": 0
+         },
+         "to": {
+            "id": 106,
+            "pin": 0
+         }
+      },
+      {
+         "from": {
+            "id": 104,
+            "pin": 0
+         },
+         "to": {
+            "id": 106,
+            "pin": 1
+         }
+      },
+      {
+         "from": {
+            "id": 105,
+            "pin": 1
+         },
+         "to": {
+            "id": 106,
+            "pin": 2
+         }
+      },
+      {
+         "from": {
+            "id": 105,
+            "pin": 0
+         },
+         "to": {
+            "id": 107,
+            "pin": 0
+         }
+      },
+      {
+         "from": {
+            "id": 106,
+            "pin": 0
+         },
+         "to": {
+            "id": 108,
+            "pin": 0
+         }
+      },
+      {
+         "from": {
+            "id": 106,
+            "pin": 1
+         },
+         "to": {
+            "id": 109,
+            "pin": 0
+         }
+      }
+   ]
+}

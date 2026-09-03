@@ -1,0 +1,72 @@
+{
+   "parts": [
+      {
+         "id": 101,
+         "type": 7,
+         "label": "A",
+         "x": 64,
+         "y": 96,
+         "numInputs": 0,
+         "numOutputs": 1
+      },
+      {
+         "id": 102,
+         "type": 7,
+         "label": "B",
+         "x": 64,
+         "y": 160,
+         "numInputs": 0,
+         "numOutputs": 1
+      },
+      {
+         "id": 103,
+         "type": 3,
+         "label": "NAND",
+         "x": 448,
+         "y": 96,
+         "numInputs": 2,
+         "numOutputs": 1
+      },
+      {
+         "id": 104,
+         "type": 8,
+         "label": "Y",
+         "x": 832,
+         "y": 96,
+         "numInputs": 1,
+         "numOutputs": 0
+      }
+   ],
+   "connections": [
+      {
+         "from": {
+            "id": 101,
+            "pin": 0
+         },
+         "to": {
+            "id": 103,
+            "pin": 0
+         }
+      },
+      {
+         "from": {
+            "id": 102,
+            "pin": 0
+         },
+         "to": {
+            "id": 103,
+            "pin": 1
+         }
+      },
+      {
+         "from": {
+            "id": 103,
+            "pin": 0
+         },
+         "to": {
+            "id": 104,
+            "pin": 0
+         }
+      }
+   ]
+}

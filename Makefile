@@ -17,7 +17,15 @@ SRCS_ALL := $(shell find $(SRC) -name "*.cpp")
 SRCS := $(filter-out $(EXCLUDE_PLATFORM), $(SRCS_ALL))
 OBJS_DEBUG := $(SRCS:%=build/debug/%.o)
 
-.PHONY: debug release check clean build_debug_impl
+ENGINE_SRCS_ALL := $(SRC)/part.cpp $(SRC)/primitives.cpp $(SRC)/utils.cpp $(wildcard $(SRC)/compiler/*.cpp)
+ENGINE_SRCS := $(filter-out $(EXCLUDE_PLATFORM), $(ENGINE_SRCS_ALL))
+SUITE_CPPFLAGS := -O2 -Wall -Wextra -std=c++23 -Iinclude -I$(SRC)
+SUITE_LDFLAGS :=
+ifneq ($(OS),Windows_NT)
+		SUITE_LDFLAGS += -ldl
+endif
+
+.PHONY: debug release check clean build_debug_impl test
 
 debug:
 	@mkdir -p build/debug
@@ -58,6 +66,14 @@ check:
 	@$(CXX) $(CPPFLAGS_DEBUG) $(SRCS) -o build/check/$(OUT) $(LDFLAGS) 2>> build/make.log
 	@cp *.md build/check/
 
+test:
+	@echo "Building validation suite..."
+	@$(CXX) $(SUITE_CPPFLAGS) $(ENGINE_SRCS) tests/validate.cpp -o tests/validate $(SUITE_LDFLAGS)
+	@echo "Running validation suite (interpreted + native engines)..."
+	@cd tests && ./validate
+
 clean:
 	@rm -rf build
+	@rm -f tests/validate
+	@rm -f tests/parts/*.so tests/parts/*.dll tests/parts/*.cpp
 	@echo "Cleaned build directory"
