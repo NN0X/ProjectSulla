@@ -20,12 +20,13 @@ OBJS_DEBUG := $(SRCS:%=build/debug/%.o)
 ENGINE_SRCS_ALL := $(SRC)/part.cpp $(SRC)/primitives.cpp $(SRC)/utils.cpp $(wildcard $(SRC)/compiler/*.cpp)
 ENGINE_SRCS := $(filter-out $(EXCLUDE_PLATFORM), $(ENGINE_SRCS_ALL))
 SUITE_CPPFLAGS := -O2 -Wall -Wextra -std=c++23 -Iinclude -I$(SRC)
+PERF_CPPFLAGS := -O3 -Wall -Wextra -std=c++23 -Iinclude -I$(SRC)
 SUITE_LDFLAGS :=
 ifneq ($(OS),Windows_NT)
 		SUITE_LDFLAGS += -ldl
 endif
 
-.PHONY: debug release check clean build_debug_impl test
+.PHONY: debug release check clean build_debug_impl test perf
 
 debug:
 	@mkdir -p build/debug
@@ -72,8 +73,15 @@ test:
 	@echo "Running validation suite (interpreted + native engines)..."
 	@cd tests && ./validate
 
+perf:
+	@echo "Building performance suite..."
+	@$(CXX) $(PERF_CPPFLAGS) $(ENGINE_SRCS) perf/bench.cpp -o perf/bench $(SUITE_LDFLAGS)
+	@echo "Running performance suite (interpreted vs native, all modes)..."
+	@cd perf && ./bench
+
 clean:
 	@rm -rf build
-	@rm -f tests/validate
+	@rm -f tests/validate perf/bench
 	@rm -f tests/parts/*.so tests/parts/*.dll tests/parts/*.cpp
+	@rm -f perf/parts/*.so perf/parts/*.dll perf/parts/*.cpp
 	@echo "Cleaned build directory"

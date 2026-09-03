@@ -1,0 +1,5 @@
+# Build artifacts produced by `make perf`
+bench
+parts/*.so
+parts/*.dll
+parts/*.cpp
