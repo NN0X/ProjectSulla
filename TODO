@@ -1,0 +1,13 @@
+Default custom part compilation to inline when a layout exists, else static lib, else dynamic
+Add static and dynamic compile options in the gui
+Give each compiled custom part its own directory under parts so the folder doesnt clutter
+Add deleting compiled parts from the gui
+Consider making primitives into statically linked custom parts by default
+Use the single json as the source of truth for a compiled part so static and dynamic dont duplicate
+Add a raw tick interface that reuses buffers to avoid per tick allocations
+Add word level buses and arithmetic parts instead of one wire per bit
+Split the transpiled output into per module functions so big circuits compile faster
+Statically link and hide subparts into one shared library for shipping without exposing layouts
+Load each dynamic library once instead of once per instance
+Add a memory primitive instead of building ram from gates
+Pass per instance state to compiled parts so stateful cores work
