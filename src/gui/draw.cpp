@@ -575,7 +575,10 @@ void drawUI(AppState& state)
                 y += HELP_LINE_SPACING;
                 DrawText("  UP/DOWN: Speed (Hz)", x, y, HELP_TEXT_SIZE, textC);
                 y += HELP_LINE_SPACING;
+                DrawText("  B: Benchmark current circuit", x, y, HELP_TEXT_SIZE, textC);
+                y += HELP_LINE_SPACING;
         }
+        drawBenchmark(state);
         std::string hzStr;
         if (state.targetHZ >= 1000000.0f) hzStr = std::format("{:.1f} MHz", state.targetHZ / 1000000.0f);
         else if (state.targetHZ >= 1000.0f) hzStr = std::format("{:.1f} kHz", state.targetHZ / 1000.0f);

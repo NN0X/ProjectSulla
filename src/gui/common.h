@@ -13,5 +13,7 @@ void drawTextFit(const char* text, float x, float y, float width, int fontSize, 
 void recompileSimulation(AppState& state);
 void dropPart(AppState& state, int type, Vector2 pos);
 void deleteParts(AppState& state);
+void runBenchmark(AppState& state);
+void drawBenchmark(AppState& state);
 
 #endif

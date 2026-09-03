@@ -17,6 +17,17 @@ struct ContextMenu
         Vector2 position = {0, 0};
 };
 
+struct BenchmarkResult
+{
+        bool valid = false;
+        bool running = false;
+        double interpNs = 0.0;
+        double inlineNs = 0.0;
+        double linkNs = 0.0;
+        bool inlineOk = false;
+        bool linkOk = false;
+};
+
 struct AppState
 {
         std::map<int, Part> parts;
@@ -67,6 +78,9 @@ struct AppState
         bool showRenameDialog = false;
         bool showSideMenu = true;
         bool showHelp = false;
+        bool showBenchmark = false;
+        bool benchmarkPending = false;
+        BenchmarkResult benchmark;
         bool darkMode = true;
         bool shouldQuit = false;
         bool linkCustomParts = false;

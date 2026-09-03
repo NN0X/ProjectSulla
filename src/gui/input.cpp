@@ -459,7 +459,25 @@ void handleInput(AppState& state)
                 if (IsKeyPressed(KEY_TAB)) state.showSideMenu = !state.showSideMenu;
                 if (IsKeyPressed(KEY_H)) state.showHelp = !state.showHelp;
                 if (IsKeyPressed(KEY_D)) state.darkMode = !state.darkMode;
-                if (IsKeyPressed(KEY_ESCAPE)) state.showQuitConfirm = true;
+                if (IsKeyPressed(KEY_B))
+                {
+                        if (state.showBenchmark)
+                        {
+                                state.showBenchmark = false;
+                        }
+                        else
+                        {
+                                state.showBenchmark = true;
+                                state.benchmark.valid = false;
+                                state.benchmark.running = false;
+                                state.benchmarkPending = true;
+                        }
+                }
+                if (IsKeyPressed(KEY_ESCAPE))
+                {
+                        if (state.showBenchmark) state.showBenchmark = false;
+                        else state.showQuitConfirm = true;
+                }
         }
 
         if (state.contextMenu.active)

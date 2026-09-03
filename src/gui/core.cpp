@@ -151,6 +151,20 @@ void recompileSimulation(AppState& state)
 
 void updateSimulation(AppState& state)
 {
+        if (state.benchmarkPending)
+        {
+                if (state.benchmark.running)
+                {
+                        runBenchmark(state);
+                        state.benchmarkPending = false;
+                        state.benchmark.running = false;
+                }
+                else
+                {
+                        state.benchmark.running = true;
+                }
+        }
+
         if (!state.simulation) recompileSimulation(state);
         state.runtimeInput.clear();
         for (std::map<int, std::vector<State>>::iterator it = state.sourceValues.begin(); it != state.sourceValues.end(); ++it)
