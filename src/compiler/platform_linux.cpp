@@ -1,10 +1,30 @@
 #include "compiler.h"
 
 #include <fstream>
+#include <sstream>
 #include <cstdlib>
 #include <filesystem>
 #include <map>
+#include <set>
 #include <dlfcn.h>
+
+static std::string collectStaticLinks(const std::string& cppCode)
+{
+        const std::string tag = "// SULLA_STATIC_LINK ";
+        std::string extra;
+        std::set<std::string> seen;
+        std::istringstream iss(cppCode);
+        std::string line;
+        while (std::getline(iss, line))
+        {
+                if (line.rfind(tag, 0) != 0) continue;
+                std::string path = line.substr(tag.size());
+                while (!path.empty() && (path.back() == '\r' || path.back() == ' ')) path.pop_back();
+                if (!path.empty() && seen.insert(path).second && std::filesystem::exists(path))
+                        extra += " " + path;
+        }
+        return extra;
+}
 
 static std::map<std::string, void*> loadedHandles;
 
@@ -19,7 +39,8 @@ bool compileSharedLibrary(const std::string& cppCode, const std::string& moduleN
         out << cppCode;
         out.close();
 
-        std::string command = "clang++ -O3 -shared -fPIC " + srcFile + " -o " + outFile + " -ldl";
+        std::string staticLibs = collectStaticLinks(cppCode);
+        std::string command = "clang++ -O3 -shared -fPIC " + srcFile + staticLibs + " -o " + outFile + " -ldl";
         int result = std::system(command.c_str());
 
         std::filesystem::remove(srcFile);

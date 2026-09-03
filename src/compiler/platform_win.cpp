@@ -1,12 +1,32 @@
 #include "compiler.h"
 
 #include <fstream>
+#include <sstream>
 #include <cstdlib>
 #include <filesystem>
 #include <map>
+#include <set>
 #include <windows.h>
 
 static std::map<std::string, HINSTANCE> loadedHandles;
+
+static std::string collectStaticLinks(const std::string& cppCode)
+{
+        const std::string tag = "// SULLA_STATIC_LINK ";
+        std::string extra;
+        std::set<std::string> seen;
+        std::istringstream iss(cppCode);
+        std::string line;
+        while (std::getline(iss, line))
+        {
+                if (line.rfind(tag, 0) != 0) continue;
+                std::string path = line.substr(tag.size());
+                while (!path.empty() && (path.back() == '\r' || path.back() == ' ')) path.pop_back();
+                if (!path.empty() && seen.insert(path).second && std::filesystem::exists(path))
+                        extra += " " + path;
+        }
+        return extra;
+}
 
 bool compileSharedLibrary(const std::string& cppCode, const std::string& moduleName)
 {
@@ -19,7 +39,8 @@ bool compileSharedLibrary(const std::string& cppCode, const std::string& moduleN
         out << cppCode;
         out.close();
 
-        std::string command = "clang++ -O3 -shared " + srcFile + " -o " + outFile;
+        std::string staticLibs = collectStaticLinks(cppCode);
+        std::string command = "clang++ -O3 -shared " + srcFile + staticLibs + " -o " + outFile;
         int result = std::system(command.c_str());
 
         std::filesystem::remove(srcFile);

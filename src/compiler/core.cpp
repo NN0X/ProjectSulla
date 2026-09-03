@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <functional>
 #include <cmath>
+#include <cctype>
 #include <fstream>
 #include <filesystem>
 
@@ -23,6 +24,7 @@ struct FlatCircuit
         std::map<int, int> outputCounts;
         std::map<int, std::string> labels;
         std::map<int, std::pair<float, float>> positions;
+        std::set<int> staticNodes;
 };
 
 struct LSCPin { int id; int pin; };
@@ -39,19 +41,40 @@ static bool readLayout(const std::string& label, LLayoutData& out)
         return true;
 }
 
-enum CustomMode { CUSTOM_NONE, CUSTOM_INLINE, CUSTOM_LINK };
+enum CustomMode { CUSTOM_NONE, CUSTOM_INLINE, CUSTOM_STATIC, CUSTOM_LINK };
+
+static std::string customSymbol(const std::string& label)
+{
+        std::string s = "sulla_part_";
+        for (char ch : label)
+                s += (std::isalnum((unsigned char)ch) ? ch : '_');
+        return s;
+}
+
+static bool hasStaticLib(const std::string& label)
+{
+        return std::filesystem::exists("parts/lib" + label + ".a");
+}
+
+static bool hasDynamicLib(const std::string& label)
+{
+#ifdef _WIN32
+        return std::filesystem::exists("parts/lib" + label + ".dll");
+#else
+        return std::filesystem::exists("parts/lib" + label + ".so");
+#endif
+}
 
 static CustomMode decideCustom(const std::string& label, bool linkMode)
 {
-#ifdef _WIN32
-        bool lib = std::filesystem::exists("parts/lib" + label + ".dll");
-#else
-        bool lib = std::filesystem::exists("parts/lib" + label + ".so");
-#endif
         bool layout = std::filesystem::exists("layouts/" + label + ".json");
-        if (linkMode && lib) return CUSTOM_LINK;
+        bool staticLib = hasStaticLib(label);
+        bool dynLib = hasDynamicLib(label);
+
+        if (linkMode && dynLib) return CUSTOM_LINK;
         if (layout) return CUSTOM_INLINE;
-        if (lib) return CUSTOM_LINK;
+        if (staticLib) return CUSTOM_STATIC;
+        if (dynLib) return CUSTOM_LINK;
         return CUSTOM_NONE;
 }
 
@@ -154,8 +177,13 @@ static std::vector<PartPin> expandCustom(FlatCircuit& fc, int& idAlloc,
                                         std::map<PartPin, PartPin>::iterator ci = conn.find({id, q});
                                         if (ci != conn.end()) childIn[q] = resolve(ci->second.first, ci->second.second);
                                 }
-                                if (decideCustom(clabel, linkMode) == CUSTOM_LINK)
-                                        customOut[id] = linkCustom(fc, idAlloc++, clabel, inC, outC, childIn);
+                                CustomMode m = decideCustom(clabel, linkMode);
+                                if (m == CUSTOM_LINK || m == CUSTOM_STATIC)
+                                {
+                                        int nid = idAlloc++;
+                                        customOut[id] = linkCustom(fc, nid, clabel, inC, outC, childIn);
+                                        if (m == CUSTOM_STATIC) fc.staticNodes.insert(nid);
+                                }
                                 else
                                         customOut[id] = expandCustom(fc, idAlloc, clabel, childIn, linkMode);
                                 expanding.erase(id);
@@ -231,8 +259,12 @@ static FlatCircuit flattenState(const AppState& state, bool linkMode)
                                 std::map<PartPin, PartPin>::const_iterator ci = state.connections.find({id, q});
                                 if (ci != state.connections.end()) childIn[q] = resolve(ci->second.first, ci->second.second);
                         }
-                        if (decideCustom(label, linkMode) == CUSTOM_LINK)
+                        CustomMode m = decideCustom(label, linkMode);
+                        if (m == CUSTOM_LINK || m == CUSTOM_STATIC)
+                        {
                                 customOut[id] = linkCustom(fc, id, label, inC, outC, childIn);
+                                if (m == CUSTOM_STATIC) fc.staticNodes.insert(id);
+                        }
                         else
                                 customOut[id] = expandCustom(fc, idAlloc, label, childIn, linkMode);
                         expanding.erase(id);
@@ -245,7 +277,7 @@ static FlatCircuit flattenState(const AppState& state, bool linkMode)
         {
                 int toId = it->first.first;
                 std::map<int, PartType>::const_iterator tt = state.partTypes.find(toId);
-                if (tt != state.partTypes.end() && tt->second == PART_TYPE_CUSTOM) continue; // absorbed by expansion
+                if (tt != state.partTypes.end() && tt->second == PART_TYPE_CUSTOM) continue;
                 PartPin prod = resolve(it->second.first, it->second.second);
                 if (prod.first != -1) fc.connections[{toId, it->first.second}] = prod;
         }
@@ -286,10 +318,26 @@ static std::string emitCpp(const FlatCircuit& c)
         std::ostringstream code;
         code << "#include <stdint.h>\n";
 
-        bool hasLinked = false;
+        bool hasDynamic = false, hasStatic = false;
         for (std::map<int, PartType>::const_iterator it = c.partTypes.begin(); it != c.partTypes.end(); ++it)
-                if (it->second == PART_TYPE_CUSTOM) hasLinked = true;
-        if (hasLinked)
+                if (it->second == PART_TYPE_CUSTOM)
+                {
+                        if (c.staticNodes.count(it->first)) hasStatic = true;
+                        else hasDynamic = true;
+                }
+        if (hasStatic)
+        {
+                std::set<std::string> staticLabels;
+                for (std::map<int, PartType>::const_iterator it = c.partTypes.begin(); it != c.partTypes.end(); ++it)
+                        if (it->second == PART_TYPE_CUSTOM && c.staticNodes.count(it->first))
+                                staticLabels.insert(c.labels.count(it->first) ? c.labels.at(it->first) : "");
+                for (std::set<std::string>::const_iterator s = staticLabels.begin(); s != staticLabels.end(); ++s)
+                {
+                        code << "// SULLA_STATIC_LINK parts/lib" << *s << ".a\n";
+                        code << "extern \"C\" void " << customSymbol(*s) << "(const uint8_t*, uint8_t*);\n";
+                }
+        }
+        if (hasDynamic)
         {
                 code << "#include <stdio.h>\n";
                 code << "#ifdef _WIN32\n";
@@ -475,13 +523,21 @@ static std::string emitCpp(const FlatCircuit& c)
                 else if (type == PART_TYPE_CUSTOM)
                 {
                         std::string lib = c.labels.count(u) ? c.labels.at(u) : "";
+                        bool isStatic = c.staticNodes.count(u) > 0;
                         code << "        {\n";
-                        code << "                static void* h = sulla_load_unique(\"./parts/lib" << lib << "\");\n";
-                        code << "                static sulla_fn fn = sulla_sym(h);\n";
                         code << "                uint8_t ci[" << (inC > 0 ? inC : 1) << "] = {0};\n";
                         code << "                uint8_t co[" << (outC > 0 ? outC : 1) << "] = {0};\n";
                         for (int p = 0; p < inC; ++p) code << "                ci[" << p << "] = " << inVars[p] << ";\n";
-                        code << "                if (fn) fn(ci, co);\n";
+                        if (isStatic)
+                        {
+                                code << "                " << customSymbol(lib) << "(ci, co);\n";
+                        }
+                        else
+                        {
+                                code << "                static void* h = sulla_load_unique(\"./parts/lib" << lib << "\");\n";
+                                code << "                static sulla_fn fn = sulla_sym(h);\n";
+                                code << "                if (fn) fn(ci, co);\n";
+                        }
                         for (int p = 0; p < outC; ++p) code << "                n_" << u << "_out_" << p << " = co[" << p << "];\n";
                         code << "        }\n";
                 }
