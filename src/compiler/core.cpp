@@ -22,6 +22,7 @@ struct FlatCircuit
         std::map<int, int> inputCounts;
         std::map<int, int> outputCounts;
         std::map<int, std::string> labels;
+        std::map<int, std::pair<float, float>> positions;
 };
 
 struct LSCPin { int id; int pin; };
@@ -207,6 +208,7 @@ static FlatCircuit flattenState(const AppState& state, bool linkMode)
                 fc.partTypes[id] = it->second;
                 fc.inputCounts[id] = state.inputCounts.count(id) ? state.inputCounts.at(id) : 0;
                 fc.outputCounts[id] = state.outputCounts.count(id) ? state.outputCounts.at(id) : 0;
+                if (state.positions.count(id)) fc.positions[id] = state.positions.at(id);
         }
 
         std::map<int, std::vector<PartPin>> customOut;
@@ -330,68 +332,71 @@ static std::string emitCpp(const FlatCircuit& c)
         }
         code << "\n";
 
+        std::vector<int> sources;
+        std::vector<int> outputs;
+        for (std::map<int, PartType>::const_iterator it = c.partTypes.begin(); it != c.partTypes.end(); ++it)
+        {
+                if (it->second == PART_TYPE_SOURCE) sources.push_back(it->first);
+                if (it->second == PART_TYPE_OUTPUT) outputs.push_back(it->first);
+        }
+        std::function<bool(int, int)> pinLess = [&](int a, int b) -> bool {
+                std::map<int, std::pair<float, float>>::const_iterator pa = c.positions.find(a);
+                std::map<int, std::pair<float, float>>::const_iterator pb = c.positions.find(b);
+                float xa = pa != c.positions.end() ? pa->second.first : 0.0f;
+                float ya = pa != c.positions.end() ? pa->second.second : 0.0f;
+                float xb = pb != c.positions.end() ? pb->second.first : 0.0f;
+                float yb = pb != c.positions.end() ? pb->second.second : 0.0f;
+                if (std::fabs(ya - yb) > 0.1f) return ya < yb;
+                if (std::fabs(xa - xb) > 0.1f) return xa < xb;
+                return a < b;
+        };
+        std::sort(sources.begin(), sources.end(), pinLess);
+        std::sort(outputs.begin(), outputs.end(), pinLess);
+
+        std::map<int, std::vector<std::pair<int, PartPin>>> adj;
+        for (std::map<PartPin, PartPin>::const_iterator it = c.connections.begin(); it != c.connections.end(); ++it)
+                adj[it->first.first].push_back(std::make_pair(it->first.second, it->second));
+        for (std::map<int, std::vector<std::pair<int, PartPin>>>::iterator it = adj.begin(); it != adj.end(); ++it)
+                std::sort(it->second.begin(), it->second.end());
+
+        std::vector<int> order;
+        std::set<int> visited;
+        std::set<int> onStack;
+        std::set<PartPin> backEdge;
+        std::set<int> backProd;
+        std::function<void(int)> dfs = [&](int node)
+        {
+                if (visited.count(node)) return;
+                onStack.insert(node);
+                std::map<int, std::vector<std::pair<int, PartPin>>>::iterator a = adj.find(node);
+                if (a != adj.end())
+                {
+                        for (size_t i = 0; i < a->second.size(); ++i)
+                        {
+                                int pin = a->second[i].first;
+                                int prod = a->second[i].second.first;
+                                if (onStack.count(prod)) { backEdge.insert(std::make_pair(node, pin)); backProd.insert(prod); }
+                                else if (!visited.count(prod)) dfs(prod);
+                        }
+                }
+                onStack.erase(node);
+                visited.insert(node);
+                order.push_back(node);
+        };
+        for (size_t i = 0; i < outputs.size(); ++i) dfs(outputs[i]);
+
         for (std::map<int, PartType>::const_iterator it = c.partTypes.begin(); it != c.partTypes.end(); ++it)
         {
                 int id = it->first;
                 int outC = c.outputCounts.count(id) ? c.outputCounts.at(id) : 0;
                 for (int p = 0; p < outC; ++p) code << "static uint8_t n_" << id << "_out_" << p << " = 0;\n";
+                if (backProd.count(id))
+                        for (int p = 0; p < outC; ++p) code << "static uint8_t p_" << id << "_out_" << p << " = 0;\n";
                 if (it->second == PART_TYPE_CLOCK) code << "static uint8_t clk_" << id << " = 0;\n";
         }
 
         code << "\nextern \"C\" {\n";
         code << "void executeTick(const uint8_t* in, uint8_t* out) {\n";
-
-        std::vector<int> sources;
-        std::vector<int> outputs;
-        std::map<int, std::vector<int>> adj;
-        std::map<int, int> inDegree;
-
-        for (std::map<int, PartType>::const_iterator it = c.partTypes.begin(); it != c.partTypes.end(); ++it)
-        {
-                int id = it->first;
-                inDegree[id] = 0;
-                if (it->second == PART_TYPE_SOURCE) sources.push_back(id);
-                if (it->second == PART_TYPE_OUTPUT) outputs.push_back(id);
-        }
-
-        std::sort(sources.begin(), sources.end());
-        std::sort(outputs.begin(), outputs.end());
-
-        for (std::map<PartPin, PartPin>::const_iterator it = c.connections.begin(); it != c.connections.end(); ++it)
-        {
-                int toID = it->first.first;
-                int fromID = it->second.first;
-                adj[fromID].push_back(toID);
-                inDegree[toID]++;
-        }
-
-        std::vector<int> q;
-        for (std::map<int, int>::iterator it = inDegree.begin(); it != inDegree.end(); ++it)
-                if (it->second == 0) q.push_back(it->first);
-
-        std::vector<int> order;
-        std::map<int, bool> emitted;
-        while (!q.empty())
-        {
-                int u = q.front();
-                q.erase(q.begin());
-                order.push_back(u);
-                emitted[u] = true;
-                for (size_t i = 0; i < adj[u].size(); ++i)
-                {
-                        int v = adj[u][i];
-                        inDegree[v]--;
-                        if (inDegree[v] == 0) q.push_back(v);
-                }
-        }
-
-        for (std::map<int, PartType>::const_iterator it = c.partTypes.begin(); it != c.partTypes.end(); ++it)
-        {
-                int id = it->first;
-                PartType type = it->second;
-                if (type != PART_TYPE_SOURCE && type != PART_TYPE_OUTPUT && type != PART_TYPE_DISPLAY && !emitted[id])
-                        order.push_back(id);
-        }
 
         int inIdx = 0;
         for (size_t i = 0; i < sources.size(); ++i)
@@ -414,7 +419,10 @@ static std::string emitCpp(const FlatCircuit& c)
                 {
                         std::map<PartPin, PartPin>::const_iterator cit = c.connections.find({u, p});
                         if (cit != c.connections.end())
-                                inVars[p] = "n_" + std::to_string(cit->second.first) + "_out_" + std::to_string(cit->second.second);
+                        {
+                                std::string buf = backEdge.count(std::make_pair(u, p)) ? "p_" : "n_";
+                                inVars[p] = buf + std::to_string(cit->second.first) + "_out_" + std::to_string(cit->second.second);
+                        }
                 }
 
                 if (inC == 0 && type != PART_TYPE_CUSTOM && type != PART_TYPE_CLOCK) continue;
@@ -477,6 +485,14 @@ static std::string emitCpp(const FlatCircuit& c)
                         for (int p = 0; p < outC; ++p) code << "                n_" << u << "_out_" << p << " = co[" << p << "];\n";
                         code << "        }\n";
                 }
+        }
+
+        for (std::map<int, PartType>::const_iterator it = c.partTypes.begin(); it != c.partTypes.end(); ++it)
+        {
+                int id = it->first;
+                if (!backProd.count(id)) continue;
+                int outC = c.outputCounts.count(id) ? c.outputCounts.at(id) : 0;
+                for (int p = 0; p < outC; ++p) code << "        p_" << id << "_out_" << p << " = n_" << id << "_out_" << p << ";\n";
         }
 
         int outIdx = 0;

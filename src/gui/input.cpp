@@ -68,8 +68,19 @@ static void doCompile(AppState& state, const std::string& modName)
                         if (it->second == PART_TYPE_SOURCE) sortedSources.push_back(it->first);
                         if (it->second == PART_TYPE_OUTPUT) sortedOutputs.push_back(it->first);
                 }
-                std::sort(sortedSources.begin(), sortedSources.end());
-                std::sort(sortedOutputs.begin(), sortedOutputs.end());
+                auto pinLess = [&](int a, int b) -> bool {
+                        auto pa = state.positions.find(a);
+                        auto pb = state.positions.find(b);
+                        float xa = pa != state.positions.end() ? pa->second.first : 0.0f;
+                        float ya = pa != state.positions.end() ? pa->second.second : 0.0f;
+                        float xb = pb != state.positions.end() ? pb->second.first : 0.0f;
+                        float yb = pb != state.positions.end() ? pb->second.second : 0.0f;
+                        if (std::fabs(ya - yb) > 0.1f) return ya < yb;
+                        if (std::fabs(xa - xb) > 0.1f) return xa < xb;
+                        return a < b;
+                };
+                std::sort(sortedSources.begin(), sortedSources.end(), pinLess);
+                std::sort(sortedOutputs.begin(), sortedOutputs.end(), pinLess);
 
                 for (size_t s = 0; s < sortedSources.size(); ++s)
                 {
