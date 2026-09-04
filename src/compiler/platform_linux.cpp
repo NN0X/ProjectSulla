@@ -58,11 +58,54 @@ void unloadCompiledPart(const std::string& moduleName)
         }
 }
 
+bool compilePartLibrary(const std::string& cppCode, const std::string& label,
+                        bool buildStatic, bool buildDynamic)
+{
+        std::string dir = sullaPartDir(label);
+        std::filesystem::create_directories(dir);
+        std::string staticLibs = collectStaticLinks(cppCode);
+        bool ok = true;
+
+        if (buildDynamic)
+        {
+                std::string srcFile = dir + "/" + label + ".dyn.cpp";
+                std::string outFile = dir + "/lib" + label + ".so";
+                std::ofstream(srcFile) << cppCode;
+                std::string command = "clang++ -O3 -shared -fPIC " + srcFile + staticLibs + " -o " + outFile + " -ldl";
+                ok = (std::system(command.c_str()) == 0) && ok;
+                std::filesystem::remove(srcFile);
+        }
+
+        if (buildStatic)
+        {
+                std::string code = cppCode;
+                const std::string from = "void executeTick(";
+                std::string::size_type pos = code.find(from);
+                if (pos != std::string::npos)
+                        code.replace(pos, from.size(), "void " + sullaPartSymbol(label) + "(");
+
+                std::string srcFile = dir + "/" + label + ".sta.cpp";
+                std::string objFile = dir + "/" + label + ".o";
+                std::string arFile  = dir + "/lib" + label + ".a";
+                std::ofstream(srcFile) << code;
+                int r1 = std::system(("clang++ -O3 -fPIC -c " + srcFile + " -o " + objFile).c_str());
+                std::error_code ec; std::filesystem::remove(arFile, ec);
+                int r2 = std::system(("ar rcs " + arFile + " " + objFile).c_str());
+                std::filesystem::remove(srcFile);
+                std::filesystem::remove(objFile);
+                ok = (r1 == 0 && r2 == 0) && ok;
+        }
+
+        return ok;
+}
+
 Part loadCompiledPart(const std::string& moduleName, int outCount)
 {
         unloadCompiledPart(moduleName);
 
-        std::string libPath = "./parts/lib" + moduleName + ".so";
+        std::string resolved = sullaFindDynamic(moduleName);
+        std::string libPath = !resolved.empty() ? ("./" + resolved)
+                                                : ("./parts/lib" + moduleName + ".so");
         void* handle = dlopen(libPath.c_str(), RTLD_LAZY);
         if (!handle) return nullptr;
 

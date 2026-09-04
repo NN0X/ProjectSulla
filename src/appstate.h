@@ -84,6 +84,8 @@ struct AppState
         bool darkMode = true;
         bool shouldQuit = false;
         bool linkCustomParts = false;
+        bool compileStatic = true;
+        bool compileDynamic = true;
 
         char fileNameBuffer[64] = "circuit";
         int renamePartID = -1;

@@ -54,6 +54,7 @@ static void cleanupModules()
                 std::error_code ec;
                 fs::remove("parts/lib" + mod + ".so", ec);
                 fs::remove("parts/lib" + mod + ".dll", ec);
+                fs::remove_all("parts/" + mod, ec);
         }
 }
 
@@ -174,7 +175,7 @@ static void testClock()
         const int TICKS = 8;
         for (int i = 0; i < TICKS; ++i)
         {
-                golden.push_back((i % 2 == 0) ? 1 : 0); // first tick drives HIGH
+                golden.push_back((i % 2 == 0) ? 1 : 0);
                 gotI.push_back(interp(toStates(noInput))[0] == STATE_HIGH ? 1 : 0);
                 gotN.push_back(native(toStates(noInput))[0] == STATE_HIGH ? 1 : 0);
         }
@@ -191,15 +192,15 @@ static void testNativeLink()
                 AppState child;
                 loadLayout(child, "layouts/full_adder.json");
                 std::string code = transpileToCpp(child, false);
-                bool ok = compileSharedLibrary(code, "full_adder");
+                bool ok = compilePartLibrary(code, "full_adder", false, true);
                 g_builtModules.push_back("full_adder");
-                if (!tf::check(ok && fs::exists("parts/libfull_adder.so"),
-                               "adder2: child library parts/libfull_adder.so built"))
+                if (!tf::check(ok && fs::exists("parts/full_adder/libfull_adder.so"),
+                               "adder2: child library parts/full_adder/libfull_adder.so built"))
                         return;
         }
 
         int nOut = 0;
-        Part native = buildNative("adder2", nOut, /*linkMode=*/true);
+        Part native = buildNative("adder2", nOut, true);
         if (!tf::check(native != nullptr, "adder2: linked native engine compiled + loaded")) return;
 
         int iIn = 0, iOut = 0;

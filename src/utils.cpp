@@ -50,8 +50,8 @@ struct LayoutData
 
 static void loadPinLabelsForCustom(AppState& state, int partID, const std::string& label, int numOutputs)
 {
-        std::string metaPath = "parts/" + label + ".json";
-        if (std::filesystem::exists(metaPath))
+        std::string metaPath = sullaFindMeta(label);
+        if (!metaPath.empty())
         {
                 std::ifstream mf(metaPath);
                 if (mf.is_open())

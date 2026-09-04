@@ -54,8 +54,9 @@ static void cleanupOutputPinConnections(AppState& state, int partID, int removed
 
 static void doCompile(AppState& state, const std::string& modName)
 {
+        if (!state.compileStatic && !state.compileDynamic) return; // nothing selected
         std::string cpp = transpileToCpp(state, state.linkCustomParts);
-        if (compileSharedLibrary(cpp, modName))
+        if (compilePartLibrary(cpp, modName, state.compileStatic, state.compileDynamic))
         {
                 int inC = 0, outC = 0;
                 std::vector<std::string> inLabels;
@@ -116,12 +117,13 @@ static void doCompile(AppState& state, const std::string& modName)
                 state.compiledInputLabels[modName] = inLabels;
                 state.compiledOutputLabels[modName] = outLabels;
 
-                if (!std::filesystem::exists("parts")) std::filesystem::create_directory("parts");
+                std::string dir = sullaPartDir(modName);
+                std::filesystem::create_directories(dir);
                 CompiledMeta meta{inC, outC, inLabels, outLabels};
                 std::string json;
                 if (!glz::write<glz::opts{.prettify = true}>(meta, json))
                 {
-                        std::ofstream file("parts/" + modName + ".json");
+                        std::ofstream file(dir + "/" + modName + ".json");
                         if (file.is_open())
                         {
                                 file << json;
@@ -264,10 +266,6 @@ void handleInput(AppState& state)
                 }
 
                 bool confirm = false;
-                if (state.showCompileDialog && IsKeyPressed(KEY_L))
-                {
-                        state.linkCustomParts = !state.linkCustomParts;
-                }
                 if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
                 {
                         float btnY = GetScreenHeight()/2 - DIALOG_HEIGHT/2 + SAVE_DIALOG_BTN_Y_OFFSET;
@@ -276,8 +274,12 @@ void handleInput(AppState& state)
                         Rectangle confirmBtn = {startX + SAVE_DIALOG_BTN_WIDTH + SAVE_DIALOG_BTN_SPACING, btnY, SAVE_DIALOG_BTN_WIDTH, SAVE_DIALOG_BTN_HEIGHT};
                         if (state.showCompileDialog)
                         {
-                                Rectangle linkChkHit = { GetScreenWidth()/2 - SAVE_DIALOG_INPUT_WIDTH/2, GetScreenHeight()/2 - DIALOG_HEIGHT/2 + 6, 150, 16 };
-                                if (CheckCollisionPointRec(mousePos, linkChkHit)) state.linkCustomParts = !state.linkCustomParts;
+                                float chkX = GetScreenWidth()/2 - SAVE_DIALOG_INPUT_WIDTH/2;
+                                float chkY = GetScreenHeight()/2 - DIALOG_HEIGHT/2 + 6;
+                                Rectangle dynHit = { chkX, chkY, 90, 16 };
+                                Rectangle staHit = { chkX + 100, chkY, 90, 16 };
+                                if (CheckCollisionPointRec(mousePos, dynHit)) state.compileDynamic = !state.compileDynamic;
+                                if (CheckCollisionPointRec(mousePos, staHit)) state.compileStatic = !state.compileStatic;
                         }
                         if (CheckCollisionPointRec(mousePos, cancelBtn))
                         {

@@ -65,30 +65,26 @@ void refreshCompiledModules(AppState& state)
         state.compiledOutputs.clear();
         state.compiledInputLabels.clear();
         state.compiledOutputLabels.clear();
-        if (std::filesystem::exists("parts"))
+        if (!std::filesystem::exists("parts")) return;
+
+        for (const auto& entry : std::filesystem::directory_iterator("parts"))
         {
-                for (const auto& entry : std::filesystem::directory_iterator("parts"))
-                {
-                        if (entry.path().extension() == ".json")
-                        {
-                                std::string modName = entry.path().stem().string();
-                                std::ifstream file(entry.path());
-                                if (file.is_open())
-                                {
-                                        std::string json((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-                                        file.close();
-                                        CompiledMeta meta{};
-                                        if (!glz::read_json(meta, json))
-                                        {
-                                                state.compiledModules.push_back(modName);
-                                                state.compiledInputs[modName] = meta.inputs;
-                                                state.compiledOutputs[modName] = meta.outputs;
-                                                state.compiledInputLabels[modName] = meta.inputLabels;
-                                                state.compiledOutputLabels[modName] = meta.outputLabels;
-                                        }
-                                }
-                        }
-                }
+                if (!entry.is_directory()) continue;
+                std::string modName = entry.path().filename().string();
+                std::filesystem::path metaPath = entry.path() / (modName + ".json");
+                if (!std::filesystem::exists(metaPath)) continue;
+
+                std::ifstream file(metaPath);
+                if (!file.is_open()) continue;
+                std::string json((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+                file.close();
+                CompiledMeta meta{};
+                if (glz::read_json(meta, json)) continue;
+                state.compiledModules.push_back(modName);
+                state.compiledInputs[modName] = meta.inputs;
+                state.compiledOutputs[modName] = meta.outputs;
+                state.compiledInputLabels[modName] = meta.inputLabels;
+                state.compiledOutputLabels[modName] = meta.outputLabels;
         }
 }
 

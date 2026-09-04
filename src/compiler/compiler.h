@@ -19,4 +19,13 @@ bool compileSharedLibrary(const std::string& cppCode, const std::string& moduleN
 Part loadCompiledPart(const std::string& moduleName, int outCount);
 void unloadCompiledPart(const std::string& moduleName);
 
+std::string sullaPartDir(const std::string& label);
+std::string sullaPartSymbol(const std::string& label);
+std::string sullaFindStatic(const std::string& label);
+std::string sullaFindDynamic(const std::string& label);
+std::string sullaFindMeta(const std::string& label);
+
+bool compilePartLibrary(const std::string& cppCode, const std::string& label,
+                        bool buildStatic, bool buildDynamic);
+
 #endif

@@ -43,7 +43,9 @@ static bool readLayout(const std::string& label, LLayoutData& out)
 
 enum CustomMode { CUSTOM_NONE, CUSTOM_INLINE, CUSTOM_STATIC, CUSTOM_LINK };
 
-static std::string customSymbol(const std::string& label)
+std::string sullaPartDir(const std::string& label) { return "parts/" + label; }
+
+std::string sullaPartSymbol(const std::string& label)
 {
         std::string s = "sulla_part_";
         for (char ch : label)
@@ -51,25 +53,33 @@ static std::string customSymbol(const std::string& label)
         return s;
 }
 
-static bool hasStaticLib(const std::string& label)
+std::string sullaFindStatic(const std::string& label)
 {
-        return std::filesystem::exists("parts/lib" + label + ".a");
+        std::string p = "parts/" + label + "/lib" + label + ".a";
+        return std::filesystem::exists(p) ? p : "";
 }
 
-static bool hasDynamicLib(const std::string& label)
+std::string sullaFindDynamic(const std::string& label)
 {
 #ifdef _WIN32
-        return std::filesystem::exists("parts/lib" + label + ".dll");
+        std::string p = "parts/" + label + "/lib" + label + ".dll";
 #else
-        return std::filesystem::exists("parts/lib" + label + ".so");
+        std::string p = "parts/" + label + "/lib" + label + ".so";
 #endif
+        return std::filesystem::exists(p) ? p : "";
+}
+
+std::string sullaFindMeta(const std::string& label)
+{
+        std::string p = "parts/" + label + "/" + label + ".json";
+        return std::filesystem::exists(p) ? p : "";
 }
 
 static CustomMode decideCustom(const std::string& label, bool linkMode)
 {
         bool layout = std::filesystem::exists("layouts/" + label + ".json");
-        bool staticLib = hasStaticLib(label);
-        bool dynLib = hasDynamicLib(label);
+        bool staticLib = !sullaFindStatic(label).empty();
+        bool dynLib = !sullaFindDynamic(label).empty();
 
         if (linkMode && dynLib) return CUSTOM_LINK;
         if (layout) return CUSTOM_INLINE;
@@ -333,8 +343,8 @@ static std::string emitCpp(const FlatCircuit& c)
                                 staticLabels.insert(c.labels.count(it->first) ? c.labels.at(it->first) : "");
                 for (std::set<std::string>::const_iterator s = staticLabels.begin(); s != staticLabels.end(); ++s)
                 {
-                        code << "// SULLA_STATIC_LINK parts/lib" << *s << ".a\n";
-                        code << "extern \"C\" void " << customSymbol(*s) << "(const uint8_t*, uint8_t*);\n";
+                        code << "// SULLA_STATIC_LINK " << sullaFindStatic(*s) << "\n";
+                        code << "extern \"C\" void " << sullaPartSymbol(*s) << "(const uint8_t*, uint8_t*);\n";
                 }
         }
         if (hasDynamic)
@@ -530,11 +540,13 @@ static std::string emitCpp(const FlatCircuit& c)
                         for (int p = 0; p < inC; ++p) code << "                ci[" << p << "] = " << inVars[p] << ";\n";
                         if (isStatic)
                         {
-                                code << "                " << customSymbol(lib) << "(ci, co);\n";
+                                code << "                " << sullaPartSymbol(lib) << "(ci, co);\n";
                         }
                         else
                         {
-                                code << "                static void* h = sulla_load_unique(\"./parts/lib" << lib << "\");\n";
+                                std::string dynPath = sullaFindDynamic(lib);
+                                std::string base = dynPath.substr(0, dynPath.find_last_of('.'));
+                                code << "                static void* h = sulla_load_unique(\"./" << base << "\");\n";
                                 code << "                static sulla_fn fn = sulla_sym(h);\n";
                                 code << "                if (fn) fn(ci, co);\n";
                         }

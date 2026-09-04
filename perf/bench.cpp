@@ -101,9 +101,9 @@ int main()
                 AppState child;
                 loadLayout(child, "layouts/full_adder.json");
                 std::string code = transpileToCpp(child, false);
-                bool ok = compileSharedLibrary(code, "full_adder");
+                bool ok = compilePartLibrary(code, "full_adder", false, true);
                 g_builtModules.push_back("full_adder");
-                expect(ok && fs::exists("parts/libfull_adder.so"), "child parts/libfull_adder.so built for link mode");
+                expect(ok && fs::exists("parts/full_adder/libfull_adder.so"), "child parts/full_adder/libfull_adder.so built for link mode");
         }
 
         for (const std::string name : circuits)
@@ -220,6 +220,7 @@ int main()
                 std::error_code ec;
                 fs::remove("parts/lib" + mod + ".so", ec);
                 fs::remove("parts/lib" + mod + ".dll", ec);
+                fs::remove_all("parts/" + mod, ec);
         }
 
         std::printf("\n%s%s---------------------------------------------%s\n", A_BOLD, A_CYAN, A_RST);
