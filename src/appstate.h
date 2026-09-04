@@ -90,6 +90,7 @@ struct AppState
         char fileNameBuffer[64] = "circuit";
         int renamePartID = -1;
         std::string layoutToDelete = "";
+        std::string partToDelete = "";
         std::string pendingSaveFilename = "";
 
         int draggingNewPartType = -1;

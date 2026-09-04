@@ -342,7 +342,8 @@ void drawUI(AppState& state)
                 for (size_t i = 0; i < state.compiledModules.size(); ++i)
                 {
                         std::string mod = state.compiledModules[i];
-                        Rectangle btn = {SIDEMENU_BUTTON_MARGIN, y, DEFAULT_SIDEMENU_WIDTH - SIDEMENU_BUTTON_MARGIN*2, SIDEMENU_BUTTON_HEIGHT};
+                        Rectangle btn = {SIDEMENU_BUTTON_MARGIN, y, DEFAULT_SIDEMENU_WIDTH - SIDEMENU_BUTTON_MARGIN*2 - 25, SIDEMENU_BUTTON_HEIGHT};
+                        Rectangle delBtn = {btn.x + btn.width + 5, y + 5, SIDEMENU_DELETE_BTN_SIZE, SIDEMENU_DELETE_BTN_SIZE};
                         bool hovered = CheckCollisionPointRec(GetMousePosition(), btn);
                         DrawRectangleRounded(btn, 0.2f, 8, hovered ? LIGHTGRAY : GRAY);
                         drawTextFit(mod.c_str(), btn.x + 5, btn.y + 5, btn.width - 10, SIDEMENU_LIST_TEXT_SIZE, BLACK);
@@ -350,6 +351,13 @@ void drawUI(AppState& state)
                         {
                                 DrawRectangleRoundedLines(btn, 0.2f, 8, BLUE);
                                 if (IsMouseButtonDown(MOUSE_BUTTON_LEFT) && Vector2Distance(GetMouseDelta(), {0,0}) > 1.0f) state.draggingCompiledFile = mod;
+                        }
+                        DrawRectangleRec(delBtn, RED);
+                        DrawText("X", delBtn.x + 5, delBtn.y + 2, 10, WHITE);
+                        if (CheckCollisionPointRec(GetMousePosition(), delBtn) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+                        {
+                                state.partToDelete = mod;
+                                state.showDeleteConfirm = true;
                         }
                         y += SIDEMENU_LIST_SPACING;
                 }

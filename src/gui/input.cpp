@@ -385,16 +385,27 @@ void handleInput(AppState& state)
                         if (CheckCollisionPointRec(mousePos, cancelBtn))
                         {
                                 state.showDeleteConfirm = false;
+                                state.partToDelete = "";
                         }
                         if (CheckCollisionPointRec(mousePos, confirmBtn)) confirm = true;
                 }
                 if (IsKeyPressed(KEY_ENTER) || confirm)
                 {
-                        std::filesystem::remove("layouts/" + state.layoutToDelete);
-                        refreshLayouts(state);
+                        if (!state.partToDelete.empty())
+                        {
+                                std::error_code ec;
+                                std::filesystem::remove_all("parts/" + state.partToDelete, ec);
+                                state.partToDelete = "";
+                                refreshCompiledModules(state);
+                        }
+                        else
+                        {
+                                std::filesystem::remove("layouts/" + state.layoutToDelete);
+                                refreshLayouts(state);
+                        }
                         state.showDeleteConfirm = false;
                 }
-                if (IsKeyPressed(KEY_ESCAPE)) state.showDeleteConfirm = false;
+                if (IsKeyPressed(KEY_ESCAPE)) { state.showDeleteConfirm = false; state.partToDelete = ""; }
                 return;
         }
 
