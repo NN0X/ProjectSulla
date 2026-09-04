@@ -15,6 +15,7 @@
 #include <glaze/glaze.hpp>
 
 #include "../part.h"
+#include "../gates.h"
 
 struct FlatCircuit
 {
@@ -485,45 +486,19 @@ static std::string emitCpp(const FlatCircuit& c)
 
                 if (inC == 0 && type != PART_TYPE_CUSTOM && type != PART_TYPE_CLOCK) continue;
 
-                if (type == PART_TYPE_AND)
+                const GateSpec& g = gateSpec(type);
+                if (g.eval == EVAL_FOLD)
                 {
-                        code << "        uint8_t t_" << u << " = " << inVars[0] << ";\n";
-                        for (int p = 1; p < inC; ++p) code << "        t_" << u << " &= " << inVars[p] << ";\n";
-                        code << "        n_" << u << "_out_0 = t_" << u << ";\n";
-                }
-                else if (type == PART_TYPE_OR)
-                {
-                        code << "        uint8_t t_" << u << " = " << inVars[0] << ";\n";
-                        for (int p = 1; p < inC; ++p) code << "        t_" << u << " |= " << inVars[p] << ";\n";
-                        code << "        n_" << u << "_out_0 = t_" << u << ";\n";
-                }
-                else if (type == PART_TYPE_NOT)
-                {
-                        code << "        n_" << u << "_out_0 = !" << inVars[0] << ";\n";
-                }
-                else if (type == PART_TYPE_NAND)
-                {
-                        code << "        uint8_t t_" << u << " = " << inVars[0] << ";\n";
-                        for (int p = 1; p < inC; ++p) code << "        t_" << u << " &= " << inVars[p] << ";\n";
-                        code << "        n_" << u << "_out_0 = !t_" << u << ";\n";
-                }
-                else if (type == PART_TYPE_NOR)
-                {
-                        code << "        uint8_t t_" << u << " = " << inVars[0] << ";\n";
-                        for (int p = 1; p < inC; ++p) code << "        t_" << u << " |= " << inVars[p] << ";\n";
-                        code << "        n_" << u << "_out_0 = !t_" << u << ";\n";
-                }
-                else if (type == PART_TYPE_XOR)
-                {
-                        code << "        uint8_t t_" << u << " = " << inVars[0] << ";\n";
-                        for (int p = 1; p < inC; ++p) code << "        t_" << u << " ^= " << inVars[p] << ";\n";
-                        code << "        n_" << u << "_out_0 = t_" << u << ";\n";
-                }
-                else if (type == PART_TYPE_XNOR)
-                {
-                        code << "        uint8_t t_" << u << " = " << inVars[0] << ";\n";
-                        for (int p = 1; p < inC; ++p) code << "        t_" << u << " ^= " << inVars[p] << ";\n";
-                        code << "        n_" << u << "_out_0 = !t_" << u << ";\n";
+                        if (g.foldOp == 0)
+                        {
+                                code << "        n_" << u << "_out_0 = " << (g.invert ? "!" : "") << inVars[0] << ";\n";
+                        }
+                        else
+                        {
+                                code << "        uint8_t t_" << u << " = " << inVars[0] << ";\n";
+                                for (int p = 1; p < inC; ++p) code << "        t_" << u << " " << g.foldOp << "= " << inVars[p] << ";\n";
+                                code << "        n_" << u << "_out_0 = " << (g.invert ? "!" : "") << "t_" << u << ";\n";
+                        }
                 }
                 else if (type == PART_TYPE_CLOCK)
                 {

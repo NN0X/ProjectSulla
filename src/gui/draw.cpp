@@ -1,5 +1,6 @@
 #include "gui.h"
 #include "common.h"
+#include "../gates.h"
 
 #include <iostream>
 #include <filesystem>
@@ -301,7 +302,7 @@ void drawUI(AppState& state)
                         Rectangle btn = {SIDEMENU_BUTTON_MARGIN, y, DEFAULT_SIDEMENU_WIDTH - SIDEMENU_BUTTON_MARGIN*2, SIDEMENU_BUTTON_HEIGHT};
                         bool hovered = CheckCollisionPointRec(GetMousePosition(), btn);
                         DrawRectangleRounded(btn, 0.2f, 8, hovered ? LIGHTGRAY : GRAY);
-                        DrawText(PART_TYPE_NAMES[i], btn.x + SIDEMENU_BUTTON_TEXT_OFFSET_X, btn.y + SIDEMENU_BUTTON_TEXT_OFFSET_Y, SIDEMENU_BUTTON_TEXT_SIZE, BLACK);
+                        DrawText(partTypeName((PartType)i), btn.x + SIDEMENU_BUTTON_TEXT_OFFSET_X, btn.y + SIDEMENU_BUTTON_TEXT_OFFSET_Y, SIDEMENU_BUTTON_TEXT_SIZE, BLACK);
                         if (hovered && notDragging)
                         {
                                 DrawRectangleRoundedLines(btn, 0.2f, 8, BLUE);
@@ -366,7 +367,7 @@ void drawUI(AppState& state)
         {
                 Vector2 m = GetMousePosition();
                 DrawRectangle(m.x - BASE_PART_WIDTH/2, m.y - BASE_PART_HEIGHT/2, BASE_PART_WIDTH, BASE_PART_HEIGHT, Fade(GRAY, 0.5f));
-                DrawText(PART_TYPE_NAMES[state.draggingNewPartType], m.x, m.y, 10, textC);
+                DrawText(partTypeName((PartType)state.draggingNewPartType), m.x, m.y, 10, textC);
         }
         else if (state.draggingLayoutFile != "")
         {

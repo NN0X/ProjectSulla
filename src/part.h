@@ -29,21 +29,6 @@ enum PartType
         PART_TYPE_DISPLAY
 };
 
-inline const char* PART_TYPE_NAMES[] = {
-        "AND",
-        "OR",
-        "NOT",
-        "NAND",
-        "NOR",
-        "XOR",
-        "XNOR",
-        "SOURCE",
-        "OUTPUT",
-        "CUSTOM",
-        "CLOCK",
-        "DISPLAY"
-};
-
 typedef std::vector<State> Input;
 typedef std::function<std::vector<State>(Input)> Part;
 typedef std::pair<int, int> PartPin;

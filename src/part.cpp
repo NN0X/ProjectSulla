@@ -8,6 +8,7 @@
 #include <string>
 
 #include "primitives.h"
+#include "gates.h"
 
 void setSourcePart(std::map<int, Part>& parts, int partID)
 {
@@ -120,32 +121,22 @@ Part assemblePart(std::map<int, Part> parts, const std::map<PartPin, PartPin>& c
 
 Part getPartFromType(PartType type)
 {
-        switch (type)
+        const GateSpec& g = gateSpec(type);
+        switch (g.eval)
         {
-        case PART_TYPE_AND:
-                return andPart;
-        case PART_TYPE_OR:
-                return orPart;
-        case PART_TYPE_NOT:
-                return notPart;
-        case PART_TYPE_NAND:
-                return nandPart;
-        case PART_TYPE_NOR:
-                return norPart;
-        case PART_TYPE_XOR:
-                return xorPart;
-        case PART_TYPE_XNOR:
-                return xnorPart;
-        case PART_TYPE_CLOCK:
+        case EVAL_FOLD:
+                return makeFoldPart(g.foldOp, g.invert);
+        case EVAL_CLOCK:
                 return getClockPart();
-        case PART_TYPE_DISPLAY:
+        case EVAL_SINK:
                 return displayPart;
-        case PART_TYPE_CUSTOM:
+        case EVAL_CUSTOM:
                 return [](std::vector<State> inputs) -> std::vector<State> {
                         return std::vector<State>(1, STATE_UNDEFINED);
                 };
+        case EVAL_SOURCE:
         default:
-                std::cerr << "Error: Unknown part type " << PART_TYPE_NAMES[type] << std::endl;
+                std::cerr << "Error: part type has no interpreter part: " << partTypeName(type) << std::endl;
                 std::exit(1);
         }
 }

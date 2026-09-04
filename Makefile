@@ -17,7 +17,7 @@ SRCS_ALL := $(shell find $(SRC) -name "*.cpp")
 SRCS := $(filter-out $(EXCLUDE_PLATFORM), $(SRCS_ALL))
 OBJS_DEBUG := $(SRCS:%=build/debug/%.o)
 
-ENGINE_SRCS_ALL := $(SRC)/part.cpp $(SRC)/primitives.cpp $(SRC)/utils.cpp $(wildcard $(SRC)/compiler/*.cpp)
+ENGINE_SRCS_ALL := $(SRC)/part.cpp $(SRC)/primitives.cpp $(SRC)/gates.cpp $(SRC)/utils.cpp $(wildcard $(SRC)/compiler/*.cpp)
 ENGINE_SRCS := $(filter-out $(EXCLUDE_PLATFORM), $(ENGINE_SRCS_ALL))
 SUITE_CPPFLAGS := -O2 -Wall -Wextra -std=c++23 -Iinclude -I$(SRC)
 PERF_CPPFLAGS := -O3 -Wall -Wextra -std=c++23 -Iinclude -I$(SRC)

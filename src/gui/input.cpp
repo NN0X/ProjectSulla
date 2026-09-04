@@ -1,5 +1,6 @@
 #include "gui.h"
 #include "common.h"
+#include "../gates.h"
 
 #include <iostream>
 #include <filesystem>
@@ -143,7 +144,7 @@ void dropPart(AppState& state, int type, Vector2 pos)
 
         state.partTypes[id] = (PartType)type;
         state.positions[id] = {pos.x, pos.y};
-        state.labels[id] = PART_TYPE_NAMES[type];
+        state.labels[id] = partTypeName((PartType)type);
         state.simulation = nullptr;
 
         if (type == PART_TYPE_NOT)
