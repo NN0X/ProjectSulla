@@ -448,7 +448,6 @@ static std::string emitCpp(const FlatCircuit& c)
         {
                 int id = it->first;
                 int outC = c.outputCounts.count(id) ? c.outputCounts.at(id) : 0;
-                for (int p = 0; p < outC; ++p) code << "static uint8_t n_" << id << "_out_" << p << " = 0;\n";
                 if (backProd.count(id))
                         for (int p = 0; p < outC; ++p) code << "static uint8_t p_" << id << "_out_" << p << " = 0;\n";
                 if (it->second == PART_TYPE_CLOCK) code << "static uint8_t clk_" << id << " = 0;\n";
@@ -456,6 +455,13 @@ static std::string emitCpp(const FlatCircuit& c)
 
         code << "\nextern \"C\" {\n";
         code << "void executeTick(const uint8_t* in, uint8_t* out) {\n";
+
+        for (std::map<int, PartType>::const_iterator it = c.partTypes.begin(); it != c.partTypes.end(); ++it)
+        {
+                int id = it->first;
+                int outC = c.outputCounts.count(id) ? c.outputCounts.at(id) : 0;
+                for (int p = 0; p < outC; ++p) code << "        uint8_t n_" << id << "_out_" << p << " = 0;\n";
+        }
 
         int inIdx = 0;
         for (size_t i = 0; i < sources.size(); ++i)
