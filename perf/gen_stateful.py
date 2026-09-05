@@ -61,18 +61,15 @@ def emit_verilog_regbank(N):
 
 if __name__=="__main__":
     import os, shutil
-    json.dump(dff_layout(), open("layouts/dff.json","w"), indent=2)
-    print("wrote layouts/dff.json (stateful enabled D-register)")
+    json.dump(dff_layout(), open("perf/layouts/dff.json","w"), indent=2)
+    print("wrote perf/layouts/dff.json (stateful enabled D-register)")
     for N in (8, 64):
-        json.dump(regbank(N), open(f"layouts/regbank{N}.json","w"), indent=2)
-        p=len(json.load(open(f"layouts/regbank{N}.json"))["parts"])
-        print(f"wrote layouts/regbank{N}.json: {p} parts ({N} dff instances)")
-        open(f"verilator/regbank{N}.v","w").write(emit_verilog_regbank(N))
-    print("wrote verilator/regbank{8,64}.v")
-    # Validation (tests/validate.cpp) runs from tests/ and reads its own layouts/.
-    # dff + regbank8 are the per-instance-state fixtures, so mirror them there.
-    td="../tests/layouts"
-    if os.path.isdir(td):
+        json.dump(regbank(N), open(f"perf/layouts/regbank{N}.json","w"), indent=2)
+        p=len(json.load(open(f"perf/layouts/regbank{N}.json"))["parts"])
+        print(f"wrote perf/layouts/regbank{N}.json: {p} parts ({N} dff instances)")
+        open(f"perf/verilator/regbank{N}.v","w").write(emit_verilog_regbank(N))
+    print("wrote perf/verilator/regbank{8,64}.v")
+    if os.path.isdir("tests/layouts"):
         for f in ("dff.json","regbank8.json"):
-            shutil.copyfile(f"layouts/{f}", f"{td}/{f}")
-        print(f"copied dff.json, regbank8.json -> {td}/")
+            shutil.copyfile(f"perf/layouts/{f}", f"tests/layouts/{f}")
+        print("copied dff.json, regbank8.json -> tests/layouts/")

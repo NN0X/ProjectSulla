@@ -68,12 +68,16 @@ check:
 	@cp *.md build/check/
 
 test:
+	@echo "Generating test fixtures..."
+	@python3 perf/gen_stateful.py > /dev/null
 	@echo "Building validation suite..."
 	@$(CXX) $(SUITE_CPPFLAGS) $(ENGINE_SRCS) tests/validate.cpp -o tests/validate $(SUITE_LDFLAGS)
 	@echo "Running validation suite (interpreted + native engines)..."
 	@cd tests && ./validate
 
 perf:
+	@echo "Generating benchmark circuits..."
+	@python3 perf/gen_mult.py 8 > /dev/null && python3 perf/gen_mult.py 16 > /dev/null && python3 perf/gen_cpu.py > /dev/null && python3 perf/gen_stateful.py > /dev/null
 	@echo "Building performance suite..."
 	@$(CXX) $(PERF_CPPFLAGS) $(ENGINE_SRCS) perf/bench.cpp -o perf/bench $(SUITE_LDFLAGS)
 	@echo "Running performance suite (interpreted vs native, all modes)..."
