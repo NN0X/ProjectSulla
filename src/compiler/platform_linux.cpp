@@ -6,6 +6,8 @@
 #include <filesystem>
 #include <map>
 #include <set>
+#include <memory>
+#include <vector>
 #include <dlfcn.h>
 
 static std::string collectStaticLinks(const std::string& cppCode)
@@ -111,20 +113,40 @@ Part loadCompiledPart(const std::string& moduleName, int outCount)
 
         loadedHandles[moduleName] = handle;
 
-        void (*executeTick)(const uint8_t*, uint8_t*) = (void(*)(const uint8_t*, uint8_t*))dlsym(handle, "executeTick");
+        RawTickFn executeTick = (RawTickFn)dlsym(handle, "executeTick");
 
         if (!executeTick) return nullptr;
 
-        return [executeTick, outCount](std::vector<State> inputs) -> std::vector<State> {
-                std::vector<uint8_t> rawIn(inputs.size());
-                for(size_t i = 0; i < inputs.size(); ++i) rawIn[i] = inputs[i] == STATE_HIGH ? 1 : 0;
+        struct RawScratch { std::vector<uint8_t> rawIn, rawOut; };
+        auto scratch = std::make_shared<RawScratch>();
+        scratch->rawOut.assign(outCount, 0);
 
-                std::vector<uint8_t> rawOut(outCount); 
+        return [executeTick, outCount, scratch](std::vector<State> inputs) -> std::vector<State> {
+                std::vector<uint8_t>& rawIn = scratch->rawIn;
+                std::vector<uint8_t>& rawOut = scratch->rawOut;
+                if (rawIn.size() < inputs.size()) rawIn.resize(inputs.size());
+                for (size_t i = 0; i < inputs.size(); ++i) rawIn[i] = (inputs[i] == STATE_HIGH) ? 1 : 0;
+
                 executeTick(rawIn.data(), rawOut.data());
 
                 std::vector<State> outputs(outCount);
-                for(size_t i = 0; i < (size_t)outCount; ++i) outputs[i] = rawOut[i] == 1 ? STATE_HIGH : STATE_LOW;
-
+                for (size_t i = 0; i < (size_t)outCount; ++i) outputs[i] = rawOut[i] ? STATE_HIGH : STATE_LOW;
                 return outputs;
         };
+}
+
+RawTickFn loadRawTick(const std::string& moduleName)
+{
+        std::map<std::string, void*>::iterator it = loadedHandles.find(moduleName);
+        void* handle = (it != loadedHandles.end()) ? it->second : nullptr;
+        if (!handle)
+        {
+                std::string resolved = sullaFindDynamic(moduleName);
+                std::string libPath = !resolved.empty() ? ("./" + resolved)
+                                                        : ("./parts/lib" + moduleName + ".so");
+                handle = dlopen(libPath.c_str(), RTLD_LAZY);
+                if (!handle) return nullptr;
+                loadedHandles[moduleName] = handle;
+        }
+        return (RawTickFn)dlsym(handle, "executeTick");
 }
