@@ -95,7 +95,7 @@ int main()
         std::vector<Row> rows;
 
         const double TARGET = 0.30;
-        const char* circuits[] = { "full_adder", "adder8", "adder16", "adder32" };
+        const char* circuits[] = { "full_adder", "adder8", "adder16", "adder32", "mul8", "mul16", "cpu8" };
 
         {
                 AppState child;
