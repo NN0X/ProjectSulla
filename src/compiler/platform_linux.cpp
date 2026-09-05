@@ -121,7 +121,7 @@ Part loadCompiledPart(const std::string& moduleName, int outCount)
         auto scratch = std::make_shared<RawScratch>();
         scratch->rawOut.assign(outCount, 0);
 
-        return [executeTick, outCount, scratch](std::vector<State> inputs) -> std::vector<State> {
+        return [executeTick, outCount, scratch](const std::vector<State>& inputs) -> std::vector<State> {
                 std::vector<uint8_t>& rawIn = scratch->rawIn;
                 std::vector<uint8_t>& rawOut = scratch->rawOut;
                 if (rawIn.size() < inputs.size()) rawIn.resize(inputs.size());

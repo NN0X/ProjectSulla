@@ -30,7 +30,7 @@ enum PartType
 };
 
 typedef std::vector<State> Input;
-typedef std::function<std::vector<State>(Input)> Part;
+typedef std::function<std::vector<State>(const Input&)> Part;
 typedef std::pair<int, int> PartPin;
 
 void setSourcePart(std::map<int, Part>& parts, int partID);
