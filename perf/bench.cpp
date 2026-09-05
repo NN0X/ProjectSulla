@@ -101,7 +101,7 @@ int main()
                 AppState child;
                 loadLayout(child, "layouts/full_adder.json");
                 std::string code = transpileToCpp(child, false);
-                bool ok = compilePartLibrary(code, "full_adder", false, true);
+                bool ok = compilePartLibrary(code, "full_adder", true, true);
                 g_builtModules.push_back("full_adder");
                 expect(ok && fs::exists("parts/full_adder/libfull_adder.so"), "child parts/full_adder/libfull_adder.so built for link mode");
         }

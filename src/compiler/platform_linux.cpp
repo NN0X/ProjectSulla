@@ -98,6 +98,14 @@ bool compilePartLibrary(const std::string& cppCode, const std::string& label,
                 ok = (r1 == 0 && r2 == 0) && ok;
         }
 
+        {
+                std::error_code ec;
+                if (sullaCodeIsStateless(cppCode))
+                        std::ofstream(sullaStatelessMarker(label)) << "1";
+                else
+                        std::filesystem::remove(sullaStatelessMarker(label), ec);
+        }
+
         return ok;
 }
 

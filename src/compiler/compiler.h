@@ -28,6 +28,10 @@ std::string sullaPartDir(const std::string& label);
 std::string sullaPartSymbol(const std::string& label);
 std::string sullaFindStatic(const std::string& label);
 std::string sullaFindDynamic(const std::string& label);
+
+bool sullaCodeIsStateless(const std::string& cppCode);
+std::string sullaStatelessMarker(const std::string& label);
+bool sullaPartIsStateless(const std::string& label);
 std::string sullaFindMeta(const std::string& label);
 
 bool compilePartLibrary(const std::string& cppCode, const std::string& label,

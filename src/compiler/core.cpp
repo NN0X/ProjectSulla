@@ -76,12 +76,30 @@ std::string sullaFindMeta(const std::string& label)
         return std::filesystem::exists(p) ? p : "";
 }
 
+bool sullaCodeIsStateless(const std::string& cppCode)
+{
+        return cppCode.find("static uint8_t p_")   == std::string::npos
+            && cppCode.find("static uint8_t clk_") == std::string::npos
+            && cppCode.find("sulla_load_unique")   == std::string::npos;
+}
+
+std::string sullaStatelessMarker(const std::string& label)
+{
+        return "parts/" + label + "/" + label + ".stateless";
+}
+
+bool sullaPartIsStateless(const std::string& label)
+{
+        return std::filesystem::exists(sullaStatelessMarker(label));
+}
+
 static CustomMode decideCustom(const std::string& label, bool linkMode)
 {
         bool layout = std::filesystem::exists("layouts/" + label + ".json");
         bool staticLib = !sullaFindStatic(label).empty();
         bool dynLib = !sullaFindDynamic(label).empty();
 
+        if (linkMode && staticLib && sullaPartIsStateless(label)) return CUSTOM_STATIC;
         if (linkMode && dynLib) return CUSTOM_LINK;
         if (layout) return CUSTOM_INLINE;
         if (staticLib) return CUSTOM_STATIC;
