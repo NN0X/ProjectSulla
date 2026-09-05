@@ -95,7 +95,7 @@ int main()
         std::vector<Row> rows;
 
         const double TARGET = 0.30;
-        const char* circuits[] = { "full_adder", "adder8", "adder16", "adder32", "mul8", "mul16", "cpu8" };
+        const char* circuits[] = { "full_adder", "adder8", "adder16", "adder32", "mul8", "mul16", "cpu8", "regbank64" };
 
         {
                 AppState child;
@@ -104,6 +104,14 @@ int main()
                 bool ok = compilePartLibrary(code, "full_adder", true, true);
                 g_builtModules.push_back("full_adder");
                 expect(ok && fs::exists("parts/full_adder/libfull_adder.so"), "child parts/full_adder/libfull_adder.so built for link mode");
+        }
+        {
+                AppState child;
+                loadLayout(child, "layouts/dff.json");
+                std::string code = transpileToCpp(child, false);
+                bool ok = compilePartLibrary(code, "dff", true, true);
+                g_builtModules.push_back("dff");
+                expect(ok && fs::exists("parts/dff/libdff.so"), "child parts/dff/libdff.so built for link mode");
         }
 
         for (const std::string name : circuits)

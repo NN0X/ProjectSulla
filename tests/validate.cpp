@@ -234,6 +234,61 @@ static void testNativeLink()
                   std::to_string(diffFails) + " divergent");
 }
 
+static void testPerInstanceState()
+{
+        tf::section("per-instance state: regbank8 (8 stateful dff instances)");
+
+        {
+                AppState child;
+                loadLayout(child, "layouts/dff.json");
+                std::string code = transpileToCpp(child, false);
+                bool ok = compilePartLibrary(code, "dff", true, true);
+                g_builtModules.push_back("dff");
+                if (!tf::check(ok, "regbank8: stateful child dff library built")) return;
+                tf::check(!sullaCodeIsStateless(code),
+                          "dff: detected as stateful (internal feedback state)");
+        }
+
+        int iIn = 0, iOut = 0;
+        Part interp = loadLayoutAsPart("layouts/regbank8.json", iIn, iOut);
+        if (!tf::check(interp != nullptr, "regbank8: interpreted engine loaded")) return;
+
+        const int N = 8, T = 5;
+        const int Dv[T] = { 0x55, 0x00, 0xF0, 0xAA, 0x0F };
+        const int Ev[T] = { 0xFF, 0x00, 0x0F, 0xFF, 0xF0 };
+        std::vector<int> golden; int g = 0;
+        for (int t = 0; t < T; ++t) { g = (Dv[t] & Ev[t]) | (g & ~Ev[t]); golden.push_back(g & 0xFF); }
+
+        auto runSeq = [&](Part& p) {
+                std::vector<int> qs;
+                for (int t = 0; t < T; ++t) {
+                        std::vector<int> in(2 * N, 0);
+                        for (int k = 0; k < N; ++k) { in[k] = (Dv[t] >> k) & 1; in[N + k] = (Ev[t] >> k) & 1; }
+                        std::vector<int> o = toBits(p(toStates(in)));
+                        int q = 0; for (int k = 0; k < (int)o.size(); ++k) q |= (o[k] << k);
+                        qs.push_back(q);
+                }
+                return qs;
+        };
+
+        std::vector<int> gotI = runSeq(interp);
+        tf::checkEq(gotI, golden, "regbank8: interpreted keeps independent per-register state");
+
+        const char* modeName[2] = { "inline", "link" };
+        bool linkMode[2] = { false, true };
+        for (int m = 0; m < 2; ++m) {
+                int nOut = 0;
+                Part nat = buildNative("regbank8", nOut, linkMode[m]);
+                if (!tf::check(nat != nullptr,
+                               std::string("regbank8: native ") + modeName[m] + " compiled + loaded")) continue;
+                std::vector<int> gotN = runSeq(nat);
+                tf::checkEq(gotN, golden,
+                            std::string("regbank8: native ") + modeName[m] + " keeps independent per-register state");
+                tf::check(gotN == gotI,
+                          std::string("regbank8: interpreted == native ") + modeName[m]);
+        }
+}
+
 int main()
 {
         std::printf("%s%sSulla validation suite%s  (interpreted + native engines)\n",
@@ -276,6 +331,7 @@ int main()
         testClock();
 
         testNativeLink();
+        testPerInstanceState();
 
         cleanupModules();
         return tf::summary();

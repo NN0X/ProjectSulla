@@ -1,0 +1,9 @@
+circuit,verilator_ns_per_tick
+full_adder,20.24
+adder8,24.15
+adder16,29.94
+adder32,45.89
+mul8,65.12
+mul16,248.66
+cpu8,111.25
+regbank64,71.72
