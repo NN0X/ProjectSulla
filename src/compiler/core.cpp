@@ -17,6 +17,8 @@
 #include "../part.h"
 #include "../gates.h"
 
+int loadLayout(AppState& state, const std::string& filename);
+
 struct FlatCircuit
 {
         std::map<int, PartType> partTypes;
@@ -581,9 +583,58 @@ static std::string emitCpp(const FlatCircuit& c)
         return code.str();
 }
 
+static std::string extractAsStaticFunction(const std::string& tu, const std::string& symbol)
+{
+        const std::string sig = "void executeTick(const uint8_t* in, uint8_t* out) {";
+        std::string::size_type p = tu.find(sig);
+        if (p == std::string::npos) return "";
+        std::string::size_type open = tu.find('{', p);
+        if (open == std::string::npos) return "";
+        int depth = 0; std::string::size_type i = open;
+        for (; i < tu.size(); ++i)
+        {
+                if (tu[i] == '{') ++depth;
+                else if (tu[i] == '}') { --depth; if (depth == 0) { ++i; break; } }
+        }
+        if (depth != 0) return "";
+        return "static void " + symbol + "(const uint8_t* in, uint8_t* out) " + tu.substr(open, i - open) + "\n";
+}
+
 std::string transpileToCpp(const AppState& state, bool linkCustomParts)
 {
         FlatCircuit fc = flattenState(state, linkCustomParts);
         resolvePassThrough(fc);
-        return emitCpp(fc);
+        std::string code = emitCpp(fc);
+        if (!linkCustomParts) return code;
+
+        std::set<std::string> labels;
+        for (std::map<int, PartType>::const_iterator it = fc.partTypes.begin(); it != fc.partTypes.end(); ++it)
+                if (it->second == PART_TYPE_CUSTOM && fc.staticNodes.count(it->first))
+                {
+                        std::string L = fc.labels.count(it->first) ? fc.labels.at(it->first) : "";
+                        if (!L.empty() && std::filesystem::exists("layouts/" + L + ".json")) labels.insert(L);
+                }
+
+        std::string defs;
+        for (std::set<std::string>::const_iterator s = labels.begin(); s != labels.end(); ++s)
+        {
+                AppState sub;
+                if (loadLayout(sub, "layouts/" + *s + ".json") == 0) continue;
+                std::string subTU = transpileToCpp(sub, false);
+                std::string fn = extractAsStaticFunction(subTU, sullaPartSymbol(*s));
+                if (fn.empty()) continue;
+                defs += fn;
+                std::string linkLine = "// SULLA_STATIC_LINK " + sullaFindStatic(*s) + "\n";
+                std::string extLine  = "extern \"C\" void " + sullaPartSymbol(*s) + "(const uint8_t*, uint8_t*);\n";
+                std::string::size_type q;
+                if ((q = code.find(linkLine)) != std::string::npos) code.erase(q, linkLine.size());
+                if ((q = code.find(extLine))  != std::string::npos) code.erase(q, extLine.size());
+        }
+        if (!defs.empty())
+        {
+                std::string anchor = "extern \"C\" {\n";
+                std::string::size_type q = code.find(anchor);
+                if (q != std::string::npos) code.insert(q, defs); else code += defs;
+        }
+        return code;
 }
