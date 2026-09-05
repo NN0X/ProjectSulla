@@ -28,6 +28,7 @@ struct FlatCircuit
         std::map<int, std::string> labels;
         std::map<int, std::pair<float, float>> positions;
         std::set<int> staticNodes;
+        std::map<std::string, int> embedStateSize;
 };
 
 struct LSCPin { int id; int pin; };
@@ -101,6 +102,7 @@ static CustomMode decideCustom(const std::string& label, bool linkMode)
         bool staticLib = !sullaFindStatic(label).empty();
         bool dynLib = !sullaFindDynamic(label).empty();
 
+        if (linkMode && layout) return CUSTOM_STATIC;
         if (linkMode && staticLib && sullaPartIsStateless(label)) return CUSTOM_STATIC;
         if (linkMode && dynLib) return CUSTOM_LINK;
         if (layout) return CUSTOM_INLINE;
@@ -541,7 +543,17 @@ static std::string emitCpp(const FlatCircuit& c)
                         for (int p = 0; p < inC; ++p) code << "                ci[" << p << "] = " << inVars[p] << ";\n";
                         if (isStatic)
                         {
-                                code << "                " << sullaPartSymbol(lib) << "(ci, co);\n";
+                                std::map<std::string, int>::const_iterator si = c.embedStateSize.find(lib);
+                                int stateSz = (si != c.embedStateSize.end()) ? si->second : 0;
+                                if (stateSz > 0)
+                                {
+                                        code << "                static uint8_t st_" << u << "[" << stateSz << "] = {0};\n";
+                                        code << "                " << sullaPartSymbol(lib) << "(ci, co, st_" << u << ");\n";
+                                }
+                                else
+                                {
+                                        code << "                " << sullaPartSymbol(lib) << "(ci, co);\n";
+                                }
                         }
                         else
                         {
@@ -600,12 +612,52 @@ static std::string extractAsStaticFunction(const std::string& tu, const std::str
         return "static void " + symbol + "(const uint8_t* in, uint8_t* out) " + tu.substr(open, i - open) + "\n";
 }
 
+static std::string extractStatefulFunction(const std::string& tu, const std::string& symbol, int& stateSize)
+{
+        std::string::size_type fn = tu.find("void executeTick(const uint8_t* in, uint8_t* out) {");
+        if (fn == std::string::npos) return "";
+
+        std::vector<std::string> names;
+        std::string head = tu.substr(0, fn);
+        const std::string decl = "static uint8_t ";
+        for (std::string::size_type p = 0; (p = head.find(decl, p)) != std::string::npos; )
+        {
+                std::string::size_type ns = p + decl.size(), ne = ns;
+                while (ne < head.size() && (std::isalnum((unsigned char)head[ne]) || head[ne] == '_')) ++ne;
+                std::string name = head.substr(ns, ne - ns);
+                if (name.rfind("p_", 0) == 0 || name.rfind("clk_", 0) == 0) names.push_back(name);
+                p = ne;
+        }
+
+        std::string::size_type open = tu.find('{', fn);
+        if (open == std::string::npos) return "";
+        int depth = 0; std::string::size_type i = open;
+        for (; i < tu.size(); ++i)
+        {
+                if (tu[i] == '{') ++depth;
+                else if (tu[i] == '}') { --depth; if (depth == 0) { ++i; break; } }
+        }
+        if (depth != 0) return "";
+        std::string body = tu.substr(open, i - open);
+
+        std::vector<int> ord;
+        for (int k = 0; k < (int)names.size(); ++k) ord.push_back(k);
+        std::sort(ord.begin(), ord.end(), [&](int a, int b){ return names[a].size() > names[b].size(); });
+        for (int k : ord)
+        {
+                std::string slot = "state[" + std::to_string(k) + "]";
+                for (std::string::size_type q = 0; (q = body.find(names[k], q)) != std::string::npos; q += slot.size())
+                        body.replace(q, names[k].size(), slot);
+        }
+        stateSize = (int)names.size();
+        return "static void " + symbol + "(const uint8_t* in, uint8_t* out, uint8_t* state) " + body + "\n";
+}
+
 std::string transpileToCpp(const AppState& state, bool linkCustomParts)
 {
         FlatCircuit fc = flattenState(state, linkCustomParts);
         resolvePassThrough(fc);
-        std::string code = emitCpp(fc);
-        if (!linkCustomParts) return code;
+        if (!linkCustomParts) return emitCpp(fc);
 
         std::set<std::string> labels;
         for (std::map<int, PartType>::const_iterator it = fc.partTypes.begin(); it != fc.partTypes.end(); ++it)
@@ -615,26 +667,44 @@ std::string transpileToCpp(const AppState& state, bool linkCustomParts)
                         if (!L.empty() && std::filesystem::exists("layouts/" + L + ".json")) labels.insert(L);
                 }
 
-        std::string defs;
+        std::map<std::string, std::string> defs;
         for (std::set<std::string>::const_iterator s = labels.begin(); s != labels.end(); ++s)
         {
                 AppState sub;
                 if (loadLayout(sub, "layouts/" + *s + ".json") == 0) continue;
                 std::string subTU = transpileToCpp(sub, false);
-                std::string fn = extractAsStaticFunction(subTU, sullaPartSymbol(*s));
-                if (fn.empty()) continue;
-                defs += fn;
-                std::string linkLine = "// SULLA_STATIC_LINK " + sullaFindStatic(*s) + "\n";
-                std::string extLine  = "extern \"C\" void " + sullaPartSymbol(*s) + "(const uint8_t*, uint8_t*);\n";
+                std::string fn;
+                if (sullaCodeIsStateless(subTU))
+                {
+                        fn = extractAsStaticFunction(subTU, sullaPartSymbol(*s));
+                        fc.embedStateSize[*s] = 0;
+                }
+                else
+                {
+                        int sz = 0;
+                        fn = extractStatefulFunction(subTU, sullaPartSymbol(*s), sz);
+                        fc.embedStateSize[*s] = sz;
+                }
+                if (!fn.empty()) defs[*s] = fn;
+        }
+
+        std::string code = emitCpp(fc);
+
+        std::string allDefs;
+        for (std::map<std::string, std::string>::const_iterator d = defs.begin(); d != defs.end(); ++d)
+        {
+                allDefs += d->second;
+                std::string linkLine = "// SULLA_STATIC_LINK " + sullaFindStatic(d->first) + "\n";
+                std::string extLine  = "extern \"C\" void " + sullaPartSymbol(d->first) + "(const uint8_t*, uint8_t*);\n";
                 std::string::size_type q;
                 if ((q = code.find(linkLine)) != std::string::npos) code.erase(q, linkLine.size());
                 if ((q = code.find(extLine))  != std::string::npos) code.erase(q, extLine.size());
         }
-        if (!defs.empty())
+        if (!allDefs.empty())
         {
                 std::string anchor = "extern \"C\" {\n";
                 std::string::size_type q = code.find(anchor);
-                if (q != std::string::npos) code.insert(q, defs); else code += defs;
+                if (q != std::string::npos) code.insert(q, allDefs); else code += allDefs;
         }
         return code;
 }
