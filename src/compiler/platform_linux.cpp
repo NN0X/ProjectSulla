@@ -3,6 +3,8 @@
 #include <fstream>
 #include <sstream>
 #include <cstdlib>
+#include <cstdint>
+#include <cstdio>
 #include <filesystem>
 #include <map>
 #include <set>
@@ -28,6 +30,56 @@ static std::string collectStaticLinks(const std::string& cppCode)
         return extra;
 }
 
+static std::string sullaHash(const std::string& s)
+{
+        uint64_t h = 1469598103934665603ull;
+        for (std::string::size_type i = 0; i < s.size(); ++i) { h ^= (unsigned char)s[i]; h *= 1099511628211ull; }
+        char buf[17];
+        std::snprintf(buf, sizeof(buf), "%016llx", (unsigned long long)h);
+        return std::string(buf);
+}
+
+static std::string sullaReadBytes(const std::string& path)
+{
+        std::ifstream f(path, std::ios::binary);
+        if (!f) return "";
+        std::ostringstream ss;
+        ss << f.rdbuf();
+        return ss.str();
+}
+
+static std::string sullaLinkedContents(const std::string& staticLibs)
+{
+        std::string out;
+        std::istringstream iss(staticLibs);
+        std::string p;
+        while (iss >> p) out += sullaReadBytes(p);
+        return out;
+}
+
+static std::string sullaCachePath(const std::string& key)
+{
+        std::error_code ec;
+        std::filesystem::create_directories(".sulla_cache", ec);
+        return ".sulla_cache/" + key;
+}
+
+static bool sullaCacheGet(const std::string& key, const std::string& outFile)
+{
+        std::string cp = sullaCachePath(key);
+        if (!std::filesystem::exists(cp)) return false;
+        std::error_code ec;
+        std::filesystem::remove(outFile, ec);
+        std::filesystem::copy_file(cp, outFile, ec);
+        return !ec;
+}
+
+static void sullaCachePut(const std::string& key, const std::string& outFile)
+{
+        std::error_code ec;
+        std::filesystem::copy_file(outFile, sullaCachePath(key), std::filesystem::copy_options::overwrite_existing, ec);
+}
+
 static std::map<std::string, void*> loadedHandles;
 
 bool compileSharedLibrary(const std::string& cppCode, const std::string& moduleName)
@@ -37,16 +89,21 @@ bool compileSharedLibrary(const std::string& cppCode, const std::string& moduleN
         std::string srcFile = "parts/" + moduleName + ".cpp";
         std::string outFile = "parts/lib" + moduleName + ".so";
 
+        std::string staticLibs = collectStaticLinks(cppCode);
+        std::string key = sullaHash(cppCode + "|" + staticLibs + "|" + sullaLinkedContents(staticLibs)
+                                    + "|so|clang++ -O3 -shared -fPIC -ldl") + ".so";
+        if (sullaCacheGet(key, outFile)) return true;
+
         std::ofstream out(srcFile);
         out << cppCode;
         out.close();
 
-        std::string staticLibs = collectStaticLinks(cppCode);
         std::string command = "clang++ -O3 -shared -fPIC " + srcFile + staticLibs + " -o " + outFile + " -ldl";
         int result = std::system(command.c_str());
 
         std::filesystem::remove(srcFile);
 
+        if (result == 0) sullaCachePut(key, outFile);
         return (result == 0);
 }
 
@@ -72,10 +129,18 @@ bool compilePartLibrary(const std::string& cppCode, const std::string& label,
         {
                 std::string srcFile = dir + "/" + label + ".dyn.cpp";
                 std::string outFile = dir + "/lib" + label + ".so";
-                std::ofstream(srcFile) << cppCode;
-                std::string command = "clang++ -O3 -shared -fPIC " + srcFile + staticLibs + " -o " + outFile + " -ldl";
-                ok = (std::system(command.c_str()) == 0) && ok;
-                std::filesystem::remove(srcFile);
+                std::string key = sullaHash(cppCode + "|" + staticLibs + "|" + sullaLinkedContents(staticLibs)
+                                            + "|dyn|clang++ -O3 -shared -fPIC -ldl") + ".so";
+                if (sullaCacheGet(key, outFile)) {}
+                else
+                {
+                        std::ofstream(srcFile) << cppCode;
+                        std::string command = "clang++ -O3 -shared -fPIC " + srcFile + staticLibs + " -o " + outFile + " -ldl";
+                        bool dok = (std::system(command.c_str()) == 0);
+                        std::filesystem::remove(srcFile);
+                        if (dok) sullaCachePut(key, outFile);
+                        ok = dok && ok;
+                }
         }
 
         if (buildStatic)
@@ -86,16 +151,23 @@ bool compilePartLibrary(const std::string& cppCode, const std::string& label,
                 if (pos != std::string::npos)
                         code.replace(pos, from.size(), "void " + sullaPartSymbol(label) + "(");
 
-                std::string srcFile = dir + "/" + label + ".sta.cpp";
-                std::string objFile = dir + "/" + label + ".o";
                 std::string arFile  = dir + "/lib" + label + ".a";
-                std::ofstream(srcFile) << code;
-                int r1 = std::system(("clang++ -O3 -fPIC -c " + srcFile + " -o " + objFile).c_str());
-                std::error_code ec; std::filesystem::remove(arFile, ec);
-                int r2 = std::system(("ar rcs " + arFile + " " + objFile).c_str());
-                std::filesystem::remove(srcFile);
-                std::filesystem::remove(objFile);
-                ok = (r1 == 0 && r2 == 0) && ok;
+                std::string key = sullaHash(code + "|sta|clang++ -O3 -fPIC -c + ar rcs") + ".a";
+                if (sullaCacheGet(key, arFile)) {}
+                else
+                {
+                        std::string srcFile = dir + "/" + label + ".sta.cpp";
+                        std::string objFile = dir + "/" + label + ".o";
+                        std::ofstream(srcFile) << code;
+                        int r1 = std::system(("clang++ -O3 -fPIC -c " + srcFile + " -o " + objFile).c_str());
+                        std::error_code ec; std::filesystem::remove(arFile, ec);
+                        int r2 = std::system(("ar rcs " + arFile + " " + objFile).c_str());
+                        std::filesystem::remove(srcFile);
+                        std::filesystem::remove(objFile);
+                        bool sok = (r1 == 0 && r2 == 0);
+                        if (sok) sullaCachePut(key, arFile);
+                        ok = sok && ok;
+                }
         }
 
         {
