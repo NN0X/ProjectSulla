@@ -162,6 +162,12 @@ int loadLayout(AppState& state, const std::string& filename)
                 case PART_TYPE_OUTPUT: setOutputPart(state.parts, part.id); break;
                 case PART_TYPE_CUSTOM:
                 {
+                        bool ramSync; int ramA, ramW;
+                        if (parseRamLabel(part.label, ramSync, ramA, ramW))
+                        {
+                                setPart(state.parts, part.id, makeMemoryPart(ramSync, ramA, ramW));
+                                break;
+                        }
                         int dummyIn, dummyOut;
                         std::string layoutPath = "layouts/" + part.label + ".json";
 
@@ -246,6 +252,12 @@ Part loadLayoutAsPart(const std::string& filename, int& nInputs, int& nOutputs)
                         break;
                 case PART_TYPE_CUSTOM:
                 {
+                        bool ramSync; int ramA, ramW;
+                        if (parseRamLabel(part.label, ramSync, ramA, ramW))
+                        {
+                                setPart(subParts, part.id, makeMemoryPart(ramSync, ramA, ramW));
+                                break;
+                        }
                         int dummyIn, dummyOut;
                         std::string layoutPath = "layouts/" + part.label + ".json";
 
@@ -394,6 +406,12 @@ std::set<int> importLayout(AppState& state, const std::string& filename, float m
                 case PART_TYPE_OUTPUT: setOutputPart(state.parts, newID); break;
                 case PART_TYPE_CUSTOM:
                 {
+                        bool ramSync; int ramA, ramW;
+                        if (parseRamLabel(part.label, ramSync, ramA, ramW))
+                        {
+                                setPart(state.parts, part.id, makeMemoryPart(ramSync, ramA, ramW));
+                                break;
+                        }
                         int dummyIn, dummyOut;
                         std::string layoutPath = "layouts/" + part.label + ".json";
                         if (std::filesystem::exists(layoutPath)) 

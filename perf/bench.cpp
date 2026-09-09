@@ -95,7 +95,7 @@ int main()
         std::vector<Row> rows;
 
         const double TARGET = 0.30;
-        const char* circuits[] = { "full_adder", "adder8", "adder16", "adder32", "mul8", "mul16", "cpu8", "regbank64" };
+        const char* circuits[] = { "full_adder", "adder8", "adder16", "adder32", "mul8", "mul16", "cpu8", "regbank64", "ram_async", "ram_sync" };
 
         {
                 AppState child;
@@ -151,21 +151,10 @@ int main()
                 for (int i = 0; i < nIn; ++i) pat[i] = (int)((2654435761u * (uint32_t)(i + 1)) >> 17) & 1;
                 std::vector<State> in = toStates(pat);
 
-                bool perfOnly = (name == "cpu8");
-                if (!perfOnly)
                 {
                         std::vector<int> ref = toBits(interp(in));
                         expect(toBits(natInl(in))  == ref, name + ": native-inline output == interpreted");
                         expect(toBits(natLink(in)) == ref, name + ": native-link output == interpreted");
-                        if (rawFn)
-                        {
-                                std::vector<uint8_t> ri(nIn ? nIn : 1, 0), ro(oc ? oc : 1, 0);
-                                for (int i = 0; i < nIn; ++i) ri[i] = (uint8_t)pat[i];
-                                rawFn(ri.data(), ro.data());
-                                std::vector<int> rawOut(oc);
-                                for (int i = 0; i < oc; ++i) rawOut[i] = ro[i] ? 1 : 0;
-                                expect(rawOut == ref, name + ": native-raw output == interpreted");
-                        }
                 }
 
                 Result rInterp = timeIt([&]{ auto o = interp(in);  uint64_t a = 0; for (auto s : o) a += (s == STATE_HIGH); return a; }, TARGET);

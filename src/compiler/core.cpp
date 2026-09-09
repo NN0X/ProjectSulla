@@ -83,7 +83,26 @@ bool sullaCodeIsStateless(const std::string& cppCode)
 {
         return cppCode.find("static uint8_t p_")   == std::string::npos
             && cppCode.find("static uint8_t clk_") == std::string::npos
+            && cppCode.find("uint32_t mem_") == std::string::npos
             && cppCode.find("sulla_load_unique")   == std::string::npos;
+}
+
+static bool sullaParseRam(const std::string& label, bool& sync, int& addrBits, int& dataBits)
+{
+        if (label.rfind("RAM_", 0) != 0) return false;
+        std::string rest = label.substr(4);
+        std::string::size_type u1 = rest.find('_');
+        if (u1 == std::string::npos) return false;
+        std::string mode = rest.substr(0, u1);
+        if (mode == "SYNC") sync = true;
+        else if (mode == "ASYNC") sync = false;
+        else return false;
+        std::string tail = rest.substr(u1 + 1);
+        std::string::size_type u2 = tail.find('_');
+        if (u2 == std::string::npos) return false;
+        addrBits = std::atoi(tail.substr(0, u2).c_str());
+        dataBits = std::atoi(tail.substr(u2 + 1).c_str());
+        return addrBits > 0 && addrBits <= 24 && dataBits > 0 && dataBits <= 32;
 }
 
 std::string sullaStatelessMarker(const std::string& label)
@@ -98,6 +117,8 @@ bool sullaPartIsStateless(const std::string& label)
 
 static CustomMode decideCustom(const std::string& label, bool linkMode)
 {
+        bool rs; int ra, rw;
+        if (sullaParseRam(label, rs, ra, rw)) return CUSTOM_LINK;
         bool layout = std::filesystem::exists("layouts/" + label + ".json");
         bool staticLib = !sullaFindStatic(label).empty();
         bool dynLib = !sullaFindDynamic(label).empty();
@@ -473,6 +494,16 @@ static std::string emitCpp(const FlatCircuit& c)
                 if (backProd.count(id))
                         for (int p = 0; p < outC; ++p) code << "static uint8_t p_" << id << "_out_" << p << " = 0;\n";
                 if (it->second == PART_TYPE_CLOCK) code << "static uint8_t clk_" << id << " = 0;\n";
+                if (it->second == PART_TYPE_CUSTOM)
+                {
+                        bool rs; int ra, rw;
+                        std::string L = c.labels.count(id) ? c.labels.at(id) : "";
+                        if (sullaParseRam(L, rs, ra, rw))
+                        {
+                                code << "static uint32_t mem_" << id << "[1u << " << ra << "] = {0};\n";
+                                if (rs) code << "static uint32_t doutreg_" << id << " = 0;\n";
+                        }
+                }
         }
 
         code << "\nextern \"C\" {\n";
@@ -536,6 +567,33 @@ static std::string emitCpp(const FlatCircuit& c)
                 else if (type == PART_TYPE_CUSTOM)
                 {
                         std::string lib = c.labels.count(u) ? c.labels.at(u) : "";
+                        bool rsync; int raddr, rdata;
+                        if (sullaParseRam(lib, rsync, raddr, rdata))
+                        {
+                                code << "        {\n";
+                                code << "                unsigned a_" << u << " = 0;\n";
+                                for (int k = 0; k < raddr; ++k)
+                                        code << "                a_" << u << " |= (unsigned)(" << inVars[1 + k] << " & 1) << " << k << ";\n";
+                                if (rsync)
+                                {
+                                        for (int p = 0; p < rdata; ++p)
+                                                code << "                n_" << u << "_out_" << p << " = (uint8_t)((doutreg_" << u << " >> " << p << ") & 1);\n";
+                                        code << "                doutreg_" << u << " = mem_" << u << "[a_" << u << "];\n";
+                                }
+                                else
+                                {
+                                        for (int p = 0; p < rdata; ++p)
+                                                code << "                n_" << u << "_out_" << p << " = (uint8_t)((mem_" << u << "[a_" << u << "] >> " << p << ") & 1);\n";
+                                }
+                                code << "                if (" << inVars[0] << " & 1) {\n";
+                                code << "                        uint32_t d_" << u << " = 0;\n";
+                                for (int k = 0; k < rdata; ++k)
+                                        code << "                        d_" << u << " |= (uint32_t)(" << inVars[1 + raddr + k] << " & 1) << " << k << ";\n";
+                                code << "                        mem_" << u << "[a_" << u << "] = d_" << u << ";\n";
+                                code << "                }\n";
+                                code << "        }\n";
+                                continue;
+                        }
                         bool isStatic = c.staticNodes.count(u) > 0;
                         code << "        {\n";
                         code << "                uint8_t ci[" << (inC > 0 ? inC : 1) << "] = {0};\n";

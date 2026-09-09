@@ -7,3 +7,5 @@ mul8,65.12
 mul16,248.66
 cpu8,111.25
 regbank64,71.72
+ram_async,49.81
+ram_sync,37.61

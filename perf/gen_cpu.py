@@ -25,7 +25,7 @@ class B:
     def NORn(s,xs): g=s.add(NOR,len(xs),1,0,0); [s.w(p,(g,k)) for k,p in enumerate(xs)]; return (g,0)
     def HA(s,a,b): return s.XOR(a,b), s.AND(a,b)
     def FA(s,a,b,c,x=0,y=0):
-        g=s.add(CUSTOM,3,2,x,y,"full_adder"); s.w(a,(g,0)); s.w(b,(g,1)); s.w(c,(g,2)); return (g,0),(g,1)
+        axb=s.XOR(a,b); sm=s.XOR(axb,c); cout=s.OR(s.AND(a,b),s.AND(c,axb)); return sm,cout
 
 def build():
     b=B()

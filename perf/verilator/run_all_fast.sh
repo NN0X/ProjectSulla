@@ -24,3 +24,5 @@ done
 build mul8  mul8  mul8.v  vmul.cpp '-DNBITS=8 -DTOP=Vmul8 -DTOP_HEADER="Vmul8.h" -DTOP_NAME="mul8"'
 build mul16 mul16 mul16.v vmul.cpp '-DNBITS=16 -DTOP=Vmul16 -DTOP_HEADER="Vmul16.h" -DTOP_NAME="mul16"'
 build cpu8  cpu8  cpu8.v  vcpu.cpp ''
+build ram_async ram_async ram_async.v vram.cpp '-DTOP=Vram_async -DTOP_HEADER="Vram_async.h" -DTOP_NAME="ram_async"'
+build ram_sync  ram_sync  ram_sync.v  vram.cpp '-DTOP=Vram_sync -DTOP_HEADER="Vram_sync.h" -DTOP_NAME="ram_sync"'

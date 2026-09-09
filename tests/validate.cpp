@@ -289,6 +289,77 @@ static void testPerInstanceState()
         }
 }
 
+static void testPerfCircuit(const std::string& name, int ticks)
+{
+        std::printf("\n%s%s== perf circuit in validation set: %s ==%s\n",
+                    tf::ansiBold(), tf::ansiCyan(), name.c_str(), tf::ansiRst());
+        int nIn = 0, nOut = 0;
+        Part interp = loadLayoutAsPart("layouts/" + name + ".json", nIn, nOut);
+        tf::check(interp != nullptr, name + ": interpreted engine loaded");
+        if (!interp) return;
+
+        int ocI = 0, ocL = 0;
+        Part inl = buildNative(name, ocI, false);
+        Part lnk = buildNative(name, ocL, true);
+        tf::check(inl != nullptr, name + ": native-inline compiled + loaded");
+        tf::check(lnk != nullptr, name + ": native-link compiled + loaded");
+        if (!inl || !lnk) return;
+
+        bool agree = true;
+        for (int t = 0; t < ticks; ++t)
+        {
+                std::vector<int> pat(nIn);
+                for (int i = 0; i < nIn; ++i)
+                        pat[i] = (int)((2654435761u * (uint32_t)(i + 1 + t * 7)) >> 13) & 1;
+                std::vector<State> in = toStates(pat);
+                std::vector<int> ri = toBits(interp(in));
+                std::vector<int> rn = toBits(inl(in));
+                std::vector<int> rl = toBits(lnk(in));
+                if (rn != ri || rl != ri) agree = false;
+        }
+        tf::check(agree, name + ": interp == native-inline == native-link across " + std::to_string(ticks) + " ticks");
+}
+
+static void testRam(const std::string& name, bool sync)
+{
+        std::printf("\n%s%s== memory primitive in validation set: %s ==%s\n",
+                    tf::ansiBold(), tf::ansiCyan(), name.c_str(), tf::ansiRst());
+        const int A = 8, W = 8;
+        int nIn = 0, nOut = 0;
+        Part interp = loadLayoutAsPart("layouts/" + name + ".json", nIn, nOut);
+        tf::check(interp != nullptr, name + ": interpreted engine loaded");
+        if (!interp) return;
+        int ocI = 0, ocL = 0;
+        Part inl = buildNative(name, ocI, false);
+        Part lnk = buildNative(name, ocL, true);
+        tf::check(inl != nullptr, name + ": native-inline compiled + loaded");
+        tf::check(lnk != nullptr, name + ": native-link compiled + loaded");
+        if (!inl || !lnk) return;
+
+        struct Op { int we; unsigned a, d; };
+        std::vector<Op> seq = { {1,5,0xAA},{0,5,0},{1,5,0x11},{1,9,0x33},{0,9,0},{0,5,0},{1,5,0x77},{0,5,0} };
+        std::vector<unsigned> mem(1u << A, 0); unsigned dreg = 0;
+        bool ok = true;
+        for (size_t s = 0; s < seq.size(); ++s)
+        {
+                Op op = seq[s];
+                std::vector<int> pat(nIn, 0);
+                if (nIn > 0) pat[0] = op.we ? 1 : 0;
+                for (int k = 0; k < A && 1 + k < nIn; ++k) pat[1 + k] = (op.a >> k) & 1;
+                for (int k = 0; k < W && 1 + A + k < nIn; ++k) pat[1 + A + k] = (op.d >> k) & 1;
+                std::vector<State> in = toStates(pat);
+                unsigned gi = 0, gn = 0, gl = 0;
+                { std::vector<int> b = toBits(interp(in)); for (size_t k = 0; k < b.size(); ++k) if (b[k]) gi |= 1u << k; }
+                { std::vector<int> b = toBits(inl(in));    for (size_t k = 0; k < b.size(); ++k) if (b[k]) gn |= 1u << k; }
+                { std::vector<int> b = toBits(lnk(in));    for (size_t k = 0; k < b.size(); ++k) if (b[k]) gl |= 1u << k; }
+                unsigned gold = sync ? dreg : mem[op.a];
+                if (sync) dreg = mem[op.a];
+                if (op.we) mem[op.a] = op.d;
+                if (gi != gold || gn != gold || gl != gold) ok = false;
+        }
+        tf::check(ok, name + ": interp == inline == link == golden over read/write sequence");
+}
+
 int main()
 {
         std::printf("%s%sSulla validation suite%s  (interpreted + native engines)\n",
@@ -332,6 +403,16 @@ int main()
 
         testNativeLink();
         testPerInstanceState();
+
+        testPerfCircuit("adder8", 4);
+        testPerfCircuit("adder16", 4);
+        testPerfCircuit("adder32", 4);
+        testPerfCircuit("mul8", 4);
+        testPerfCircuit("mul16", 4);
+        testPerfCircuit("cpu8", 8);
+        testPerfCircuit("regbank64", 8);
+        testRam("ram_async", false);
+        testRam("ram_sync", true);
 
         cleanupModules();
         return tf::summary();
