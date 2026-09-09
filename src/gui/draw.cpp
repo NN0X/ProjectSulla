@@ -86,18 +86,8 @@ void drawWires(AppState& state)
         {
                 int fromID = it->second.first;
                 int toID = it->first.first;
-                Vector2 startPos = {state.positions[fromID].first, state.positions[fromID].second};
-                Vector2 fromSize = getPartSize(state, fromID);
-                int fromOutCount = state.outputCounts[fromID];
-                float pinYStepFrom = (fromOutCount > 1) ? (fromSize.y - PIN_Y_OFFSET_BASE*2) / (fromOutCount - 1) : 0;
-                float yOffStart = (fromOutCount <= 1) ? 0 : -fromSize.y/2 + PIN_Y_OFFSET_BASE + it->second.second * pinYStepFrom;
-                Vector2 start = {startPos.x + fromSize.x/2 + PIN_SIZE, startPos.y + yOffStart};
-                Vector2 endPos = {state.positions[toID].first, state.positions[toID].second};
-                Vector2 toSize = getPartSize(state, toID);
-                int inCount = state.inputCounts[toID];
-                float pinYStep = (inCount > 1) ? (toSize.y - PIN_Y_OFFSET_BASE*2) / (inCount - 1) : 0;
-                float yOff = (inCount <= 1) ? 0 : -toSize.y/2 + PIN_Y_OFFSET_BASE + it->first.second * pinYStep;
-                Vector2 end = {endPos.x - toSize.x/2 - PIN_SIZE, endPos.y + yOff};
+                Vector2 start = getPinPos(state, fromID, false, it->second.second);
+                Vector2 end = getPinPos(state, toID, true, it->first.second);
 
                 Color c;
                 if (state.selectedConnection == it->first)
@@ -142,12 +132,7 @@ void drawWires(AppState& state)
         {
                 int id = state.wireStartPartID;
                 int pin = state.wireStartPin;
-                Vector2 pos = {state.positions[id].first, state.positions[id].second};
-                Vector2 size = getPartSize(state, id);
-                int outCount = state.outputCounts[id];
-                float pinYStep = (outCount > 1) ? (size.y - PIN_Y_OFFSET_BASE*2) / (outCount - 1) : 0;
-                float yOff = (outCount <= 1) ? 0 : -size.y/2 + PIN_Y_OFFSET_BASE + pin * pinYStep;
-                Vector2 start = {pos.x + size.x/2 + PIN_SIZE, pos.y + yOff};
+                Vector2 start = getPinPos(state, id, false, pin);
                 Vector2 mouse = GetScreenToWorld2D(GetMousePosition(), state.camera);
                 Vector2 kink = {start.x + KINK_OFFSET, start.y};
                 Color colorOff = state.darkMode ? COLOR_WIRE_OFF_DARK : COLOR_WIRE_OFF;
@@ -178,10 +163,9 @@ void drawParts(AppState& state)
                 int outCount = state.outputCounts[id];
                 if (type == PART_TYPE_SOURCE)
                 {
-                        float pinYStep = (outCount > 1) ? (size.y - PIN_Y_OFFSET_BASE*2) / (outCount - 1) : 0;
                         for(int i=0; i<outCount; ++i)
                         {
-                                float yOff = (outCount <= 1) ? 0 : -size.y/2 + PIN_Y_OFFSET_BASE + i * pinYStep;
+                                float yOff = getPinYOffset(state, id, false, i);
                                 State s = (i < (int)state.sourceValues[id].size()) ? state.sourceValues[id][i] : STATE_LOW;
                                 Color ledColor = (s == STATE_HIGH) ? COLOR_LED_ON : COLOR_LED_OFF;
                                 DrawRectangle(pos.x - size.x/2 + 5, pos.y + yOff - SOURCE_TOGGLE_SIZE/2, SOURCE_TOGGLE_SIZE, SOURCE_TOGGLE_SIZE, ledColor);
@@ -191,10 +175,9 @@ void drawParts(AppState& state)
                 else if (type == PART_TYPE_OUTPUT)
                 {
                         size_t index = computeOutputSlotIndex(state, id);
-                        float pinYStep = (inCount > 1) ? (size.y - PIN_Y_OFFSET_BASE*2) / (inCount - 1) : 0;
                         for (int i = 0; i < inCount; ++i)
                         {
-                                float yOff = (inCount <= 1) ? 0 : -size.y/2 + PIN_Y_OFFSET_BASE + i * pinYStep;
+                                float yOff = getPinYOffset(state, id, true, i);
                                 State s = (index + i < state.lastOutputStates.size()) ? state.lastOutputStates[index + i] : STATE_LOW;
                                 Color ledColor = (s == STATE_HIGH) ? COLOR_LED_OUT_ON : COLOR_LED_OUT_OFF;
                                 DrawRectangle(pos.x + size.x/2 - PART_LED_SIZE - 5, pos.y + yOff - PART_LED_SIZE/2, PART_LED_SIZE, PART_LED_SIZE, ledColor);
@@ -220,11 +203,10 @@ void drawParts(AppState& state)
                 }
                 if (type != PART_TYPE_SOURCE && type != PART_TYPE_CLOCK)
                 {
-                        float pinYStep = (inCount > 1) ? (size.y - PIN_Y_OFFSET_BASE*2) / (inCount - 1) : 0;
                         for (int i = 0; i < inCount; ++i)
                         {
-                                float yOff = (inCount <= 1) ? 0 : -size.y/2 + PIN_Y_OFFSET_BASE + i * pinYStep;
-                                Rectangle pinRect = {pos.x - size.x/2 - PIN_SIZE, pos.y + yOff - PIN_SIZE/2, PIN_SIZE, PIN_SIZE};
+                                Rectangle pinRect = getPinRect(state, id, true, i);
+                                float yOff = getPinYOffset(state, id, true, i);
                                 DrawRectangleRec(pinRect, cBorder);
                                 if (state.inputPinLabels.count(id) && i < (int)state.inputPinLabels.at(id).size())
                                 {
@@ -238,11 +220,10 @@ void drawParts(AppState& state)
                 }
                 if (outCount > 0)
                 {
-                        float pinYStep = (outCount > 1) ? (size.y - PIN_Y_OFFSET_BASE*2) / (outCount - 1) : 0;
                         for (int i = 0; i < outCount; ++i)
                         {
-                                float yOff = (outCount <= 1) ? 0 : -size.y/2 + PIN_Y_OFFSET_BASE + i * pinYStep;
-                                Rectangle pinRect = {pos.x + size.x/2, pos.y + yOff - PIN_SIZE/2, PIN_SIZE, PIN_SIZE};
+                                Rectangle pinRect = getPinRect(state, id, false, i);
+                                float yOff = getPinYOffset(state, id, false, i);
                                 DrawRectangleRec(pinRect, cBorder);
                                 if (state.outputPinLabels.count(id) && i < (int)state.outputPinLabels.at(id).size())
                                 {

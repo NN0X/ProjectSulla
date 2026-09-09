@@ -47,6 +47,46 @@ Vector2 getPartSize(const AppState& state, int id)
         return {w, h};
 }
 
+Rectangle getBodyRect(const AppState& state, int id)
+{
+        Vector2 pos = {state.positions.at(id).first, state.positions.at(id).second};
+        Vector2 size = getPartSize(state, id);
+        return {pos.x - size.x/2, pos.y - size.y/2, size.x, size.y};
+}
+
+int getPinCount(const AppState& state, int id, bool isInput)
+{
+        if (isInput) return state.inputCounts.count(id) ? state.inputCounts.at(id) : 0;
+        return state.outputCounts.count(id) ? state.outputCounts.at(id) : 0;
+}
+
+float getPinYOffset(const AppState& state, int id, bool isInput, int index)
+{
+        Vector2 size = getPartSize(state, id);
+        int count = getPinCount(state, id, isInput);
+        if (count <= 1) return 0.0f;
+        float step = (size.y - PIN_Y_OFFSET_BASE * 2) / (count - 1);
+        return -size.y/2 + PIN_Y_OFFSET_BASE + index * step;
+}
+
+Rectangle getPinRect(const AppState& state, int id, bool isInput, int index)
+{
+        Vector2 pos = {state.positions.at(id).first, state.positions.at(id).second};
+        Vector2 size = getPartSize(state, id);
+        float yOff = getPinYOffset(state, id, isInput, index);
+        float x = isInput ? (pos.x - size.x/2 - PIN_SIZE) : (pos.x + size.x/2);
+        return {x, pos.y + yOff - PIN_SIZE/2, PIN_SIZE, PIN_SIZE};
+}
+
+Vector2 getPinPos(const AppState& state, int id, bool isInput, int index)
+{
+        Vector2 pos = {state.positions.at(id).first, state.positions.at(id).second};
+        Vector2 size = getPartSize(state, id);
+        float yOff = getPinYOffset(state, id, isInput, index);
+        float x = isInput ? (pos.x - size.x/2 - PIN_SIZE) : (pos.x + size.x/2 + PIN_SIZE);
+        return {x, pos.y + yOff};
+}
+
 void refreshLayouts(AppState& state)
 {
         state.layoutFiles.clear();

@@ -702,12 +702,9 @@ void handleInput(AppState& state)
 
                         if (state.partTypes[id] == PART_TYPE_SOURCE)
                         {
-                                float pinYStep = (outCount > 1) ? (size.y - PIN_Y_OFFSET_BASE*2) / (outCount - 1) : 0;
                                 for (int i = 0; i < outCount; ++i)
                                 {
-                                        float yOff = -size.y/2 + PIN_Y_OFFSET_BASE + i * pinYStep;
-                                        if (outCount <= 1) yOff = 0;
-
+                                        float yOff = getPinYOffset(state, id, false, i);
                                         Rectangle toggleRect = {pos.x - size.x/2 + 5, pos.y + yOff - SOURCE_TOGGLE_SIZE/2, SOURCE_TOGGLE_SIZE, SOURCE_TOGGLE_SIZE};
                                         if (CheckCollisionPointRec(worldMouse, toggleRect))
                                         {
@@ -715,7 +712,7 @@ void handleInput(AppState& state)
                                                 hitSomething = true;
                                                 break;
                                         }
-                                        Rectangle pinRect = {pos.x + size.x/2, pos.y + yOff - PIN_SIZE/2, PIN_SIZE, PIN_SIZE};
+                                        Rectangle pinRect = getPinRect(state, id, false, i);
                                         if (CheckCollisionPointRec(worldMouse, pinRect))
                                         {
                                                 state.wireStartPartID = id;
@@ -727,12 +724,9 @@ void handleInput(AppState& state)
                         }
                         else
                         {
-                                float pinYStepIn = (inCount > 1) ? (size.y - PIN_Y_OFFSET_BASE*2) / (inCount - 1) : 0;
                                 for (int i = 0; i < inCount; ++i)
                                 {
-                                        float yOff = -size.y/2 + PIN_Y_OFFSET_BASE + i * pinYStepIn;
-                                        if (inCount <= 1) yOff = 0;
-                                        Rectangle pinRect = {pos.x - size.x/2 - PIN_SIZE, pos.y + yOff - PIN_SIZE/2, PIN_SIZE, PIN_SIZE};
+                                        Rectangle pinRect = getPinRect(state, id, true, i);
                                         if (CheckCollisionPointRec(worldMouse, pinRect))
                                         {
                                                 if (state.wireStartPartID != -1)
@@ -745,12 +739,9 @@ void handleInput(AppState& state)
                                                 break;
                                         }
                                 }
-                                float pinYStepOut = (outCount > 1) ? (size.y - PIN_Y_OFFSET_BASE*2) / (outCount - 1) : 0;
                                 for (int i = 0; i < outCount; ++i)
                                 {
-                                        float yOff = -size.y/2 + PIN_Y_OFFSET_BASE + i * pinYStepOut;
-                                        if (outCount <= 1) yOff = 0;
-                                        Rectangle pinRect = {pos.x + size.x/2, pos.y + yOff - PIN_SIZE/2, PIN_SIZE, PIN_SIZE};
+                                        Rectangle pinRect = getPinRect(state, id, false, i);
                                         if (CheckCollisionPointRec(worldMouse, pinRect))
                                         {
                                                 state.wireStartPartID = id;
@@ -928,8 +919,7 @@ void handleInput(AppState& state)
                 for (std::map<int, std::pair<float, float>>::iterator it = state.positions.begin(); it != state.positions.end(); ++it)
                 {
                         int id = it->first;
-                        Vector2 size = getPartSize(state, id);
-                        Rectangle body = {it->second.first - size.x/2, it->second.second - size.y/2, size.x, size.y};
+                        Rectangle body = getBodyRect(state, id);
                         if (CheckCollisionPointRec(worldMouse, body))
                         {
                                 state.contextMenu.active = true;
