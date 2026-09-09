@@ -81,6 +81,7 @@ static Result timeIt(Step step, double target)
 }
 
 typedef void (*ExecFn)(const uint8_t*, uint8_t*);
+typedef void (*BatchFn)(const uint64_t*, uint64_t*);
 
 static std::vector<std::string> g_builtModules;
 
@@ -213,6 +214,33 @@ int main()
                 emit("native-inline", r.inl);
                 emit("native-link",   r.link);
                 emit("native-raw",    r.raw);
+        }
+
+        std::printf("\n%s%s== bit-sliced (64-lane) batch throughput: ns per vector ==%s\n", A_BOLD, A_CYAN, A_RST);
+        std::printf("  %-10s %14s %16s %12s\n", "circuit", "raw ns/tick", "bitsliced/vec", "speedup");
+        for (const std::string name : circuits)
+        {
+                AppState st;
+                loadLayout(st, "layouts/" + name + ".json");
+                std::string code = transpileToCppBitsliced(st);
+                if (code.empty()) continue;
+                int nIn = 0;
+                for (const auto& kv : st.partTypes) if (kv.second == PART_TYPE_SOURCE) nIn++;
+                int nOut = countOutputs(st);
+                std::string mod = "perf_" + name + "_bs";
+                if (!compileSharedLibrary(code, mod)) continue;
+                g_builtModules.push_back(mod);
+                void* h = dlopen(("./parts/lib" + mod + ".so").c_str(), RTLD_LAZY | RTLD_LOCAL);
+                BatchFn bf = h ? (BatchFn)dlsym(h, "executeTickBatch") : nullptr;
+                if (!bf) continue;
+                std::vector<uint64_t> bin(nIn ? nIn : 1, 0x9e3779b97f4a7c15ull), bout(nOut ? nOut : 1, 0);
+                Result rb = timeIt([&]{ bf(bin.data(), bout.data()); return (uint64_t)bout[0]; }, TARGET);
+                double perVec = rb.nsPerTick / 64.0;
+                double rawns = 0.0;
+                for (const Row& r : rows) if (r.name == name) rawns = r.raw.nsPerTick;
+                std::printf("  %-10s %14.1f %16.3f %11.1fx\n", name.c_str(), rawns, perVec, rawns > 0 ? rawns / perVec : 0.0);
+                std::printf("%s%s,%d,%d,bitsliced-per-vector,%.0f,%.3f,%.2f%s\n", A_DIM,
+                            name.c_str(), nIn, nOut, rb.ticksPerSec * 64.0, perVec, rawns > 0 ? rawns / perVec : 0.0, A_RST);
         }
 
         for (const std::string& mod : g_builtModules)

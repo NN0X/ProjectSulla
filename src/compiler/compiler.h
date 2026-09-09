@@ -16,6 +16,7 @@ struct CompiledMeta
 };
 
 std::string transpileToCpp(const AppState& state, bool linkCustomParts = false);
+std::string transpileToCppBitsliced(const AppState& state);
 bool compileSharedLibrary(const std::string& cppCode, const std::string& moduleName);
 Part loadCompiledPart(const std::string& moduleName, int outCount);
 void unloadCompiledPart(const std::string& moduleName);

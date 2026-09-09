@@ -382,10 +382,16 @@ static void resolvePassThrough(FlatCircuit& fc)
         for (size_t i = 0; i < drop.size(); ++i) fc.connections.erase(drop[i]);
 }
 
-static std::string emitCpp(const FlatCircuit& c)
+static std::string emitCpp(const FlatCircuit& c, bool bitsliced = false)
 {
         std::ostringstream code;
         code << "#include <stdint.h>\n";
+
+        if (bitsliced)
+                for (std::map<int, PartType>::const_iterator it = c.partTypes.begin(); it != c.partTypes.end(); ++it)
+                        if (it->second == PART_TYPE_CUSTOM) return "";
+        const char* T = bitsliced ? "uint64_t" : "uint8_t";
+        const char* NEG = bitsliced ? "~" : "!";
 
         bool hasDynamic = false, hasStatic = false;
         for (std::map<int, PartType>::const_iterator it = c.partTypes.begin(); it != c.partTypes.end(); ++it)
@@ -507,8 +513,8 @@ static std::string emitCpp(const FlatCircuit& c)
                 int id = it->first;
                 int outC = c.outputCounts.count(id) ? c.outputCounts.at(id) : 0;
                 if (backProd.count(id))
-                        for (int p = 0; p < outC; ++p) code << "static uint8_t p_" << id << "_out_" << p << " = 0;\n";
-                if (it->second == PART_TYPE_CLOCK) code << "static uint8_t clk_" << id << " = 0;\n";
+                        for (int p = 0; p < outC; ++p) code << "static " << T << " p_" << id << "_out_" << p << " = 0;\n";
+                if (it->second == PART_TYPE_CLOCK) code << "static " << T << " clk_" << id << " = 0;\n";
                 if (it->second == PART_TYPE_CUSTOM)
                 {
                         bool rs; int ra, rw;
@@ -522,13 +528,14 @@ static std::string emitCpp(const FlatCircuit& c)
         }
 
         code << "\nextern \"C\" {\n";
-        code << "void executeTick(const uint8_t* in, uint8_t* out) {\n";
+        code << (bitsliced ? "void executeTickBatch(const uint64_t* in, uint64_t* out) {\n"
+                           : "void executeTick(const uint8_t* in, uint8_t* out) {\n");
 
         for (std::map<int, PartType>::const_iterator it = c.partTypes.begin(); it != c.partTypes.end(); ++it)
         {
                 int id = it->first;
                 int outC = c.outputCounts.count(id) ? c.outputCounts.at(id) : 0;
-                for (int p = 0; p < outC; ++p) code << "        uint8_t n_" << id << "_out_" << p << " = 0;\n";
+                for (int p = 0; p < outC; ++p) code << "        " << T << " n_" << id << "_out_" << p << " = 0;\n";
         }
 
         int inIdx = 0;
@@ -565,18 +572,18 @@ static std::string emitCpp(const FlatCircuit& c)
                 {
                         if (g.foldOp == 0)
                         {
-                                code << "        n_" << u << "_out_0 = " << (g.invert ? "!" : "") << inVars[0] << ";\n";
+                                code << "        n_" << u << "_out_0 = " << (g.invert ? NEG : "") << inVars[0] << ";\n";
                         }
                         else
                         {
-                                code << "        uint8_t t_" << u << " = " << inVars[0] << ";\n";
+                                code << "        " << T << " t_" << u << " = " << inVars[0] << ";\n";
                                 for (int p = 1; p < inC; ++p) code << "        t_" << u << " " << g.foldOp << "= " << inVars[p] << ";\n";
-                                code << "        n_" << u << "_out_0 = " << (g.invert ? "!" : "") << "t_" << u << ";\n";
+                                code << "        n_" << u << "_out_0 = " << (g.invert ? NEG : "") << "t_" << u << ";\n";
                         }
                 }
                 else if (type == PART_TYPE_CLOCK)
                 {
-                        code << "        clk_" << u << " = !clk_" << u << ";\n";
+                        code << "        clk_" << u << " = " << NEG << "clk_" << u << ";\n";
                         code << "        n_" << u << "_out_0 = clk_" << u << ";\n";
                 }
                 else if (type == PART_TYPE_CUSTOM)
@@ -741,6 +748,13 @@ static std::string extractStatefulFunction(const std::string& tu, const std::str
         }
         stateSize = (int)names.size();
         return "static void " + symbol + "(const uint8_t* in, uint8_t* out, uint8_t* state) " + body + "\n";
+}
+
+std::string transpileToCppBitsliced(const AppState& state)
+{
+        FlatCircuit fc = flattenState(state, false);
+        resolvePassThrough(fc);
+        return emitCpp(fc, true);
 }
 
 std::string transpileToCpp(const AppState& state, bool linkCustomParts)

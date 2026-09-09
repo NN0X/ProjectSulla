@@ -1,4 +1,5 @@
 #include <cstdint>
+#include <dlfcn.h>
 #include <functional>
 #include <string>
 #include <vector>
@@ -395,6 +396,81 @@ static void testArith(const std::string& name, bool isMul, int W)
         tf::check(ok, name + ": interp == inline == link == golden (a " + std::string(isMul ? "*" : "+") + " b)");
 }
 
+typedef void (*BatchFn)(const uint64_t*, uint64_t*);
+
+static BatchFn buildBatch(const std::string& name)
+{
+        AppState st;
+        loadLayout(st, "layouts/" + name + ".json");
+        std::string code = transpileToCppBitsliced(st);
+        if (code.empty()) return nullptr;
+        std::string mod = "vbatch_" + name;
+        if (!compileSharedLibrary(code, mod)) return nullptr;
+        g_builtModules.push_back(mod);
+        void* h = dlopen(("./parts/lib" + mod + ".so").c_str(), RTLD_LAZY | RTLD_LOCAL);
+        return h ? (BatchFn)dlsym(h, "executeTickBatch") : nullptr;
+}
+
+static void testBitsliced(const std::string& name, bool seq, int ticks)
+{
+        std::printf("\n%s%s== bit-sliced (64-lane) evaluation in validation set: %s ==%s\n",
+                    tf::ansiBold(), tf::ansiCyan(), name.c_str(), tf::ansiRst());
+        int nIn = 0, nOut = 0;
+        Part interp = loadLayoutAsPart("layouts/" + name + ".json", nIn, nOut);
+        tf::check(interp != nullptr, name + ": interpreted engine loaded");
+        if (!interp) return;
+        int ocS = 0;
+        Part scal = buildNative(name, ocS, false);
+        BatchFn batch = buildBatch(name);
+        tf::check(scal != nullptr, name + ": scalar native compiled");
+        tf::check(batch != nullptr, name + ": bit-sliced batch compiled");
+        if (!scal || !batch) return;
+
+        bool ok = true;
+        if (!seq)
+        {
+                std::vector<std::vector<int> > pat(64, std::vector<int>(nIn));
+                for (int L = 0; L < 64; ++L)
+                        for (int i = 0; i < nIn; ++i)
+                                pat[L][i] = (int)((2654435761u * (uint32_t)(i + 1 + L * 7)) >> 13) & 1;
+                std::vector<uint64_t> in((std::size_t)(nIn ? nIn : 1), 0), out((std::size_t)(nOut ? nOut : 1), 0);
+                for (int i = 0; i < nIn; ++i) { uint64_t w = 0; for (int L = 0; L < 64; ++L) if (pat[L][i]) w |= (1ull << L); in[i] = w; }
+                batch(in.data(), out.data());
+                for (int L = 0; L < 64 && ok; ++L)
+                {
+                        std::vector<int> b(nIn);
+                        for (int i = 0; i < nIn; ++i) b[i] = pat[L][i];
+                        std::vector<int> sref = toBits(scal(toStates(b)));
+                        for (int o = 0; o < nOut; ++o)
+                        {
+                                int bit = (int)((out[o] >> L) & 1);
+                                int s = (o < (int)sref.size()) ? sref[o] : 0;
+                                if (bit != s) ok = false;
+                        }
+                }
+                tf::check(ok, name + ": 64 bit-sliced lanes == scalar (independent vectors)");
+        }
+        else
+        {
+                std::vector<int> pat(nIn);
+                for (int i = 0; i < nIn; ++i) pat[i] = (int)((2654435761u * (uint32_t)(i + 1)) >> 13) & 1;
+                std::vector<uint64_t> in((std::size_t)(nIn ? nIn : 1));
+                for (int i = 0; i < nIn; ++i) in[i] = pat[i] ? ~0ull : 0ull;
+                for (int t = 0; t < ticks && ok; ++t)
+                {
+                        std::vector<int> sref = toBits(scal(toStates(pat)));
+                        std::vector<uint64_t> out((std::size_t)(nOut ? nOut : 1), 0);
+                        batch(in.data(), out.data());
+                        for (int o = 0; o < nOut; ++o)
+                        {
+                                uint64_t want = (o < (int)sref.size() && sref[o]) ? ~0ull : 0ull;
+                                if (out[o] != want) ok = false;
+                        }
+                }
+                tf::check(ok, name + ": bit-sliced 64 lanes == scalar across " + std::to_string(ticks) + " ticks");
+        }
+}
+
 int main()
 {
         std::printf("%s%sSulla validation suite%s  (interpreted + native engines)\n",
@@ -452,6 +528,12 @@ int main()
         testArith("wadd8", false, 8);
         testArith("wmul8", true, 8);
         testArith("wmul16", true, 16);
+
+        testBitsliced("full_adder", false, 1);
+        testBitsliced("adder8", false, 1);
+        testBitsliced("mul8", false, 1);
+        testBitsliced("cpu8", true, 8);
+        testBitsliced("regbank64", true, 8);
 
         cleanupModules();
         return tf::summary();
