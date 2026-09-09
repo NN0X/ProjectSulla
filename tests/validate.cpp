@@ -360,6 +360,41 @@ static void testRam(const std::string& name, bool sync)
         tf::check(ok, name + ": interp == inline == link == golden over read/write sequence");
 }
 
+static void testArith(const std::string& name, bool isMul, int W)
+{
+        std::printf("\n%s%s== word-level arithmetic primitive in validation set: %s ==%s\n",
+                    tf::ansiBold(), tf::ansiCyan(), name.c_str(), tf::ansiRst());
+        int nIn = 0, nOut = 0;
+        Part interp = loadLayoutAsPart("layouts/" + name + ".json", nIn, nOut);
+        tf::check(interp != nullptr, name + ": interpreted engine loaded");
+        if (!interp) return;
+        int ocI = 0, ocL = 0;
+        Part inl = buildNative(name, ocI, false);
+        Part lnk = buildNative(name, ocL, true);
+        tf::check(inl != nullptr, name + ": native-inline compiled + loaded");
+        tf::check(lnk != nullptr, name + ": native-link compiled + loaded");
+        if (!inl || !lnk) return;
+
+        unsigned long long mask = (W >= 64) ? ~0ull : ((1ull << W) - 1);
+        unsigned long long tv[][2] = { {0,0},{1,1},{mask,mask},{123,45},{200,201},{65535,65535},{12345,54321},{7,9} };
+        bool ok = true;
+        for (size_t t = 0; t < sizeof(tv) / sizeof(tv[0]); ++t)
+        {
+                unsigned long long a = tv[t][0] & mask, b = tv[t][1] & mask;
+                unsigned long long gold = isMul ? (a * b) : (a + b);
+                std::vector<int> pat(nIn, 0);
+                for (int k = 0; k < W && k < nIn; ++k) pat[k] = (a >> k) & 1;
+                for (int k = 0; k < W && W + k < nIn; ++k) pat[W + k] = (b >> k) & 1;
+                std::vector<State> in = toStates(pat);
+                unsigned long long gi = 0, gn = 0, gl = 0;
+                { std::vector<int> z = toBits(interp(in)); for (size_t k = 0; k < z.size(); ++k) if (z[k]) gi |= 1ull << k; }
+                { std::vector<int> z = toBits(inl(in));    for (size_t k = 0; k < z.size(); ++k) if (z[k]) gn |= 1ull << k; }
+                { std::vector<int> z = toBits(lnk(in));    for (size_t k = 0; k < z.size(); ++k) if (z[k]) gl |= 1ull << k; }
+                if (gi != gold || gn != gold || gl != gold) ok = false;
+        }
+        tf::check(ok, name + ": interp == inline == link == golden (a " + std::string(isMul ? "*" : "+") + " b)");
+}
+
 int main()
 {
         std::printf("%s%sSulla validation suite%s  (interpreted + native engines)\n",
@@ -413,6 +448,10 @@ int main()
         testPerfCircuit("regbank64", 8);
         testRam("ram_async", false);
         testRam("ram_sync", true);
+
+        testArith("wadd8", false, 8);
+        testArith("wmul8", true, 8);
+        testArith("wmul16", true, 16);
 
         cleanupModules();
         return tf::summary();

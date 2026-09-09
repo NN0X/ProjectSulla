@@ -60,3 +60,33 @@ Part makeMemoryPart(bool sync, int addrBits, int dataBits)
                 return out;
         };
 }
+
+bool parseArithLabel(const std::string& label, bool& isMul, int& width)
+{
+        if (label.rfind("ADD_", 0) == 0) isMul = false;
+        else if (label.rfind("MUL_", 0) == 0) isMul = true;
+        else return false;
+        std::string w = label.substr(4);
+        if (w.empty()) return false;
+        for (std::string::size_type i = 0; i < w.size(); ++i)
+                if (w[i] < '0' || w[i] > '9') return false;
+        width = std::stoi(w);
+        return width > 0 && width <= 32;
+}
+
+Part makeArithPart(bool isMul, int width)
+{
+        int W = width;
+        return [isMul, W](const Input& in) -> std::vector<State> {
+                uint64_t a = 0, b = 0;
+                for (int k = 0; k < W; ++k)
+                        if ((int)in.size() > k && in[k] == STATE_HIGH) a |= (1ull << k);
+                for (int k = 0; k < W; ++k)
+                        if ((int)in.size() > W + k && in[W + k] == STATE_HIGH) b |= (1ull << k);
+                uint64_t r = isMul ? (a * b) : (a + b);
+                int nout = isMul ? 2 * W : W + 1;
+                std::vector<State> out((std::size_t)nout, STATE_LOW);
+                for (int p = 0; p < nout; ++p) out[p] = ((r >> p) & 1ull) ? STATE_HIGH : STATE_LOW;
+                return out;
+        };
+}

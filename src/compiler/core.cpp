@@ -105,6 +105,19 @@ static bool sullaParseRam(const std::string& label, bool& sync, int& addrBits, i
         return addrBits > 0 && addrBits <= 24 && dataBits > 0 && dataBits <= 32;
 }
 
+static bool sullaParseArith(const std::string& label, bool& isMul, int& width)
+{
+        if (label.rfind("ADD_", 0) == 0) isMul = false;
+        else if (label.rfind("MUL_", 0) == 0) isMul = true;
+        else return false;
+        std::string w = label.substr(4);
+        if (w.empty()) return false;
+        for (std::string::size_type i = 0; i < w.size(); ++i)
+                if (w[i] < '0' || w[i] > '9') return false;
+        width = std::atoi(w.c_str());
+        return width > 0 && width <= 32;
+}
+
 std::string sullaStatelessMarker(const std::string& label)
 {
         return "parts/" + label + "/" + label + ".stateless";
@@ -119,6 +132,8 @@ static CustomMode decideCustom(const std::string& label, bool linkMode)
 {
         bool rs; int ra, rw;
         if (sullaParseRam(label, rs, ra, rw)) return CUSTOM_LINK;
+        bool im; int iw;
+        if (sullaParseArith(label, im, iw)) return CUSTOM_LINK;
         bool layout = std::filesystem::exists("layouts/" + label + ".json");
         bool staticLib = !sullaFindStatic(label).empty();
         bool dynLib = !sullaFindDynamic(label).empty();
@@ -591,6 +606,23 @@ static std::string emitCpp(const FlatCircuit& c)
                                         code << "                        d_" << u << " |= (uint32_t)(" << inVars[1 + raddr + k] << " & 1) << " << k << ";\n";
                                 code << "                        mem_" << u << "[a_" << u << "] = d_" << u << ";\n";
                                 code << "                }\n";
+                                code << "        }\n";
+                                continue;
+                        }
+                        bool aIsMul; int aW;
+                        if (sullaParseArith(lib, aIsMul, aW))
+                        {
+                                int nout = aIsMul ? 2 * aW : aW + 1;
+                                code << "        {\n";
+                                code << "                uint64_t a_" << u << " = 0;\n";
+                                for (int k = 0; k < aW; ++k)
+                                        code << "                a_" << u << " |= (uint64_t)(" << inVars[k] << " & 1) << " << k << ";\n";
+                                code << "                uint64_t b_" << u << " = 0;\n";
+                                for (int k = 0; k < aW; ++k)
+                                        code << "                b_" << u << " |= (uint64_t)(" << inVars[aW + k] << " & 1) << " << k << ";\n";
+                                code << "                uint64_t r_" << u << " = a_" << u << (aIsMul ? " * " : " + ") << "b_" << u << ";\n";
+                                for (int p = 0; p < nout; ++p)
+                                        code << "                n_" << u << "_out_" << p << " = (uint8_t)((r_" << u << " >> " << p << ") & 1);\n";
                                 code << "        }\n";
                                 continue;
                         }

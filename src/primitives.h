@@ -13,4 +13,8 @@ bool parseRamLabel(const std::string& label, bool& sync, int& addrBits, int& dat
 
 Part makeMemoryPart(bool sync, int addrBits, int dataBits);
 
+bool parseArithLabel(const std::string& label, bool& isMul, int& width);
+
+Part makeArithPart(bool isMul, int width);
+
 #endif

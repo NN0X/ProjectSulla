@@ -168,6 +168,12 @@ int loadLayout(AppState& state, const std::string& filename)
                                 setPart(state.parts, part.id, makeMemoryPart(ramSync, ramA, ramW));
                                 break;
                         }
+                        bool aMul; int aW;
+                        if (parseArithLabel(part.label, aMul, aW))
+                        {
+                                setPart(state.parts, part.id, makeArithPart(aMul, aW));
+                                break;
+                        }
                         int dummyIn, dummyOut;
                         std::string layoutPath = "layouts/" + part.label + ".json";
 
@@ -256,6 +262,12 @@ Part loadLayoutAsPart(const std::string& filename, int& nInputs, int& nOutputs)
                         if (parseRamLabel(part.label, ramSync, ramA, ramW))
                         {
                                 setPart(subParts, part.id, makeMemoryPart(ramSync, ramA, ramW));
+                                break;
+                        }
+                        bool aMul; int aW;
+                        if (parseArithLabel(part.label, aMul, aW))
+                        {
+                                setPart(subParts, part.id, makeArithPart(aMul, aW));
                                 break;
                         }
                         int dummyIn, dummyOut;
@@ -410,6 +422,12 @@ std::set<int> importLayout(AppState& state, const std::string& filename, float m
                         if (parseRamLabel(part.label, ramSync, ramA, ramW))
                         {
                                 setPart(state.parts, part.id, makeMemoryPart(ramSync, ramA, ramW));
+                                break;
+                        }
+                        bool aMul; int aW;
+                        if (parseArithLabel(part.label, aMul, aW))
+                        {
+                                setPart(state.parts, part.id, makeArithPart(aMul, aW));
                                 break;
                         }
                         int dummyIn, dummyOut;

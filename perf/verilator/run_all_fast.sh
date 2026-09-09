@@ -26,3 +26,6 @@ build mul16 mul16 mul16.v vmul.cpp '-DNBITS=16 -DTOP=Vmul16 -DTOP_HEADER="Vmul16
 build cpu8  cpu8  cpu8.v  vcpu.cpp ''
 build ram_async ram_async ram_async.v vram.cpp '-DTOP=Vram_async -DTOP_HEADER="Vram_async.h" -DTOP_NAME="ram_async"'
 build ram_sync  ram_sync  ram_sync.v  vram.cpp '-DTOP=Vram_sync -DTOP_HEADER="Vram_sync.h" -DTOP_NAME="ram_sync"'
+build wadd8  wadd8  wadd8.v  vbench.cpp '-DADDER_MODE -DTOP=Vwadd8 -DTOP_HEADER="Vwadd8.h" -DTOP_NAME="wadd8"'
+build wmul8  wmul8  wmul8.v  vmul.cpp   '-DNBITS=8 -DTOP=Vwmul8 -DTOP_HEADER="Vwmul8.h" -DTOP_NAME="wmul8"'
+build wmul16 wmul16 wmul16.v vmul.cpp   '-DNBITS=16 -DTOP=Vwmul16 -DTOP_HEADER="Vwmul16.h" -DTOP_NAME="wmul16"'

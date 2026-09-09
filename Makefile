@@ -69,8 +69,8 @@ check:
 
 test:
 	@echo "Generating test fixtures..."
-	@python3 perf/gen_mult.py 8 > /dev/null && python3 perf/gen_mult.py 16 > /dev/null && python3 perf/gen_cpu.py > /dev/null && python3 perf/gen_stateful.py > /dev/null && python3 perf/gen_memory.py > /dev/null
-	@cp perf/layouts/adder8.json perf/layouts/adder16.json perf/layouts/adder32.json perf/layouts/mul8.json perf/layouts/mul16.json perf/layouts/cpu8.json perf/layouts/regbank64.json tests/layouts/
+	@python3 perf/gen_mult.py 8 > /dev/null && python3 perf/gen_mult.py 16 > /dev/null && python3 perf/gen_cpu.py > /dev/null && python3 perf/gen_stateful.py > /dev/null && python3 perf/gen_memory.py > /dev/null && python3 perf/gen_wordarith.py > /dev/null
+	@cp perf/layouts/adder8.json perf/layouts/adder16.json perf/layouts/adder32.json perf/layouts/mul8.json perf/layouts/mul16.json perf/layouts/cpu8.json perf/layouts/regbank64.json perf/layouts/wadd8.json perf/layouts/wmul8.json perf/layouts/wmul16.json tests/layouts/
 	@echo "Building validation suite..."
 	@$(CXX) $(SUITE_CPPFLAGS) $(ENGINE_SRCS) tests/validate.cpp -o tests/validate $(SUITE_LDFLAGS)
 	@echo "Running validation suite (interpreted + native engines)..."
@@ -78,7 +78,7 @@ test:
 
 perf:
 	@echo "Generating benchmark circuits..."
-	@python3 perf/gen_mult.py 8 > /dev/null && python3 perf/gen_mult.py 16 > /dev/null && python3 perf/gen_cpu.py > /dev/null && python3 perf/gen_stateful.py > /dev/null && python3 perf/gen_memory.py > /dev/null
+	@python3 perf/gen_mult.py 8 > /dev/null && python3 perf/gen_mult.py 16 > /dev/null && python3 perf/gen_cpu.py > /dev/null && python3 perf/gen_stateful.py > /dev/null && python3 perf/gen_memory.py > /dev/null && python3 perf/gen_wordarith.py > /dev/null
 	@echo "Building performance suite..."
 	@$(CXX) $(PERF_CPPFLAGS) $(ENGINE_SRCS) perf/bench.cpp -o perf/bench $(SUITE_LDFLAGS)
 	@echo "Running performance suite (interpreted vs native, all modes)..."
