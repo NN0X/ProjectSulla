@@ -173,7 +173,7 @@ void drawParts(AppState& state)
                 DrawRectangleRec(body, cBg);
                 DrawRectangleLinesEx(body, 2.0f, borderColor);
                 int txtW = MeasureText(state.labels[id].c_str(), 10);
-                DrawText(state.labels[id].c_str(), body.x + size.x/2 - txtW/2, body.y + PART_LABEL_OFFSET, 10, cText);
+                DrawText(state.labels[id].c_str(), body.x + size.x/2 - txtW/2, body.y - 10 - PART_LABEL_OFFSET, 10, cText);
                 int inCount = state.inputCounts[id];
                 int outCount = state.outputCounts[id];
                 if (type == PART_TYPE_SOURCE)

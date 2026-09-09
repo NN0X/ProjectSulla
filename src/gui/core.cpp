@@ -40,6 +40,10 @@ Vector2 getPartSize(const AppState& state, int id)
         {
                 h = pinsH;
         }
+        if (w < h * 0.35f)
+        {
+                w = h * 0.35f;
+        }
         return {w, h};
 }
 
