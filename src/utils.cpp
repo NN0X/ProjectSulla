@@ -50,6 +50,7 @@ struct LayoutData
 
 static void loadPinLabelsForCustom(AppState& state, int partID, const std::string& label, int numOutputs)
 {
+        (void)numOutputs;
         std::string metaPath = sullaFindMeta(label);
         if (!metaPath.empty())
         {
@@ -66,6 +67,36 @@ static void loadPinLabelsForCustom(AppState& state, int partID, const std::strin
                         }
                 }
         }
+        if (state.inputPinLabels.count(partID) || state.outputPinLabels.count(partID)) return;
+
+        std::string layoutPath = "layouts/" + label + ".json";
+        if (!std::filesystem::exists(layoutPath)) return;
+        std::ifstream lf(layoutPath);
+        if (!lf.is_open()) return;
+        std::string ljson((std::istreambuf_iterator<char>(lf)), std::istreambuf_iterator<char>());
+        lf.close();
+        LayoutData ld{};
+        if (glz::read_json(ld, ljson)) return;
+
+        std::vector<const SPart*> sources, outs;
+        for (const SPart& p : ld.parts)
+        {
+                if (p.type == PART_TYPE_SOURCE) sources.push_back(&p);
+                else if (p.type == PART_TYPE_OUTPUT) outs.push_back(&p);
+        }
+        auto byPos = [](const SPart* a, const SPart* b) {
+                if (std::fabs(a->y - b->y) > 0.1f) return a->y < b->y;
+                return a->x < b->x;
+        };
+        std::sort(sources.begin(), sources.end(), byPos);
+        std::sort(outs.begin(), outs.end(), byPos);
+
+        std::vector<std::string> inLabels, outLabels;
+        bool anyIn = false, anyOut = false;
+        for (const SPart* p : sources) { inLabels.push_back(p->label); if (!p->label.empty()) anyIn = true; }
+        for (const SPart* p : outs) { outLabels.push_back(p->label); if (!p->label.empty()) anyOut = true; }
+        if (anyIn) state.inputPinLabels[partID] = inLabels;
+        if (anyOut) state.outputPinLabels[partID] = outLabels;
 }
 
 void saveLayout(const std::map<int, PartType>& partTypes,
@@ -181,6 +212,7 @@ int loadLayout(AppState& state, const std::string& filename)
                         {
                                 Part layoutPart = loadLayoutAsPart(layoutPath, dummyIn, dummyOut);
                                 if (layoutPart) setPart(state.parts, part.id, layoutPart); 
+                                loadPinLabelsForCustom(state, part.id, part.label, part.numOutputs);
                         }
                         else
                         {
@@ -436,6 +468,7 @@ std::set<int> importLayout(AppState& state, const std::string& filename, float m
                         {
                                 Part layoutPart = loadLayoutAsPart(layoutPath, dummyIn, dummyOut);
                                 if (layoutPart) setPart(state.parts, newID, layoutPart); 
+                                loadPinLabelsForCustom(state, newID, part.label, part.numOutputs);
                         }
                         else 
                         {

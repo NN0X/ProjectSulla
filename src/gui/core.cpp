@@ -23,27 +23,49 @@ Color getThemeColor(const AppState& state, Color light, Color dark)
         return state.darkMode ? dark : light;
 }
 
+static float partTitleHeight(const AppState& state, int id)
+{
+        return (state.labels.count(id) && !state.labels.at(id).empty()) ? PART_TITLE_HEIGHT : 0.0f;
+}
+
+static float maxPinLabelWidth(const AppState& state, int id, bool isInput)
+{
+        const std::map<int, std::vector<std::string>>& src = isInput ? state.inputPinLabels : state.outputPinLabels;
+        if (!src.count(id)) return 0.0f;
+        float m = 0.0f;
+        for (const std::string& l : src.at(id))
+        {
+                float w = (float)MeasureText(l.c_str(), PIN_LABEL_FONT_SIZE);
+                if (w > m) m = w;
+        }
+        return m;
+}
+
 Vector2 getPartSize(const AppState& state, int id)
 {
-        float txtW = (float)MeasureText(state.labels.at(id).c_str(), 10);
+        float nameW = (float)MeasureText(state.labels.at(id).c_str(), 10);
+        float leftMax = maxPinLabelWidth(state, id, true);
+        float rightMax = maxPinLabelWidth(state, id, false);
+
         float w = BASE_PART_WIDTH;
-        if (txtW + TEXT_PADDING * 2 > w)
+        float wName = nameW + TEXT_PADDING * 2;
+        if (wName > w) w = wName;
+        if (leftMax > 0 || rightMax > 0)
         {
-                w = txtW + TEXT_PADDING * 2;
+                float wPins = leftMax + rightMax + PIN_LABEL_INSET * 2 + PIN_LABEL_CENTER_GAP;
+                if (wPins > w) w = wPins;
         }
+
         int inCount = state.inputCounts.at(id);
         int outCount = state.outputCounts.at(id);
         int maxPins = (inCount > outCount) ? inCount : outCount;
-        float h = BASE_PART_HEIGHT;
-        float pinsH = (float)(maxPins - 1) * PIN_SPACING + PIN_Y_OFFSET_BASE * 2;
-        if (maxPins > 1 && pinsH > h)
-        {
-                h = pinsH;
-        }
-        if (w < h * 0.35f)
-        {
-                w = h * 0.35f;
-        }
+        float pinsH = (maxPins > 1) ? (float)(maxPins - 1) * PIN_SPACING + PIN_Y_OFFSET_BASE * 2 : PIN_Y_OFFSET_BASE * 2;
+        float h = partTitleHeight(state, id) + pinsH;
+        if (h < BASE_PART_HEIGHT) h = BASE_PART_HEIGHT;
+
+        float ratioW = h * 0.35f;
+        if (ratioW > 160.0f) ratioW = 160.0f;
+        if (w < ratioW) w = ratioW;
         return {w, h};
 }
 
@@ -64,9 +86,11 @@ float getPinYOffset(const AppState& state, int id, bool isInput, int index)
 {
         Vector2 size = getPartSize(state, id);
         int count = getPinCount(state, id, isInput);
-        if (count <= 1) return 0.0f;
-        float step = (size.y - PIN_Y_OFFSET_BASE * 2) / (count - 1);
-        return -size.y/2 + PIN_Y_OFFSET_BASE + index * step;
+        float top = -size.y/2 + partTitleHeight(state, id) + PIN_Y_OFFSET_BASE;
+        float bot = size.y/2 - PIN_Y_OFFSET_BASE;
+        if (count <= 1) return (top + bot) / 2.0f;
+        float step = (bot - top) / (count - 1);
+        return top + index * step;
 }
 
 Rectangle getPinRect(const AppState& state, int id, bool isInput, int index)

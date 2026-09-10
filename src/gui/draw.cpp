@@ -157,8 +157,15 @@ void drawParts(AppState& state)
                 Rectangle body = {pos.x - size.x/2, pos.y - size.y/2, size.x, size.y};
                 DrawRectangleRec(body, cBg);
                 DrawRectangleLinesEx(body, 2.0f, borderColor);
-                int txtW = MeasureText(state.labels[id].c_str(), 10);
-                DrawText(state.labels[id].c_str(), body.x + size.x/2 - txtW/2, body.y - 10 - PART_LABEL_OFFSET, 10, cText);
+                const std::string& partName = state.labels[id];
+                if (!partName.empty())
+                {
+                        int txtW = MeasureText(partName.c_str(), 10);
+                        float availW = size.x - TEXT_PADDING;
+                        float nx = body.x + (size.x - txtW) / 2.0f;
+                        if (nx < body.x + 2) nx = body.x + 2;
+                        drawTextFit(partName.c_str(), nx, body.y + PART_LABEL_OFFSET, availW, 10, cText);
+                }
                 int inCount = state.inputCounts[id];
                 int outCount = state.outputCounts[id];
                 if (type == PART_TYPE_SOURCE)
