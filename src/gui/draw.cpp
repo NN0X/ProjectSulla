@@ -141,6 +141,83 @@ void drawWires(AppState& state)
         }
 }
 
+static bool isLogicGate(PartType t)
+{
+        return t == PART_TYPE_AND || t == PART_TYPE_OR || t == PART_TYPE_NOT || t == PART_TYPE_NAND ||
+               t == PART_TYPE_NOR || t == PART_TYPE_XOR || t == PART_TYPE_XNOR;
+}
+
+static Color gateAccent(PartType t)
+{
+        switch (t)
+        {
+        case PART_TYPE_AND:  return (Color){ 90, 156, 220, 255};
+        case PART_TYPE_NAND: return (Color){120, 180, 230, 255};
+        case PART_TYPE_OR:   return (Color){ 92, 184,  92, 255};
+        case PART_TYPE_NOR:  return (Color){ 80, 190, 160, 255};
+        case PART_TYPE_XOR:  return (Color){170, 120, 210, 255};
+        case PART_TYPE_XNOR: return (Color){210, 120, 190, 255};
+        case PART_TYPE_NOT:  return (Color){230, 150,  70, 255};
+        default:             return (Color){160, 160, 170, 255};
+        }
+}
+
+static void drawGateGlyph(PartType type, Rectangle b, Color fill, Color accent)
+{
+        float x = b.x, y = b.y, w = b.width, h = b.height;
+        bool neg = (type == PART_TYPE_NAND || type == PART_TYPE_NOR || type == PART_TYPE_XNOR || type == PART_TYPE_NOT);
+        bool orLike = (type == PART_TYPE_OR || type == PART_TYPE_NOR || type == PART_TYPE_XOR || type == PART_TYPE_XNOR);
+        bool xorLike = (type == PART_TYPE_XOR || type == PART_TYPE_XNOR);
+        float bubbleR = 4.0f;
+        float gw = w - (neg ? bubbleR * 2.0f + 1.0f : 0.0f);
+
+        if (type == PART_TYPE_NOT)
+        {
+                Vector2 p1 = {x, y}, p2 = {x, y + h}, p3 = {x + gw, y + h/2};
+                DrawTriangle(p2, p1, p3, fill);
+                DrawTriangleLines(p2, p1, p3, accent);
+        }
+        else if (!orLike)
+        {
+                float r = h / 2.0f;
+                float flat = x + gw - r;
+                if (flat < x) flat = x;
+                DrawRectangleRec({x, y, flat - x, h}, fill);
+                DrawCircleSector({flat, y + r}, r, -90.0f, 90.0f, 32, fill);
+                DrawLine((int)x, (int)y, (int)flat, (int)y, accent);
+                DrawLine((int)x, (int)(y + h), (int)flat, (int)(y + h), accent);
+                DrawLine((int)x, (int)y, (int)x, (int)(y + h), accent);
+                DrawCircleSectorLines({flat, y + r}, r, -90.0f, 90.0f, 32, accent);
+        }
+        else
+        {
+                Vector2 bt = {x, y};
+                Vector2 bb = {x, y + h};
+                Vector2 bm = {x + w * 0.24f, y + h/2};
+                Vector2 tip = {x + gw, y + h/2};
+                DrawTriangle(bm, bt, tip, fill);
+                DrawTriangle(bb, bm, tip, fill);
+                DrawLineEx(bt, tip, 1.5f, accent);
+                DrawLineEx(bb, tip, 1.5f, accent);
+                DrawLineEx(bt, bm, 1.5f, accent);
+                DrawLineEx(bm, bb, 1.5f, accent);
+                if (xorLike)
+                {
+                        Vector2 xt = {x - 4, y};
+                        Vector2 xb = {x - 4, y + h};
+                        Vector2 xm = {x - 4 + w * 0.24f, y + h/2};
+                        DrawLineEx(xt, xm, 1.5f, accent);
+                        DrawLineEx(xm, xb, 1.5f, accent);
+                }
+        }
+        if (neg)
+        {
+                Vector2 bc = {x + gw + bubbleR, y + h/2};
+                DrawCircle((int)bc.x, (int)bc.y, bubbleR, fill);
+                DrawCircleLines((int)bc.x, (int)bc.y, bubbleR, accent);
+        }
+}
+
 void drawParts(AppState& state)
 {
         Color cBg = getThemeColor(state, COLOR_PART_BG_LIGHT, COLOR_PART_BG_DARK);
@@ -155,16 +232,34 @@ void drawParts(AppState& state)
                 Color borderColor = cBorder;
                 if (state.selectedParts.count(id)) borderColor = COLOR_PART_SELECTED;
                 Rectangle body = {pos.x - size.x/2, pos.y - size.y/2, size.x, size.y};
-                DrawRectangleRec(body, cBg);
-                DrawRectangleLinesEx(body, 2.0f, borderColor);
-                const std::string& partName = state.labels[id];
-                if (!partName.empty())
+                if (isLogicGate(type))
                 {
-                        int txtW = MeasureText(partName.c_str(), 10);
-                        float availW = size.x - TEXT_PADDING;
-                        float nx = body.x + (size.x - txtW) / 2.0f;
-                        if (nx < body.x + 2) nx = body.x + 2;
-                        drawTextFit(partName.c_str(), nx, body.y + PART_LABEL_OFFSET, availW, 10, cText);
+                        Color accent = state.selectedParts.count(id) ? COLOR_PART_SELECTED : gateAccent(type);
+                        const std::string& partName = state.labels[id];
+                        float titleH = partName.empty() ? 0.0f : PART_TITLE_HEIGHT;
+                        if (!partName.empty())
+                        {
+                                int txtW = MeasureText(partName.c_str(), 10);
+                                float nx = body.x + (size.x - txtW) / 2.0f;
+                                if (nx < body.x + 2) nx = body.x + 2;
+                                drawTextFit(partName.c_str(), nx, body.y + PART_LABEL_OFFSET, size.x - TEXT_PADDING, 10, cText);
+                        }
+                        Rectangle glyph = {body.x, body.y + titleH, size.x, size.y - titleH};
+                        drawGateGlyph(type, glyph, cBg, accent);
+                }
+                else
+                {
+                        DrawRectangleRounded(body, 0.12f, 6, cBg);
+                        DrawRectangleRoundedLines(body, 0.12f, 6, borderColor);
+                        const std::string& partName = state.labels[id];
+                        if (!partName.empty())
+                        {
+                                int txtW = MeasureText(partName.c_str(), 10);
+                                float availW = size.x - TEXT_PADDING;
+                                float nx = body.x + (size.x - txtW) / 2.0f;
+                                if (nx < body.x + 2) nx = body.x + 2;
+                                drawTextFit(partName.c_str(), nx, body.y + PART_LABEL_OFFSET, availW, 10, cText);
+                        }
                 }
                 int inCount = state.inputCounts[id];
                 int outCount = state.outputCounts[id];
@@ -207,6 +302,18 @@ void drawParts(AppState& state)
                         int valW = MeasureText(valStr.c_str(), DISPLAY_FONT_SIZE);
                         Color valColor = DISPLAY_VALUE_COLOR;
                         DrawText(valStr.c_str(), (int)(screen.x + screen.width/2 - valW/2), (int)(screen.y + screen.height/2 - DISPLAY_FONT_SIZE/2), DISPLAY_FONT_SIZE, valColor);
+                }
+                else if (type == PART_TYPE_CLOCK)
+                {
+                        float cy = body.y + PART_TITLE_HEIGHT + (size.y - PART_TITLE_HEIGHT) / 2.0f;
+                        float lo = cy + 7, hi = cy - 7;
+                        float x0 = body.x + 8, x1 = body.x + size.x - 10;
+                        float seg = (x1 - x0) / 4.0f;
+                        Color wave = gateAccent(PART_TYPE_NOT);
+                        Vector2 pts[6] = { {x0, lo}, {x0 + seg, lo}, {x0 + seg, hi}, {x0 + seg*2, hi}, {x0 + seg*2, lo}, {x1, lo} };
+                        for (int i = 0; i < 5; ++i) DrawLineEx(pts[i], pts[i+1], 1.5f, wave);
+                        DrawLineEx({x0 + seg*3, lo}, {x0 + seg*3, hi}, 1.5f, wave);
+                        DrawLineEx({x0 + seg*3, hi}, {x1, hi}, 1.5f, wave);
                 }
                 if (type != PART_TYPE_SOURCE && type != PART_TYPE_CLOCK)
                 {
