@@ -87,6 +87,20 @@ perf:
 	@echo "Running performance suite (interpreted vs native, all modes)..."
 	@cd perf && ./bench
 
+FIXTURES := adder8 adder16 adder32 mul8 mul16 cpu8 regbank64 ram_async ram_sync wadd8 wmul8 wmul16 full_adder dff
+
+fixtures:
+	@echo "Generating fixture circuits..."
+	@python3 perf/gen_mult.py 8 > /dev/null && python3 perf/gen_mult.py 16 > /dev/null && python3 perf/gen_cpu.py > /dev/null && python3 perf/gen_stateful.py > /dev/null && python3 perf/gen_memory.py > /dev/null && python3 perf/gen_wordarith.py > /dev/null
+	@python3 perf/relayout.py perf/layouts/*.json > /dev/null 2>&1
+	@mkdir -p layouts
+	@for f in $(FIXTURES); do cp perf/layouts/$$f.json layouts/ 2>/dev/null || true; done
+	@echo "Building fixture compiler..."
+	@$(CXX) $(SUITE_CPPFLAGS) $(ENGINE_SRCS) tools/build_fixtures.cpp -o tools/build_fixtures $(SUITE_LDFLAGS)
+	@echo "Compiling fixtures into parts/..."
+	@./tools/build_fixtures $(FIXTURES)
+	@echo "Fixtures installed into layouts/ and parts/ (visible in the GUI)."
+
 clean:
 	@rm -rf build
 	@rm -f tests/validate perf/bench
