@@ -82,36 +82,66 @@ static size_t computeOutputSlotIndex(const AppState& state, int targetID)
 void drawWires(AppState& state)
 {
         const float KINK = 16.0f;
+        const float HB = 14.0f, HS = 8.0f;
+        const float VB = 14.0f, VS = 7.0f;
 
-        struct WireInfo { std::map<PartPin, PartPin>::iterator it; Vector2 start; Vector2 end; };
-        std::vector<WireInfo> wires;
-        wires.reserve(state.connections.size());
+        struct W { std::map<PartPin, PartPin>::iterator it; Vector2 s; Vector2 e; bool fwd; int ci; float laneY; float vx1; float vx2; };
+        std::vector<W> ws;
+        ws.reserve(state.connections.size());
+        std::map<PartPin, int> fanout;
         for (std::map<PartPin, PartPin>::iterator it = state.connections.begin(); it != state.connections.end(); ++it)
         {
                 Vector2 s = getPinPos(state, it->second.first, false, it->second.second);
                 Vector2 e = getPinPos(state, it->first.first, true, it->first.second);
-                wires.push_back({it, s, e});
+                bool fwd = (s.x + KINK) < (e.x - KINK);
+                int ci;
+                std::map<PartPin, int>::iterator cit = state.connColorIdx.find(it->first);
+                if (cit == state.connColorIdx.end()) { ci = state.nextConnColor++; state.connColorIdx[it->first] = ci; }
+                else ci = cit->second;
+                ws.push_back({it, s, e, fwd, ci, (s.y + e.y) / 2.0f, s.x + KINK, e.x - KINK});
+                fanout[it->second]++;
         }
-        std::sort(wires.begin(), wires.end(), [](const WireInfo& a, const WireInfo& b) {
-                if (fabs(a.start.y - b.start.y) > 0.5f) return a.start.y < b.start.y;
-                return a.end.y < b.end.y;
-        });
 
-        std::map<PartPin, int> fanout;
-        for (size_t i = 0; i < wires.size(); ++i) fanout[wires[i].it->second]++;
-
-        for (size_t idx = 0; idx < wires.size(); ++idx)
+        std::map<int, std::vector<int> > hb;
+        for (size_t i = 0; i < ws.size(); ++i)
+                if (ws[i].fwd) hb[(int)roundf(ws[i].laneY / HB)].push_back((int)i);
+        for (std::map<int, std::vector<int> >::iterator b = hb.begin(); b != hb.end(); ++b)
         {
-                std::map<PartPin, PartPin>::iterator it = wires[idx].it;
-                Vector2 start = wires[idx].start;
-                Vector2 end = wires[idx].end;
+                std::vector<int>& g = b->second;
+                for (size_t r = 0; r < g.size(); ++r)
+                        ws[g[r]].laneY += (float)((int)r - (int)((g.size() - 1) / 2)) * HS;
+        }
+
+        struct V { int wi; int slot; float x; };
+        std::vector<V> verts;
+        for (size_t i = 0; i < ws.size(); ++i)
+                if (ws[i].fwd) { verts.push_back({(int)i, 0, ws[i].vx1}); verts.push_back({(int)i, 1, ws[i].vx2}); }
+        std::map<int, std::vector<int> > vb;
+        for (size_t k = 0; k < verts.size(); ++k) vb[(int)roundf(verts[k].x / VB)].push_back((int)k);
+        for (std::map<int, std::vector<int> >::iterator b = vb.begin(); b != vb.end(); ++b)
+        {
+                std::vector<int>& g = b->second;
+                for (size_t r = 0; r < g.size(); ++r)
+                {
+                        float off = (float)((int)r - (int)((g.size() - 1) / 2)) * VS;
+                        if (verts[g[r]].slot == 0) ws[verts[g[r]].wi].vx1 += off;
+                        else ws[verts[g[r]].wi].vx2 += off;
+                }
+        }
+
+        for (size_t i = 0; i < ws.size(); ++i)
+        {
+                std::map<PartPin, PartPin>::iterator it = ws[i].it;
+                Vector2 s = ws[i].s;
+                Vector2 e = ws[i].e;
+                bool hovered = (state.hoveredNet.first != -1 && it->second == state.hoveredNet);
 
                 Color c;
                 if (state.selectedConnection == it->first)
                         c = COLOR_WIRE_SELECTED;
                 else
                 {
-                        c = WIRE_PALETTE[idx % (size_t)WIRE_PALETTE_SIZE];
+                        c = WIRE_PALETTE[ws[i].ci % WIRE_PALETTE_SIZE];
                         if (state.visualizeSignals)
                         {
                                 State v = STATE_LOW;
@@ -121,35 +151,33 @@ void drawWires(AppState& state)
                                 if (v != STATE_HIGH)
                                         c = (Color){ (unsigned char)(c.r * 0.34f), (unsigned char)(c.g * 0.34f), (unsigned char)(c.b * 0.34f), 255 };
                         }
+                        if (hovered) c = (Color){ (unsigned char)(c.r + (255 - c.r) * 0.5f), (unsigned char)(c.g + (255 - c.g) * 0.5f), (unsigned char)(c.b + (255 - c.b) * 0.5f), 255 };
                 }
+                float th = hovered ? WIRE_THICKNESS + 1.5f : WIRE_THICKNESS;
 
-                Vector2 p1 = start;
-                Vector2 p5 = end;
-                Vector2 p2 = {start.x + KINK, start.y};
-                Vector2 p4 = {end.x - KINK, end.y};
-                float lane = (float)((int)(idx % 7) - 3) * 4.0f;
-
-                if (p2.x < p4.x)
+                if (ws[i].fwd)
                 {
-                        float midX = (p2.x + p4.x) / 2.0f + lane;
-                        DrawLineEx(p1, p2, WIRE_THICKNESS, c);
-                        DrawLineEx(p2, {midX, p2.y}, WIRE_THICKNESS, c);
-                        DrawLineEx({midX, p2.y}, {midX, p4.y}, WIRE_THICKNESS, c);
-                        DrawLineEx({midX, p4.y}, p4, WIRE_THICKNESS, c);
-                        DrawLineEx(p4, p5, WIRE_THICKNESS, c);
+                        float vx1 = ws[i].vx1, vx2 = ws[i].vx2, ly = ws[i].laneY;
+                        DrawLineEx(s, {vx1, s.y}, th, c);
+                        DrawLineEx({vx1, s.y}, {vx1, ly}, th, c);
+                        DrawLineEx({vx1, ly}, {vx2, ly}, th, c);
+                        DrawLineEx({vx2, ly}, {vx2, e.y}, th, c);
+                        DrawLineEx({vx2, e.y}, e, th, c);
                 }
                 else
                 {
-                        float detour = (start.y <= end.y) ? -34.0f : 34.0f;
-                        float midY = ((start.y + end.y) / 2.0f) + detour + lane;
-                        DrawLineEx(p1, p2, WIRE_THICKNESS, c);
-                        DrawLineEx(p2, {p2.x, midY}, WIRE_THICKNESS, c);
-                        DrawLineEx({p2.x, midY}, {p4.x, midY}, WIRE_THICKNESS, c);
-                        DrawLineEx({p4.x, midY}, p4, WIRE_THICKNESS, c);
-                        DrawLineEx(p4, p5, WIRE_THICKNESS, c);
+                        float detour = (s.y <= e.y) ? -34.0f : 34.0f;
+                        float midY = ((s.y + e.y) / 2.0f) + detour + (float)ws[i].ci * 0.0f;
+                        Vector2 p2 = {s.x + KINK, s.y};
+                        Vector2 p4 = {e.x - KINK, e.y};
+                        DrawLineEx(s, p2, th, c);
+                        DrawLineEx(p2, {p2.x, midY}, th, c);
+                        DrawLineEx({p2.x, midY}, {p4.x, midY}, th, c);
+                        DrawLineEx({p4.x, midY}, p4, th, c);
+                        DrawLineEx(p4, e, th, c);
                 }
 
-                if (fanout[it->second] > 1) DrawCircleV(start, 3.0f, c);
+                if (fanout[it->second] > 1) DrawCircleV(s, 3.0f, c);
         }
         if (state.wireStartPartID != -1)
         {

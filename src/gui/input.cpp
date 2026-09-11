@@ -226,6 +226,25 @@ void handleInput(AppState& state)
         if (IsKeyPressed(KEY_F11)) ToggleFullscreen();
         if (!isDialogActive && IsKeyPressed(KEY_V)) state.visualizeSignals = !state.visualizeSignals;
 
+        state.hoveredNet = {-1, -1};
+        if (!mouseOverUI && state.wireStartPartID == -1)
+        {
+                float bestDist = 10.0f / (state.camera.zoom > 0.01f ? state.camera.zoom : 1.0f);
+                for (std::map<PartPin, PartPin>::iterator it = state.connections.begin(); it != state.connections.end(); ++it)
+                {
+                        Vector2 a = getPinPos(state, it->second.first, false, it->second.second);
+                        Vector2 b = getPinPos(state, it->first.first, true, it->first.second);
+                        Vector2 ab = {b.x - a.x, b.y - a.y};
+                        float len2 = ab.x * ab.x + ab.y * ab.y;
+                        float t = (len2 > 0.0001f) ? ((worldMouse.x - a.x) * ab.x + (worldMouse.y - a.y) * ab.y) / len2 : 0.0f;
+                        if (t < 0.0f) t = 0.0f; if (t > 1.0f) t = 1.0f;
+                        float dx = worldMouse.x - (a.x + t * ab.x);
+                        float dy = worldMouse.y - (a.y + t * ab.y);
+                        float d = sqrtf(dx * dx + dy * dy);
+                        if (d < bestDist) { bestDist = d; state.hoveredNet = it->second; }
+                }
+        }
+
         if (state.showQuitConfirm)
         {
                 bool confirm = false;

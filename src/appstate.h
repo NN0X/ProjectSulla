@@ -33,6 +33,9 @@ struct AppState
         std::map<int, Part> parts;
         std::map<int, PartType> partTypes;
         std::map<PartPin, PartPin> connections;
+        std::map<PartPin, int> connColorIdx;
+        int nextConnColor = 0;
+        PartPin hoveredNet = {-1, -1};
         std::map<int, std::string> labels;
         std::map<int, std::pair<float, float>> positions;
         std::map<int, int> inputCounts;
