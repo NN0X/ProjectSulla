@@ -226,6 +226,17 @@ void handleInput(AppState& state)
         if (IsKeyPressed(KEY_F11)) ToggleFullscreen();
         if (!isDialogActive && IsKeyPressed(KEY_V)) state.visualizeSignals = !state.visualizeSignals;
 
+        if (state.showSideMenu && mousePos.x < sideMenuWidth && mousePos.y >= TOOLBAR_HEIGHT && !isDialogActive)
+        {
+                float sw = GetMouseWheelMove();
+                if (sw != 0.0f)
+                {
+                        state.sidebarScroll -= sw * 34.0f;
+                        if (state.sidebarScroll < 0.0f) state.sidebarScroll = 0.0f;
+                        if (state.sidebarScroll > state.sidebarMaxScroll) state.sidebarScroll = state.sidebarMaxScroll;
+                }
+        }
+
         state.hoveredNet = {-1, -1};
         if (!mouseOverUI && state.wireStartPartID == -1)
         {
@@ -474,7 +485,7 @@ void handleInput(AppState& state)
                 }
 
                 float wheel = GetMouseWheelMove();
-                if (wheel != 0)
+                if (wheel != 0 && !mouseOverUI)
                 {
                         Vector2 mouseWorldBefore = GetScreenToWorld2D(mousePos, state.camera);
                         state.camera.zoom += (wheel * ZOOM_SPEED);

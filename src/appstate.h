@@ -83,6 +83,8 @@ struct AppState
         bool showQuitConfirm = false;
         bool showRenameDialog = false;
         bool showSideMenu = true;
+        float sidebarScroll = 0.0f;
+        float sidebarMaxScroll = 0.0f;
         bool showHelp = false;
         bool showBenchmark = false;
         bool benchmarkPending = false;

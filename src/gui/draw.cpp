@@ -436,9 +436,12 @@ void drawUI(AppState& state)
         bool notDragging = (state.draggingNewPartType == -1 && state.draggingLayoutFile == "" && state.draggingCompiledFile == "");
         if (state.showSideMenu)
         {
-                DrawRectangle(0, TOOLBAR_HEIGHT, DEFAULT_SIDEMENU_WIDTH, GetScreenHeight() - TOOLBAR_HEIGHT, uiBg);
-                DrawLine(DEFAULT_SIDEMENU_WIDTH, TOOLBAR_HEIGHT, DEFAULT_SIDEMENU_WIDTH, GetScreenHeight(), uiBorder);
-                float y = SIDEMENU_Y_START;
+                int screenH = GetScreenHeight();
+                DrawRectangle(0, TOOLBAR_HEIGHT, DEFAULT_SIDEMENU_WIDTH, screenH - TOOLBAR_HEIGHT, uiBg);
+                DrawLine(DEFAULT_SIDEMENU_WIDTH, TOOLBAR_HEIGHT, DEFAULT_SIDEMENU_WIDTH, screenH, uiBorder);
+                BeginScissorMode(0, (int)TOOLBAR_HEIGHT, (int)DEFAULT_SIDEMENU_WIDTH, screenH - (int)TOOLBAR_HEIGHT);
+                float yStart = SIDEMENU_Y_START - state.sidebarScroll;
+                float y = yStart;
                 DrawText("Parts Library", SIDEMENU_PADDING_X, y, SIDEMENU_HEADER_TEXT_SIZE, textC);
                 y += SIDEMENU_HEADER_MARGIN;
                 for (int i = 0; i <= PART_TYPE_DISPLAY; ++i)
@@ -507,6 +510,20 @@ void drawUI(AppState& state)
                                 state.showDeleteConfirm = true;
                         }
                         y += SIDEMENU_LIST_SPACING;
+                }
+                EndScissorMode();
+
+                float contentH = y - yStart;
+                float visibleH = (float)screenH - SIDEMENU_Y_START;
+                state.sidebarMaxScroll = (contentH > visibleH) ? (contentH - visibleH + 12.0f) : 0.0f;
+                if (state.sidebarScroll > state.sidebarMaxScroll) state.sidebarScroll = state.sidebarMaxScroll;
+                if (state.sidebarMaxScroll > 0.0f)
+                {
+                        float trackH = visibleH;
+                        float thumbH = trackH * (visibleH / contentH);
+                        if (thumbH < 24.0f) thumbH = 24.0f;
+                        float thumbY = SIDEMENU_Y_START + (state.sidebarScroll / state.sidebarMaxScroll) * (trackH - thumbH);
+                        DrawRectangleRounded({DEFAULT_SIDEMENU_WIDTH - 6.0f, thumbY, 4.0f, thumbH}, 0.5f, 6, LIGHTGRAY);
                 }
         }
         if (state.draggingNewPartType != -1)
