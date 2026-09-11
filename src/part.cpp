@@ -36,11 +36,11 @@ void setPart(std::map<int, Part>& parts, int partID, Part part)
         parts[partID] = part;
 }
 
-Part assemblePart(std::map<int, Part> parts, const std::map<PartPin, PartPin>& connections, int partID)
+Part assemblePart(std::map<int, Part> parts, const std::map<PartPin, PartPin>& connections, int partID, bool* captureFlag, std::map<int, std::vector<State>>* netCapture)
 {
         std::map<int, std::vector<State>> lastOutputs;
 
-        return [parts, connections, partID, lastOutputs](std::vector<State> runtimeInput) mutable -> std::vector<State>
+        return [parts, connections, partID, lastOutputs, captureFlag, netCapture](std::vector<State> runtimeInput) mutable -> std::vector<State>
         {
                 std::map<int, std::vector<State>> cache;
                 std::vector<int> recursionStack;
@@ -114,6 +114,10 @@ Part assemblePart(std::map<int, Part> parts, const std::map<PartPin, PartPin>& c
                 for (std::map<int, std::vector<State>>::iterator it = cache.begin(); it != cache.end(); ++it)
                 {
                         lastOutputs[it->first] = it->second;
+                }
+                if (captureFlag && *captureFlag && netCapture)
+                {
+                        *netCapture = cache;
                 }
                 return finalResult;
         };

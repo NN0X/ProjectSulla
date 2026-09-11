@@ -37,7 +37,7 @@ void setSourcePart(std::map<int, Part>& parts, int partID);
 void setOutputPart(std::map<int, Part>& parts, int partID);
 void setPart(std::map<int, Part>& parts, int partID, Part part);
 void connectParts(std::map<PartPin, PartPin>& connections, PartPin from, PartPin to);
-Part assemblePart(std::map<int, Part> parts, const std::map<PartPin, PartPin>& connections, int partID);
+Part assemblePart(std::map<int, Part> parts, const std::map<PartPin, PartPin>& connections, int partID, bool* captureFlag = nullptr, std::map<int, std::vector<State>>* netCapture = nullptr);
 Part getPartFromType(PartType type);
 
 #endif

@@ -210,7 +210,7 @@ void recompileSimulation(AppState& state)
                 }
         }
 
-        state.simulation = assemblePart(simulationParts, simConnections, state.rootSinkID);
+        state.simulation = assemblePart(simulationParts, simConnections, state.rootSinkID, &state.captureNets, &state.netStates);
 }
 
 void updateSimulation(AppState& state)
@@ -261,8 +261,10 @@ void updateSimulation(AppState& state)
         {
                 for (int i = 0; i < stepsToDo; ++i)
                 {
+                        state.captureNets = state.visualizeSignals && (i == stepsToDo - 1);
                         state.lastOutputStates = state.simulation(state.runtimeInput);
                         state.stepCount++;
                 }
+                state.captureNets = false;
         }
 }

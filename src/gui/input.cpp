@@ -224,6 +224,7 @@ void handleInput(AppState& state)
         bool mouseOverUI = (mousePos.x < sideMenuWidth) || (mousePos.y < TOOLBAR_HEIGHT) || isDialogActive;
 
         if (IsKeyPressed(KEY_F11)) ToggleFullscreen();
+        if (!isDialogActive && IsKeyPressed(KEY_V)) state.visualizeSignals = !state.visualizeSignals;
 
         if (state.showQuitConfirm)
         {
