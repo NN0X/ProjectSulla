@@ -50,10 +50,13 @@ void drawTextFit(const char* text, float x, float y, float width, int fontSize, 
 
 void drawGrid(const AppState& state)
 {
-        float startX = -20000.0f;
-        float endX = 20000.0f;
-        float startY = -20000.0f;
-        float endY = 20000.0f;
+        Vector2 tl = GetScreenToWorld2D({0.0f, 0.0f}, state.camera);
+        Vector2 br = GetScreenToWorld2D({(float)GetScreenWidth(), (float)GetScreenHeight()}, state.camera);
+        float startX = floorf(tl.x / GRID_SIZE) * GRID_SIZE;
+        float endX = br.x + GRID_SIZE;
+        float startY = floorf(tl.y / GRID_SIZE) * GRID_SIZE;
+        float endY = br.y + GRID_SIZE;
+        if ((endX - startX) / GRID_SIZE > 600.0f || (endY - startY) / GRID_SIZE > 600.0f) return;
         Color c = getThemeColor(state, COLOR_GRID_LIGHT, COLOR_GRID_DARK);
         for (float x = startX; x < endX; x += GRID_SIZE)
         {
@@ -166,15 +169,15 @@ void drawWires(AppState& state)
                 }
                 else
                 {
-                        float detour = (s.y <= e.y) ? -34.0f : 34.0f;
-                        float midY = ((s.y + e.y) / 2.0f) + detour + (float)ws[i].ci * 0.0f;
-                        Vector2 p2 = {s.x + KINK, s.y};
-                        Vector2 p4 = {e.x - KINK, e.y};
-                        DrawLineEx(s, p2, th, c);
-                        DrawLineEx(p2, {p2.x, midY}, th, c);
-                        DrawLineEx({p2.x, midY}, {p4.x, midY}, th, c);
-                        DrawLineEx({p4.x, midY}, p4, th, c);
-                        DrawLineEx(p4, e, th, c);
+                        float base = (s.y > e.y ? s.y : e.y) + 45.0f;
+                        float midY = base + (float)(ws[i].ci % 6) * 9.0f;
+                        float vx1 = s.x + KINK;
+                        float vx2 = e.x - KINK;
+                        DrawLineEx(s, {vx1, s.y}, th, c);
+                        DrawLineEx({vx1, s.y}, {vx1, midY}, th, c);
+                        DrawLineEx({vx1, midY}, {vx2, midY}, th, c);
+                        DrawLineEx({vx2, midY}, {vx2, e.y}, th, c);
+                        DrawLineEx({vx2, e.y}, e, th, c);
                 }
 
                 if (fanout[it->second] > 1) DrawCircleV(s, 3.0f, c);

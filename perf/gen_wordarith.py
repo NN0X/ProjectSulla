@@ -10,12 +10,12 @@ def arith_layout(is_mul, W):
         i = nid; nid += 1
         parts.append({"id": i, "type": t, "label": lab, "x": float(x), "y": float(y), "numInputs": ni, "numOutputs": no})
         return i
-    A = [add(SOURCE, 0, 1, 0, k) for k in range(W)]
-    B = [add(SOURCE, 0, 1, 0, W + k) for k in range(W)]
+    A = [add(SOURCE, 0, 1, 0, k, "A%d" % k) for k in range(W)]
+    B = [add(SOURCE, 0, 1, 0, W + k, "B%d" % k) for k in range(W)]
     nout = 2 * W if is_mul else W + 1
     lab = ("MUL_" if is_mul else "ADD_") + str(W)
     node = add(CUSTOM, 2 * W, nout, 400, 0, lab)
-    outs = [add(OUTPUT, 1, 0, 800, p) for p in range(nout)]
+    outs = [add(OUTPUT, 1, 0, 800, p, "O%d" % p) for p in range(nout)]
     def w(f, t): conns.append({"from": {"id": f[0], "pin": f[1]}, "to": {"id": t[0], "pin": t[1]}})
     for k in range(W): w((A[k], 0), (node, k))
     for k in range(W): w((B[k], 0), (node, W + k))
