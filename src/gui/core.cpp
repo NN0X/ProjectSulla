@@ -332,11 +332,21 @@ void updateSimulation(AppState& state)
                         stepsToDo++;
                         state.simTimer -= stepTime;
                 }
+                state.simSaturated = (stepsToDo >= 10000 && state.simTimer >= stepTime);
                 if (state.simTimer >= stepTime) state.simTimer = fmod(state.simTimer, stepTime);
         }
-        else if (IsKeyPressed(KEY_RIGHT))
+        else
         {
-                stepsToDo = 1;
+                state.simSaturated = false;
+                if (IsKeyPressed(KEY_RIGHT)) stepsToDo = 1;
+        }
+
+        state.hzSampleTimer += GetFrameTime();
+        if (state.hzSampleTimer >= 0.4f)
+        {
+                state.actualHz = (float)(state.stepCount - state.hzSampleBase) / state.hzSampleTimer;
+                state.hzSampleBase = state.stepCount;
+                state.hzSampleTimer = 0.0f;
         }
 
         if (state.simulation)

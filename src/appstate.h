@@ -51,6 +51,10 @@ struct AppState
         float targetHZ = 1.0f;
         float simTimer = 0.0f;
         unsigned long long stepCount = 0;
+        float actualHz = 0.0f;
+        float hzSampleTimer = 0.0f;
+        unsigned long long hzSampleBase = 0;
+        bool simSaturated = false;
 
         std::vector<State> runtimeInput;
         std::vector<State> lastOutputStates;
