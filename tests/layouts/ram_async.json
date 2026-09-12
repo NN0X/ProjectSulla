@@ -3,7 +3,7 @@
     {
       "id": 100,
       "type": 7,
-      "label": "",
+      "label": "WE",
       "x": 0.0,
       "y": 0.0,
       "numInputs": 0,
@@ -12,7 +12,7 @@
     {
       "id": 101,
       "type": 7,
-      "label": "",
+      "label": "A0",
       "x": 0.0,
       "y": 1.0,
       "numInputs": 0,
@@ -21,7 +21,7 @@
     {
       "id": 102,
       "type": 7,
-      "label": "",
+      "label": "A1",
       "x": 0.0,
       "y": 2.0,
       "numInputs": 0,
@@ -30,7 +30,7 @@
     {
       "id": 103,
       "type": 7,
-      "label": "",
+      "label": "A2",
       "x": 0.0,
       "y": 3.0,
       "numInputs": 0,
@@ -39,7 +39,7 @@
     {
       "id": 104,
       "type": 7,
-      "label": "",
+      "label": "A3",
       "x": 0.0,
       "y": 4.0,
       "numInputs": 0,
@@ -48,7 +48,7 @@
     {
       "id": 105,
       "type": 7,
-      "label": "",
+      "label": "A4",
       "x": 0.0,
       "y": 5.0,
       "numInputs": 0,
@@ -57,7 +57,7 @@
     {
       "id": 106,
       "type": 7,
-      "label": "",
+      "label": "A5",
       "x": 0.0,
       "y": 6.0,
       "numInputs": 0,
@@ -66,7 +66,7 @@
     {
       "id": 107,
       "type": 7,
-      "label": "",
+      "label": "A6",
       "x": 0.0,
       "y": 7.0,
       "numInputs": 0,
@@ -75,7 +75,7 @@
     {
       "id": 108,
       "type": 7,
-      "label": "",
+      "label": "A7",
       "x": 0.0,
       "y": 8.0,
       "numInputs": 0,
@@ -84,7 +84,7 @@
     {
       "id": 109,
       "type": 7,
-      "label": "",
+      "label": "D0",
       "x": 0.0,
       "y": 9.0,
       "numInputs": 0,
@@ -93,7 +93,7 @@
     {
       "id": 110,
       "type": 7,
-      "label": "",
+      "label": "D1",
       "x": 0.0,
       "y": 10.0,
       "numInputs": 0,
@@ -102,7 +102,7 @@
     {
       "id": 111,
       "type": 7,
-      "label": "",
+      "label": "D2",
       "x": 0.0,
       "y": 11.0,
       "numInputs": 0,
@@ -111,7 +111,7 @@
     {
       "id": 112,
       "type": 7,
-      "label": "",
+      "label": "D3",
       "x": 0.0,
       "y": 12.0,
       "numInputs": 0,
@@ -120,7 +120,7 @@
     {
       "id": 113,
       "type": 7,
-      "label": "",
+      "label": "D4",
       "x": 0.0,
       "y": 13.0,
       "numInputs": 0,
@@ -129,7 +129,7 @@
     {
       "id": 114,
       "type": 7,
-      "label": "",
+      "label": "D5",
       "x": 0.0,
       "y": 14.0,
       "numInputs": 0,
@@ -138,7 +138,7 @@
     {
       "id": 115,
       "type": 7,
-      "label": "",
+      "label": "D6",
       "x": 0.0,
       "y": 15.0,
       "numInputs": 0,
@@ -147,7 +147,7 @@
     {
       "id": 116,
       "type": 7,
-      "label": "",
+      "label": "D7",
       "x": 0.0,
       "y": 16.0,
       "numInputs": 0,
@@ -165,7 +165,7 @@
     {
       "id": 118,
       "type": 8,
-      "label": "",
+      "label": "Q0",
       "x": 800.0,
       "y": 0.0,
       "numInputs": 1,
@@ -174,7 +174,7 @@
     {
       "id": 119,
       "type": 8,
-      "label": "",
+      "label": "Q1",
       "x": 800.0,
       "y": 1.0,
       "numInputs": 1,
@@ -183,7 +183,7 @@
     {
       "id": 120,
       "type": 8,
-      "label": "",
+      "label": "Q2",
       "x": 800.0,
       "y": 2.0,
       "numInputs": 1,
@@ -192,7 +192,7 @@
     {
       "id": 121,
       "type": 8,
-      "label": "",
+      "label": "Q3",
       "x": 800.0,
       "y": 3.0,
       "numInputs": 1,
@@ -201,7 +201,7 @@
     {
       "id": 122,
       "type": 8,
-      "label": "",
+      "label": "Q4",
       "x": 800.0,
       "y": 4.0,
       "numInputs": 1,
@@ -210,7 +210,7 @@
     {
       "id": 123,
       "type": 8,
-      "label": "",
+      "label": "Q5",
       "x": 800.0,
       "y": 5.0,
       "numInputs": 1,
@@ -219,7 +219,7 @@
     {
       "id": 124,
       "type": 8,
-      "label": "",
+      "label": "Q6",
       "x": 800.0,
       "y": 6.0,
       "numInputs": 1,
@@ -228,7 +228,7 @@
     {
       "id": 125,
       "type": 8,
-      "label": "",
+      "label": "Q7",
       "x": 800.0,
       "y": 7.0,
       "numInputs": 1,

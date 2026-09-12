@@ -1,0 +1,11 @@
+{
+   "inputs": 2,
+   "outputs": 1,
+   "inputLabels": [
+      "D",
+      "EN"
+   ],
+   "outputLabels": [
+      "Qout"
+   ]
+}
