@@ -5,6 +5,8 @@
 #include <fstream>
 #include <filesystem>
 #include <algorithm>
+#include <set>
+#include <utility>
 #include <cmath>
 #include <format>
 
@@ -162,6 +164,86 @@ void initApp(AppState& state)
         setSourcePart(state.parts, state.rootSinkID);
         refreshLayouts(state);
         refreshCompiledModules(state);
+}
+
+void tidyLayout(AppState& state)
+{
+        std::vector<int> ids;
+        for (std::map<int, std::pair<float, float>>::iterator it = state.positions.begin(); it != state.positions.end(); ++it)
+                ids.push_back(it->first);
+        if (ids.empty()) return;
+
+        std::map<int, std::vector<int>> succ;
+        for (std::map<PartPin, PartPin>::iterator it = state.connections.begin(); it != state.connections.end(); ++it)
+                succ[it->second.first].push_back(it->first.first);
+
+        std::map<int, int> color;
+        for (size_t i = 0; i < ids.size(); ++i) color[ids[i]] = 0;
+        std::set<std::pair<int, int>> back;
+        for (size_t r = 0; r < ids.size(); ++r)
+        {
+                if (color[ids[r]] != 0) continue;
+                std::vector<std::pair<int, size_t>> stk;
+                stk.push_back(std::make_pair(ids[r], (size_t)0));
+                color[ids[r]] = 1;
+                size_t guard = 0, guardMax = ids.size() * 8 + 16;
+                while (!stk.empty() && guard++ < guardMax)
+                {
+                        int node = stk.back().first;
+                        bool advanced = false;
+                        std::map<int, std::vector<int>>::iterator sit = succ.find(node);
+                        if (sit != succ.end())
+                        {
+                                while (stk.back().second < sit->second.size())
+                                {
+                                        int w = sit->second[stk.back().second++];
+                                        if (!color.count(w)) continue;
+                                        if (color[w] == 1) back.insert(std::make_pair(node, w));
+                                        else if (color[w] == 0) { color[w] = 1; stk.push_back(std::make_pair(w, (size_t)0)); advanced = true; break; }
+                                }
+                        }
+                        if (!advanced) { color[node] = 2; stk.pop_back(); }
+                }
+        }
+
+        std::map<int, int> depth;
+        for (size_t i = 0; i < ids.size(); ++i) depth[ids[i]] = 0;
+        std::vector<std::pair<int, int>> dag;
+        for (std::map<PartPin, PartPin>::iterator it = state.connections.begin(); it != state.connections.end(); ++it)
+        {
+                std::pair<int, int> e = std::make_pair(it->second.first, it->first.first);
+                if (!back.count(e)) dag.push_back(e);
+        }
+        for (size_t pass = 0; pass < ids.size(); ++pass)
+        {
+                bool changed = false;
+                for (size_t k = 0; k < dag.size(); ++k)
+                        if (depth.count(dag[k].first) && depth.count(dag[k].second) && depth[dag[k].second] < depth[dag[k].first] + 1)
+                        { depth[dag[k].second] = depth[dag[k].first] + 1; changed = true; }
+                if (!changed) break;
+        }
+
+        int gmax = 0;
+        for (size_t i = 0; i < ids.size(); ++i)
+        {
+                PartType t = state.partTypes[ids[i]];
+                if (t != PART_TYPE_SOURCE && t != PART_TYPE_OUTPUT && depth[ids[i]] > gmax) gmax = depth[ids[i]];
+        }
+        std::map<int, std::vector<int>> cols;
+        for (size_t i = 0; i < ids.size(); ++i)
+        {
+                PartType t = state.partTypes[ids[i]];
+                int c = (t == PART_TYPE_SOURCE) ? 0 : (t == PART_TYPE_OUTPUT) ? (gmax + 2) : std::max(1, depth[ids[i]]);
+                cols[c].push_back(ids[i]);
+        }
+        const float COLDX = 190.0f, ROWDY = 96.0f;
+        for (std::map<int, std::vector<int>>::iterator it = cols.begin(); it != cols.end(); ++it)
+        {
+                std::vector<int>& g = it->second;
+                std::sort(g.begin(), g.end(), [&](int a, int b) { return state.positions[a].second < state.positions[b].second; });
+                for (size_t r = 0; r < g.size(); ++r)
+                        state.positions[g[r]] = std::make_pair((float)it->first * COLDX, (float)r * ROWDY);
+        }
 }
 
 void recompileSimulation(AppState& state)

@@ -225,6 +225,7 @@ void handleInput(AppState& state)
 
         if (IsKeyPressed(KEY_F11)) ToggleFullscreen();
         if (!isDialogActive && IsKeyPressed(KEY_V)) state.visualizeSignals = !state.visualizeSignals;
+        if (!isDialogActive && IsKeyPressed(KEY_T)) tidyLayout(state);
 
         if (state.showSideMenu && mousePos.x < sideMenuWidth && mousePos.y >= TOOLBAR_HEIGHT && !isDialogActive)
         {
@@ -553,37 +554,35 @@ void handleInput(AppState& state)
                                 }
                                 else if (CheckCollisionPointRec(mousePos, rAddIn))
                                 {
-                                        state.inputCounts[tid]++;
+                                        int step = IsKeyDown(KEY_LEFT_SHIFT) ? 8 : 1;
+                                        state.inputCounts[tid] += step;
                                         state.simulation = nullptr;
-                                        state.contextMenu.active = false;
                                 }
                                 else if (CheckCollisionPointRec(mousePos, rRemIn))
                                 {
-                                        if (state.inputCounts[tid] > 0)
+                                        int step = IsKeyDown(KEY_LEFT_SHIFT) ? 8 : 1;
+                                        for (int k = 0; k < step && state.inputCounts[tid] > 0; ++k)
                                         {
-                                                int removedIdx = state.inputCounts[tid] - 1;
-                                                cleanupInputPinConnections(state, tid, removedIdx);
+                                                cleanupInputPinConnections(state, tid, state.inputCounts[tid] - 1);
                                                 state.inputCounts[tid]--;
                                         }
                                         state.simulation = nullptr;
-                                        state.contextMenu.active = false;
                                 }
                                 else if (CheckCollisionPointRec(mousePos, rAddOut))
                                 {
-                                        state.outputCounts[tid]++;
+                                        int step = IsKeyDown(KEY_LEFT_SHIFT) ? 8 : 1;
+                                        state.outputCounts[tid] += step;
                                         state.simulation = nullptr;
-                                        state.contextMenu.active = false;
                                 }
                                 else if (CheckCollisionPointRec(mousePos, rRemOut))
                                 {
-                                        if (state.outputCounts[tid] > 0)
+                                        int step = IsKeyDown(KEY_LEFT_SHIFT) ? 8 : 1;
+                                        for (int k = 0; k < step && state.outputCounts[tid] > 0; ++k)
                                         {
-                                                int removedIdx = state.outputCounts[tid] - 1;
-                                                cleanupOutputPinConnections(state, tid, removedIdx);
+                                                cleanupOutputPinConnections(state, tid, state.outputCounts[tid] - 1);
                                                 state.outputCounts[tid]--;
                                         }
                                         state.simulation = nullptr;
-                                        state.contextMenu.active = false;
                                 }
                                 else if (CheckCollisionPointRec(mousePos, rDel))
                                 {
@@ -615,54 +614,57 @@ void handleInput(AppState& state)
                                 }
                                 else if (canModPins && CheckCollisionPointRec(mousePos, rAdd))
                                 {
-                                        if (type == PART_TYPE_SOURCE)
+                                        int step = IsKeyDown(KEY_LEFT_SHIFT) ? 8 : 1;
+                                        for (int k = 0; k < step; ++k)
                                         {
-                                                state.outputCounts[tid]++;
-                                                state.sourceValues[tid].push_back(STATE_LOW);
-                                        }
-                                        else if (type == PART_TYPE_CLOCK)
-                                        {
-                                                state.outputCounts[tid]++;
-                                        }
-                                        else
-                                        {
-                                                state.inputCounts[tid]++;
+                                                if (type == PART_TYPE_SOURCE)
+                                                {
+                                                        state.outputCounts[tid]++;
+                                                        state.sourceValues[tid].push_back(STATE_LOW);
+                                                }
+                                                else if (type == PART_TYPE_CLOCK)
+                                                {
+                                                        state.outputCounts[tid]++;
+                                                }
+                                                else
+                                                {
+                                                        state.inputCounts[tid]++;
+                                                }
                                         }
                                         state.simulation = nullptr;
-                                        state.contextMenu.active = false;
                                 }
                                 else if (canModPins && CheckCollisionPointRec(mousePos, rRem))
                                 {
-                                        if (type == PART_TYPE_SOURCE)
+                                        int step = IsKeyDown(KEY_LEFT_SHIFT) ? 8 : 1;
+                                        for (int k = 0; k < step; ++k)
                                         {
-                                                if (state.outputCounts[tid] > 1)
+                                                if (type == PART_TYPE_SOURCE)
                                                 {
-                                                        int removedIdx = state.outputCounts[tid] - 1;
-                                                        cleanupOutputPinConnections(state, tid, removedIdx);
-                                                        state.outputCounts[tid]--;
-                                                        state.sourceValues[tid].pop_back();
+                                                        if (state.outputCounts[tid] > 1)
+                                                        {
+                                                                cleanupOutputPinConnections(state, tid, state.outputCounts[tid] - 1);
+                                                                state.outputCounts[tid]--;
+                                                                state.sourceValues[tid].pop_back();
+                                                        }
                                                 }
-                                        }
-                                        else if (type == PART_TYPE_CLOCK)
-                                        {
-                                                if (state.outputCounts[tid] > 1)
+                                                else if (type == PART_TYPE_CLOCK)
                                                 {
-                                                        int removedIdx = state.outputCounts[tid] - 1;
-                                                        cleanupOutputPinConnections(state, tid, removedIdx);
-                                                        state.outputCounts[tid]--;
+                                                        if (state.outputCounts[tid] > 1)
+                                                        {
+                                                                cleanupOutputPinConnections(state, tid, state.outputCounts[tid] - 1);
+                                                                state.outputCounts[tid]--;
+                                                        }
                                                 }
-                                        }
-                                        else
-                                        {
-                                                if (state.inputCounts[tid] > 0)
+                                                else
                                                 {
-                                                        int removedIdx = state.inputCounts[tid] - 1;
-                                                        cleanupInputPinConnections(state, tid, removedIdx);
-                                                        state.inputCounts[tid]--;
+                                                        if (state.inputCounts[tid] > 0)
+                                                        {
+                                                                cleanupInputPinConnections(state, tid, state.inputCounts[tid] - 1);
+                                                                state.inputCounts[tid]--;
+                                                        }
                                                 }
                                         }
                                         state.simulation = nullptr;
-                                        state.contextMenu.active = false;
                                 }
                                 else if (CheckCollisionPointRec(mousePos, rDel))
                                 {
