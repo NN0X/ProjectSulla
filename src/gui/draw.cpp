@@ -217,6 +217,23 @@ static Color gateAccent(PartType t)
 }
 
 static void drawToolbarIcon(int idx, Rectangle b, Color c, Color bg, const AppState& state);
+static void drawPin(Rectangle r, bool isInput, bool connected, int sig)
+{
+        Color base = isInput ? (Color){95, 150, 230, 255} : (Color){90, 200, 130, 255};
+        if (sig == 1) base = (Color){120, 225, 150, 255};
+        else if (sig == 0) base = (Color){78, 90, 104, 255};
+        if (isInput && !connected)
+        {
+                DrawRectangleRounded(r, 0.35f, 4, (Color){40, 44, 50, 255});
+                DrawRectangleRoundedLinesEx(r, 0.35f, 4, 1.5f, (Color){115, 122, 132, 255});
+        }
+        else
+        {
+                DrawRectangleRounded(r, 0.35f, 4, base);
+                DrawRectangleRoundedLinesEx(r, 0.35f, 4, 1.0f, (Color){20, 22, 26, 160});
+        }
+}
+
 static void drawGateGlyph(PartType type, Rectangle b, Color fill, Color accent)
 {
         float x = b.x, y = b.y, w = b.width, h = b.height;
@@ -389,7 +406,15 @@ void drawParts(AppState& state)
                         {
                                 Rectangle pinRect = getPinRect(state, id, true, i);
                                 float yOff = getPinYOffset(state, id, true, i);
-                                DrawRectangleRec(pinRect, cBorder);
+                                bool iconn = state.connections.count({id, i}) > 0;
+                                int isig = -1;
+                                if (iconn)
+                                {
+                                        PartPin src = state.connections.at({id, i});
+                                        std::map<int, std::vector<State>>::const_iterator nit = state.netStates.find(src.first);
+                                        if (nit != state.netStates.end() && src.second < (int)nit->second.size()) isig = (nit->second[src.second] == STATE_HIGH) ? 1 : 0;
+                                }
+                                drawPin(pinRect, true, iconn, isig);
                                 if (state.inputPinLabels.count(id) && i < (int)state.inputPinLabels.at(id).size())
                                 {
                                         const std::string& lbl = state.inputPinLabels.at(id)[i];
@@ -406,7 +431,10 @@ void drawParts(AppState& state)
                         {
                                 Rectangle pinRect = getPinRect(state, id, false, i);
                                 float yOff = getPinYOffset(state, id, false, i);
-                                DrawRectangleRec(pinRect, cBorder);
+                                int osig = -1;
+                                std::map<int, std::vector<State>>::const_iterator nit = state.netStates.find(id);
+                                if (nit != state.netStates.end() && i < (int)nit->second.size()) osig = (nit->second[i] == STATE_HIGH) ? 1 : 0;
+                                drawPin(pinRect, false, true, osig);
                                 if (state.outputPinLabels.count(id) && i < (int)state.outputPinLabels.at(id).size())
                                 {
                                         const std::string& lbl = state.outputPinLabels.at(id)[i];
