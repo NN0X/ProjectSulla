@@ -123,7 +123,6 @@
 #define HELP_LINE_SPACING 15.0f
 #define HELP_SECTION_SPACING 25.0f
 
-#define HUD_X_OFFSET 150.0f
 #define HUD_Y 50.0f
 #define HUD_FONT_SIZE 20
 #define HUD_BTN_SIZE 20.0f
