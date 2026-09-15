@@ -17,6 +17,10 @@ void refreshCompiledModules(AppState& state);
 void drawTextFit(const char* text, float x, float y, float width, int fontSize, Color color);
 void recompileSimulation(AppState& state);
 void tidyLayout(AppState& state);
+void cleanupInputPinConnections(AppState& state, int partID, int removedIdx);
+void cleanupOutputPinConnections(AppState& state, int partID, int removedIdx);
+void doCompile(AppState& state, const std::string& modName);
+
 void dropPart(AppState& state, int type, Vector2 pos);
 void deleteParts(AppState& state);
 void runBenchmark(AppState& state);

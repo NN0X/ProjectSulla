@@ -764,14 +764,16 @@ void drawUI(AppState& state)
                 if (hz >= 1000.0f) return std::format("{:.2f} kHz", hz / 1000.0f);
                 return std::format("{:.1f} Hz", hz);
         };
-        int hx = GetScreenWidth() - HUD_X_OFFSET;
-        DrawText(std::format("target {}", fmtHz(state.targetHZ)).c_str(), hx, HUD_Y, HUD_FONT_SIZE, textC);
+        int hxr = GetScreenWidth() - 12;
+        std::string tgtStr = std::format("target {}", fmtHz(state.targetHZ));
+        DrawText(tgtStr.c_str(), hxr - MeasureText(tgtStr.c_str(), HUD_FONT_SIZE), HUD_Y, HUD_FONT_SIZE, textC);
         Color actualC = textC;
         if (state.isSimulating && state.simSaturated) actualC = (Color){235, 130, 40, 255};
         std::string actStr = state.isSimulating ? std::format("actual {}", fmtHz(state.actualHz)) : std::string("actual --");
         if (state.isSimulating && state.simSaturated) actStr += "  MAX";
-        DrawText(actStr.c_str(), hx, HUD_Y + 20, HUD_FONT_SIZE, actualC);
-        DrawText(std::format("Tick: {}", state.stepCount).c_str(), hx, HUD_Y + 40, HUD_FONT_SIZE, textC);
+        DrawText(actStr.c_str(), hxr - MeasureText(actStr.c_str(), HUD_FONT_SIZE), HUD_Y + 20, HUD_FONT_SIZE, actualC);
+        std::string tickStr = std::format("Tick: {}", state.stepCount);
+        DrawText(tickStr.c_str(), hxr - MeasureText(tickStr.c_str(), HUD_FONT_SIZE), HUD_Y + 40, HUD_FONT_SIZE, textC);
 }
 
 void drawApp(AppState& state)

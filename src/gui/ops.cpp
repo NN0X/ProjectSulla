@@ -1,0 +1,209 @@
+#include "gui.h"
+#include "common.h"
+#include "../gates.h"
+#include <filesystem>
+#include <algorithm>
+#include <format>
+#include <fstream>
+#include <set>
+#include <raylib/raylib.h>
+#include "../config.h"
+#include "../primitives.h"
+#include "../utils.h"
+#include "../part.h"
+#include "../compiler/compiler.h"
+#include <glaze/glaze.hpp>
+
+
+void cleanupInputPinConnections(AppState& state, int partID, int removedIdx)
+{
+        std::vector<PartPin> toRemove;
+        for (std::map<PartPin, PartPin>::iterator it = state.connections.begin(); it != state.connections.end(); ++it)
+        {
+                if (it->first.first == partID && it->first.second == removedIdx)
+                {
+                        toRemove.push_back(it->first);
+                }
+        }
+        for (size_t i = 0; i < toRemove.size(); ++i)
+        {
+                state.connections.erase(toRemove[i]);
+        }
+}
+
+void cleanupOutputPinConnections(AppState& state, int partID, int removedIdx)
+{
+        std::vector<PartPin> toRemove;
+        for (std::map<PartPin, PartPin>::iterator it = state.connections.begin(); it != state.connections.end(); ++it)
+        {
+                if (it->second.first == partID && it->second.second == removedIdx)
+                {
+                        toRemove.push_back(it->first);
+                }
+        }
+        for (size_t i = 0; i < toRemove.size(); ++i)
+        {
+                state.connections.erase(toRemove[i]);
+        }
+}
+
+void doCompile(AppState& state, const std::string& modName)
+{
+        if (!state.compileStatic && !state.compileDynamic) return; // nothing selected
+        std::string cpp = transpileToCpp(state, state.linkCustomParts);
+        if (compilePartLibrary(cpp, modName, state.compileStatic, state.compileDynamic))
+        {
+                int inC = 0, outC = 0;
+                std::vector<std::string> inLabels;
+                std::vector<std::string> outLabels;
+
+                std::vector<int> sortedSources;
+                std::vector<int> sortedOutputs;
+                for (std::map<int, PartType>::iterator it = state.partTypes.begin(); it != state.partTypes.end(); ++it)
+                {
+                        if (it->second == PART_TYPE_SOURCE) sortedSources.push_back(it->first);
+                        if (it->second == PART_TYPE_OUTPUT) sortedOutputs.push_back(it->first);
+                }
+                auto pinLess = [&](int a, int b) -> bool {
+                        auto pa = state.positions.find(a);
+                        auto pb = state.positions.find(b);
+                        float xa = pa != state.positions.end() ? pa->second.first : 0.0f;
+                        float ya = pa != state.positions.end() ? pa->second.second : 0.0f;
+                        float xb = pb != state.positions.end() ? pb->second.first : 0.0f;
+                        float yb = pb != state.positions.end() ? pb->second.second : 0.0f;
+                        if (std::fabs(ya - yb) > 0.1f) return ya < yb;
+                        if (std::fabs(xa - xb) > 0.1f) return xa < xb;
+                        return a < b;
+                };
+                std::sort(sortedSources.begin(), sortedSources.end(), pinLess);
+                std::sort(sortedOutputs.begin(), sortedOutputs.end(), pinLess);
+
+                for (size_t s = 0; s < sortedSources.size(); ++s)
+                {
+                        int sid = sortedSources[s];
+                        int pins = state.outputCounts[sid];
+                        std::string lbl = state.labels[sid];
+                        for (int p = 0; p < pins; ++p)
+                        {
+                                if (pins == 1) inLabels.push_back(lbl);
+                                else inLabels.push_back(lbl + "[" + std::to_string(p) + "]");
+                        }
+                        inC += pins;
+                }
+                for (size_t s = 0; s < sortedOutputs.size(); ++s)
+                {
+                        int oid = sortedOutputs[s];
+                        int pins = state.inputCounts[oid];
+                        std::string lbl = state.labels[oid];
+                        for (int p = 0; p < pins; ++p)
+                        {
+                                if (pins == 1) outLabels.push_back(lbl);
+                                else outLabels.push_back(lbl + "[" + std::to_string(p) + "]");
+                        }
+                        outC += pins;
+                }
+
+                if (std::find(state.compiledModules.begin(), state.compiledModules.end(), modName) == state.compiledModules.end())
+                {
+                        state.compiledModules.push_back(modName);
+                }
+                state.compiledInputs[modName] = inC;
+                state.compiledOutputs[modName] = outC;
+                state.compiledInputLabels[modName] = inLabels;
+                state.compiledOutputLabels[modName] = outLabels;
+
+                std::string dir = sullaPartDir(modName);
+                std::filesystem::create_directories(dir);
+                CompiledMeta meta{inC, outC, inLabels, outLabels};
+                std::string json;
+                if (!glz::write<glz::opts{.prettify = true}>(meta, json))
+                {
+                        std::ofstream file(dir + "/" + modName + ".json");
+                        if (file.is_open())
+                        {
+                                file << json;
+                                file.close();
+                        }
+                }
+                refreshCompiledModules(state);
+        }
+}
+
+void dropPart(AppState& state, int type, Vector2 pos)
+{
+        int id = state.parts.empty() ? 100 : state.parts.rbegin()->first + 1;
+        if (type == PART_TYPE_SOURCE) setSourcePart(state.parts, id);
+        else if (type == PART_TYPE_OUTPUT) setOutputPart(state.parts, id);
+        else setPart(state.parts, id, getPartFromType((PartType)type));
+
+        state.partTypes[id] = (PartType)type;
+        state.positions[id] = {pos.x, pos.y};
+        state.labels[id] = partTypeName((PartType)type);
+        state.simulation = nullptr;
+
+        if (type == PART_TYPE_NOT)
+        {
+                state.inputCounts[id] = 1;
+                state.outputCounts[id] = 1;
+        }
+        else if (type == PART_TYPE_SOURCE) 
+        { 
+                state.inputCounts[id] = 0; 
+                state.outputCounts[id] = 1; 
+                state.sourceValues[id] = {STATE_LOW};
+        }
+        else if (type == PART_TYPE_OUTPUT)
+        {
+                state.inputCounts[id] = 1;
+                state.outputCounts[id] = 0;
+        }
+        else if (type == PART_TYPE_CLOCK)
+        {
+                state.inputCounts[id] = 0;
+                state.outputCounts[id] = 1;
+        }
+        else if (type == PART_TYPE_DISPLAY)
+        {
+                state.inputCounts[id] = 8;
+                state.outputCounts[id] = 0;
+        }
+        else
+        {
+                state.inputCounts[id] = 2;
+                state.outputCounts[id] = 1;
+        }
+}
+
+void deleteParts(AppState& state)
+{
+        if (state.selectedParts.empty()) return;
+
+        for (std::set<int>::iterator it = state.selectedParts.begin(); it != state.selectedParts.end(); ++it)
+        {
+                int id = *it;
+                state.parts.erase(id);
+                state.partTypes.erase(id);
+                state.positions.erase(id);
+                state.inputCounts.erase(id);
+                state.outputCounts.erase(id);
+                state.sourceValues.erase(id);
+                state.labels.erase(id);
+                state.inputPinLabels.erase(id);
+                state.outputPinLabels.erase(id);
+
+                std::vector<PartPin> toRemove;
+                for(std::map<PartPin, PartPin>::iterator connIt = state.connections.begin(); connIt != state.connections.end(); ++connIt)
+                {
+                        if (connIt->first.first == id || connIt->second.first == id)
+                        {
+                                toRemove.push_back(connIt->first);
+                        }
+                }
+                for(size_t i = 0; i < toRemove.size(); ++i)
+                {
+                        state.connections.erase(toRemove[i]);
+                }
+        }
+        state.selectedParts.clear();
+        state.simulation = nullptr;
+}
