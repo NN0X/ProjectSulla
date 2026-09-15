@@ -817,6 +817,9 @@ void drawUI(AppState& state)
         DrawText(actStr.c_str(), hxr - MeasureText(actStr.c_str(), HUD_FONT_SIZE), HUD_Y + 20, HUD_FONT_SIZE, actualC);
         std::string tickStr = std::format("Tick: {}", state.stepCount);
         DrawText(tickStr.c_str(), hxr - MeasureText(tickStr.c_str(), HUD_FONT_SIZE), HUD_Y + 40, HUD_FONT_SIZE, textC);
+        std::string vizStr = state.visualizeSignals ? "signal viz: ON (V)" : "signal viz: off (V)";
+        Color vizC = state.visualizeSignals ? (Color){90, 200, 130, 255} : (Color){120, 124, 132, 255};
+        DrawText(vizStr.c_str(), hxr - MeasureText(vizStr.c_str(), HUD_FONT_SIZE), HUD_Y + 62, HUD_FONT_SIZE, vizC);
 }
 
 static void drawToolbarIcon(int idx, Rectangle b, Color c, Color bg, const AppState& state)
