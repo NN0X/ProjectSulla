@@ -374,6 +374,7 @@ void handleInput(AppState& state)
                                         {
                                                 state.wireStartPartID = id;
                                                 state.wireStartPin = i;
+                                                state.wireDragStartPos = mousePos;
                                                 hitSomething = true;
                                                 break;
                                         }
@@ -403,6 +404,7 @@ void handleInput(AppState& state)
                                         {
                                                 state.wireStartPartID = id;
                                                 state.wireStartPin = i;
+                                                state.wireDragStartPos = mousePos;
                                                 hitSomething = true;
                                                 break;
                                         }
@@ -510,6 +512,28 @@ void handleInput(AppState& state)
 
         if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
         {
+                if (state.wireStartPartID != -1 && Vector2Distance(mousePos, state.wireDragStartPos) > 6.0f)
+                {
+                        for (std::map<int, std::pair<float, float>>::iterator it = state.positions.begin(); it != state.positions.end(); ++it)
+                        {
+                                int id = it->first;
+                                if (id == state.wireStartPartID) continue;
+                                bool done = false;
+                                int inC = state.inputCounts[id];
+                                for (int i = 0; i < inC; ++i)
+                                {
+                                        if (CheckCollisionPointRec(worldMouse, getPinRect(state, id, true, i)))
+                                        {
+                                                state.connections[{id, i}] = {state.wireStartPartID, state.wireStartPin};
+                                                state.simulation = nullptr;
+                                                done = true;
+                                                break;
+                                        }
+                                }
+                                if (done) break;
+                        }
+                        state.wireStartPartID = -1;
+                }
                 if (state.isBoxSelecting)
                 {
                         float minX = std::min(state.boxSelectStart.x, worldMouse.x);
