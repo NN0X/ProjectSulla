@@ -216,6 +216,7 @@ static Color gateAccent(PartType t)
         }
 }
 
+static void drawToolbarIcon(int idx, Rectangle b, Color c, Color bg, const AppState& state);
 static void drawGateGlyph(PartType type, Rectangle b, Color fill, Color accent)
 {
         float x = b.x, y = b.y, w = b.width, h = b.height;
@@ -430,10 +431,15 @@ void drawUI(AppState& state)
         {
                 Rectangle btn = {x, TOOLBAR_PADDING, TOOLBAR_BTN_WIDTH, TOOLBAR_BTN_HEIGHT};
                 bool hovered = CheckCollisionPointRec(GetMousePosition(), btn);
-                DrawRectangleRounded(btn, 0.2f, 8, hovered ? LIGHTGRAY : GRAY);
-                DrawRectangleRoundedLines(btn, 0.2f, 8, hovered ? BLUE : DARKGRAY);
-                int tw = MeasureText(btnLabels[i], 10);
-                DrawText(btnLabels[i], btn.x + btn.width/2 - tw/2, btn.y + btn.height/2 - 5, 10, BLACK);
+                bool active = (i == 5 && state.isSimulating) || (i == 3 && state.showHelp);
+                Color fill = active ? (Color){60, 150, 90, 255} : (hovered ? (Color){95, 100, 110, 255} : (Color){70, 74, 82, 255});
+                Color edge = active ? (Color){120, 220, 150, 255} : (hovered ? (Color){110, 160, 230, 255} : (Color){45, 48, 54, 255});
+                Color ic = active ? WHITE : (Color){225, 228, 233, 255};
+                DrawRectangleRounded(btn, 0.25f, 8, fill);
+                DrawRectangleRoundedLinesEx(btn, 0.25f, 8, 1.5f, edge);
+                drawToolbarIcon(i, btn, ic, fill, state);
+                int tw = MeasureText(btnLabels[i], 8);
+                DrawText(btnLabels[i], (int)(btn.x + btn.width / 2 - tw / 2), (int)(btn.y + btn.height - 10), 8, ic);
                 x += TOOLBAR_BTN_WIDTH + TOOLBAR_BTN_SPACING;
         }
         bool notDragging = (state.draggingNewPartType == -1 && state.draggingLayoutFile == "" && state.draggingCompiledFile == "");
@@ -774,6 +780,67 @@ void drawUI(AppState& state)
         DrawText(actStr.c_str(), hxr - MeasureText(actStr.c_str(), HUD_FONT_SIZE), HUD_Y + 20, HUD_FONT_SIZE, actualC);
         std::string tickStr = std::format("Tick: {}", state.stepCount);
         DrawText(tickStr.c_str(), hxr - MeasureText(tickStr.c_str(), HUD_FONT_SIZE), HUD_Y + 40, HUD_FONT_SIZE, textC);
+}
+
+static void drawToolbarIcon(int idx, Rectangle b, Color c, Color bg, const AppState& state)
+{
+        float cx = b.x + b.width / 2.0f;
+        float cy = b.y + 11.0f;
+        float s = 6.0f;
+        switch (idx)
+        {
+        case 0:
+                DrawLineEx({cx, cy - s}, {cx, cy + s - 2}, 2, c);
+                DrawLineEx({cx, cy + s - 2}, {cx - 4, cy + s - 6}, 2, c);
+                DrawLineEx({cx, cy + s - 2}, {cx + 4, cy + s - 6}, 2, c);
+                DrawLineEx({cx - s, cy + s}, {cx + s, cy + s}, 2, c);
+                break;
+        case 1:
+                DrawLineEx({cx, cy + s - 2}, {cx, cy - s}, 2, c);
+                DrawLineEx({cx, cy - s}, {cx - 4, cy - s + 4}, 2, c);
+                DrawLineEx({cx, cy - s}, {cx + 4, cy - s + 4}, 2, c);
+                DrawLineEx({cx - s, cy + s}, {cx + s, cy + s}, 2, c);
+                break;
+        case 2:
+                DrawRectangleLinesEx({cx - 5, cy - 2, 10, 10}, 1.5f, c);
+                DrawLineEx({cx - 7, cy - 2}, {cx + 7, cy - 2}, 2, c);
+                DrawLineEx({cx - 2, cy - 5}, {cx + 2, cy - 5}, 2, c);
+                break;
+        case 3:
+                DrawText("?", (int)(cx - 3), (int)(cy - 7), 16, c);
+                break;
+        case 4:
+                if (state.darkMode)
+                {
+                        DrawCircleLines((int)cx, (int)cy, 4, c);
+                        for (int a = 0; a < 8; ++a) { float an = a * 3.14159f / 4.0f; DrawLineEx({cx + cosf(an) * 6, cy + sinf(an) * 6}, {cx + cosf(an) * 8, cy + sinf(an) * 8}, 1.5f, c); }
+                }
+                else { DrawCircle((int)cx, (int)cy, 6, c); DrawCircle((int)(cx + 3), (int)(cy - 2), 6, bg); }
+                break;
+        case 5:
+                if (state.isSimulating) { DrawRectangle((int)(cx - 4), (int)(cy - 6), 3, 12, c); DrawRectangle((int)(cx + 1), (int)(cy - 6), 3, 12, c); }
+                else DrawTriangle({cx - 4, cy - 6}, {cx - 4, cy + 6}, {cx + 6, cy}, c);
+                break;
+        case 6:
+                DrawTriangle({cx - 6, cy - 5}, {cx - 6, cy + 5}, {cx + 2, cy}, c);
+                DrawRectangle((int)(cx + 3), (int)(cy - 6), 3, 12, c);
+                break;
+        case 7:
+                DrawRing({cx, cy}, 5, 7, 30, 320, 20, c);
+                DrawTriangle({cx + 6, cy - 8}, {cx + 10, cy - 5}, {cx + 4, cy - 3}, c);
+                break;
+        case 8:
+                DrawLineEx({cx - 6, cy}, {cx + 6, cy}, 2.5f, c);
+                DrawLineEx({cx, cy - 6}, {cx, cy + 6}, 2.5f, c);
+                break;
+        case 9:
+                DrawLineEx({cx - 6, cy}, {cx + 6, cy}, 2.5f, c);
+                break;
+        case 10:
+                DrawRectangleLinesEx({cx - 5, cy - 5, 10, 10}, 1.5f, c);
+                for (int k = -3; k <= 3; k += 3) { DrawLineEx({cx + k, cy - 8}, {cx + k, cy - 5}, 1.5f, c); DrawLineEx({cx + k, cy + 5}, {cx + k, cy + 8}, 1.5f, c); DrawLineEx({cx - 8, cy + k}, {cx - 5, cy + k}, 1.5f, c); DrawLineEx({cx + 5, cy + k}, {cx + 8, cy + k}, 1.5f, c); }
+                break;
+        }
 }
 
 void drawApp(AppState& state)
