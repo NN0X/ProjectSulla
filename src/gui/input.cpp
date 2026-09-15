@@ -23,7 +23,7 @@
 
 void handleInput(AppState& state)
 {
-        float sideMenuWidth = state.showSideMenu ? DEFAULT_SIDEMENU_WIDTH : 0;
+        float sideMenuWidth = state.showSideMenu ? state.sidebarWidth : 0;
         Vector2 mousePos = GetMousePosition();
         Vector2 worldMouse = GetScreenToWorld2D(mousePos, state.camera);
 

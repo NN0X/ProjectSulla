@@ -446,18 +446,29 @@ void drawUI(AppState& state)
         if (state.showSideMenu)
         {
                 int screenH = GetScreenHeight();
-                DrawRectangle(0, TOOLBAR_HEIGHT, DEFAULT_SIDEMENU_WIDTH, screenH - TOOLBAR_HEIGHT, uiBg);
-                DrawLine(DEFAULT_SIDEMENU_WIDTH, TOOLBAR_HEIGHT, DEFAULT_SIDEMENU_WIDTH, screenH, uiBorder);
-                BeginScissorMode(0, (int)TOOLBAR_HEIGHT, (int)DEFAULT_SIDEMENU_WIDTH, screenH - (int)TOOLBAR_HEIGHT);
+                DrawRectangle(0, TOOLBAR_HEIGHT, state.sidebarWidth, screenH - TOOLBAR_HEIGHT, uiBg);
+                DrawLine(state.sidebarWidth, TOOLBAR_HEIGHT, state.sidebarWidth, screenH, uiBorder);
+                BeginScissorMode(0, (int)TOOLBAR_HEIGHT, (int)state.sidebarWidth, screenH - (int)TOOLBAR_HEIGHT);
                 float yStart = SIDEMENU_Y_START - state.sidebarScroll;
                 float y = yStart;
-                DrawText("Parts Library", SIDEMENU_PADDING_X, y, SIDEMENU_HEADER_TEXT_SIZE, textC);
-                y += SIDEMENU_HEADER_MARGIN;
+                Vector2 mp = GetMousePosition();
+                auto sbHeader = [&](const char* title, int section) -> bool {
+                        Rectangle hr = {0, y - 2, state.sidebarWidth, (float)SIDEMENU_HEADER_TEXT_SIZE + 6.0f};
+                        bool hov = CheckCollisionPointRec(mp, hr) && mp.y >= TOOLBAR_HEIGHT;
+                        float ax = SIDEMENU_PADDING_X + 2, ay = y + SIDEMENU_HEADER_TEXT_SIZE / 2.0f;
+                        if (state.sidebarCollapsed[section]) DrawTriangle({ax, ay - 4}, {ax, ay + 4}, {ax + 6, ay}, textC);
+                        else DrawTriangle({ax - 1, ay - 2}, {ax + 7, ay - 2}, {ax + 3, ay + 5}, textC);
+                        DrawText(title, SIDEMENU_PADDING_X + 14, y, SIDEMENU_HEADER_TEXT_SIZE, hov ? (Color){140, 180, 240, 255} : textC);
+                        if (hov && notDragging && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) state.sidebarCollapsed[section] = !state.sidebarCollapsed[section];
+                        y += SIDEMENU_HEADER_MARGIN;
+                        return !state.sidebarCollapsed[section];
+                };
+                if (sbHeader("Parts Library", 0))
                 for (int i = 0; i <= PART_TYPE_DISPLAY; ++i)
                 {
                         if (i == PART_TYPE_CUSTOM) continue;
 
-                        Rectangle btn = {SIDEMENU_BUTTON_MARGIN, y, DEFAULT_SIDEMENU_WIDTH - SIDEMENU_BUTTON_MARGIN*2, SIDEMENU_BUTTON_HEIGHT};
+                        Rectangle btn = {SIDEMENU_BUTTON_MARGIN, y, state.sidebarWidth - SIDEMENU_BUTTON_MARGIN*2, SIDEMENU_BUTTON_HEIGHT};
                         bool hovered = CheckCollisionPointRec(GetMousePosition(), btn);
                         DrawRectangleRounded(btn, 0.2f, 8, hovered ? LIGHTGRAY : GRAY);
                         DrawText(partTypeName((PartType)i), btn.x + SIDEMENU_BUTTON_TEXT_OFFSET_X, btn.y + SIDEMENU_BUTTON_TEXT_OFFSET_Y, SIDEMENU_BUTTON_TEXT_SIZE, BLACK);
@@ -469,13 +480,12 @@ void drawUI(AppState& state)
                         y += SIDEMENU_BUTTON_SPACING;
                 }
                 y += 20;
-                DrawText("Saved Layouts", SIDEMENU_PADDING_X, y, SIDEMENU_HEADER_TEXT_SIZE, textC);
-                y += SIDEMENU_HEADER_MARGIN;
                 std::vector<std::string> files = state.layoutFiles;
+                if (sbHeader("Saved Layouts", 1))
                 for (size_t i = 0; i < files.size(); ++i)
                 {
                         std::string file = files[i];
-                        Rectangle btn = {SIDEMENU_BUTTON_MARGIN, y, DEFAULT_SIDEMENU_WIDTH - SIDEMENU_BUTTON_MARGIN*2 - 25, SIDEMENU_BUTTON_HEIGHT};
+                        Rectangle btn = {SIDEMENU_BUTTON_MARGIN, y, state.sidebarWidth - SIDEMENU_BUTTON_MARGIN*2 - 25, SIDEMENU_BUTTON_HEIGHT};
                         Rectangle delBtn = {btn.x + btn.width + 5, y + 5, SIDEMENU_DELETE_BTN_SIZE, SIDEMENU_DELETE_BTN_SIZE};
                         bool hovered = CheckCollisionPointRec(GetMousePosition(), btn);
                         DrawRectangleRounded(btn, 0.2f, 8, hovered ? LIGHTGRAY : GRAY);
@@ -496,12 +506,11 @@ void drawUI(AppState& state)
                         y += SIDEMENU_LIST_SPACING;
                 }
                 y += 20;
-                DrawText("Compiled Modules", SIDEMENU_PADDING_X, y, SIDEMENU_HEADER_TEXT_SIZE, textC);
-                y += SIDEMENU_HEADER_MARGIN;
+                if (sbHeader("Compiled Modules", 2))
                 for (size_t i = 0; i < state.compiledModules.size(); ++i)
                 {
                         std::string mod = state.compiledModules[i];
-                        Rectangle btn = {SIDEMENU_BUTTON_MARGIN, y, DEFAULT_SIDEMENU_WIDTH - SIDEMENU_BUTTON_MARGIN*2 - 25, SIDEMENU_BUTTON_HEIGHT};
+                        Rectangle btn = {SIDEMENU_BUTTON_MARGIN, y, state.sidebarWidth - SIDEMENU_BUTTON_MARGIN*2 - 25, SIDEMENU_BUTTON_HEIGHT};
                         Rectangle delBtn = {btn.x + btn.width + 5, y + 5, SIDEMENU_DELETE_BTN_SIZE, SIDEMENU_DELETE_BTN_SIZE};
                         bool hovered = CheckCollisionPointRec(GetMousePosition(), btn);
                         DrawRectangleRounded(btn, 0.2f, 8, hovered ? LIGHTGRAY : GRAY);
@@ -532,8 +541,23 @@ void drawUI(AppState& state)
                         float thumbH = trackH * (visibleH / contentH);
                         if (thumbH < 24.0f) thumbH = 24.0f;
                         float thumbY = SIDEMENU_Y_START + (state.sidebarScroll / state.sidebarMaxScroll) * (trackH - thumbH);
-                        DrawRectangleRounded({DEFAULT_SIDEMENU_WIDTH - 6.0f, thumbY, 4.0f, thumbH}, 0.5f, 6, LIGHTGRAY);
+                        DrawRectangleRounded({state.sidebarWidth - 6.0f, thumbY, 4.0f, thumbH}, 0.5f, 6, LIGHTGRAY);
                 }
+
+                Rectangle resizeH = {state.sidebarWidth - 3.0f, TOOLBAR_HEIGHT, 6.0f, (float)screenH - TOOLBAR_HEIGHT};
+                bool overRH = CheckCollisionPointRec(mp, resizeH);
+                if (overRH && notDragging && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) state.sidebarResizing = true;
+                if (state.sidebarResizing)
+                {
+                        if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+                        {
+                                state.sidebarWidth = mp.x;
+                                if (state.sidebarWidth < 150.0f) state.sidebarWidth = 150.0f;
+                                if (state.sidebarWidth > 420.0f) state.sidebarWidth = 420.0f;
+                        }
+                        else state.sidebarResizing = false;
+                }
+                if (overRH || state.sidebarResizing) DrawRectangle((int)(state.sidebarWidth - 2), (int)TOOLBAR_HEIGHT, 4, screenH - (int)TOOLBAR_HEIGHT, (Color){110, 160, 230, 200});
         }
         if (state.draggingNewPartType != -1)
         {
