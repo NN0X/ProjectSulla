@@ -363,12 +363,25 @@ void drawParts(AppState& state)
                         float cy = body.y + PART_TITLE_HEIGHT + (size.y - PART_TITLE_HEIGHT) / 2.0f;
                         float lo = cy + 7, hi = cy - 7;
                         float x0 = body.x + 8, x1 = body.x + size.x - 10;
-                        float seg = (x1 - x0) / 4.0f;
                         Color wave = gateAccent(PART_TYPE_NOT);
-                        Vector2 pts[6] = { {x0, lo}, {x0 + seg, lo}, {x0 + seg, hi}, {x0 + seg*2, hi}, {x0 + seg*2, lo}, {x1, lo} };
-                        for (int i = 0; i < 5; ++i) DrawLineEx(pts[i], pts[i+1], 1.5f, wave);
-                        DrawLineEx({x0 + seg*3, lo}, {x0 + seg*3, hi}, 1.5f, wave);
-                        DrawLineEx({x0 + seg*3, hi}, {x1, hi}, 1.5f, wave);
+                        float half = 9.0f;
+                        float stepTime = 1.0f / (state.targetHZ > 0.0001f ? state.targetHZ : 1.0f);
+                        float sub = (state.isSimulating && stepTime > 0.0f) ? (state.simTimer / stepTime) : 0.0f;
+                        if (sub < 0.0f) sub = 0.0f; if (sub > 1.0f) sub = 1.0f;
+                        float phase = (float)(state.stepCount % 100000ULL) + sub;
+                        float scroll = fmodf(phase * half, 2.0f * half);
+                        auto levelAt = [&](float xx) -> float { long k = (long)floorf((xx + scroll) / half); return (((k % 2) + 2) % 2 == 0) ? lo : hi; };
+                        Vector2 last = {x0, levelAt(x0)};
+                        float firstB = ceilf((x0 + scroll) / half) * half - scroll;
+                        for (float bx = firstB; bx < x1 - 0.5f; bx += half)
+                        {
+                                if (bx <= x0) continue;
+                                DrawLineEx(last, {bx, last.y}, 1.5f, wave);
+                                float ny = (last.y == lo) ? hi : lo;
+                                DrawLineEx({bx, last.y}, {bx, ny}, 1.5f, wave);
+                                last = {bx, ny};
+                        }
+                        DrawLineEx(last, {x1, last.y}, 1.5f, wave);
                 }
                 if (type != PART_TYPE_SOURCE && type != PART_TYPE_CLOCK)
                 {
