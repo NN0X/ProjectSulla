@@ -31,7 +31,7 @@ void handleInput(AppState& state)
         bool mouseOverUI = (mousePos.x < sideMenuWidth) || (mousePos.y < TOOLBAR_HEIGHT) || isDialogActive;
 
         if (IsKeyPressed(KEY_F11)) ToggleFullscreen();
-        if (!isDialogActive && IsKeyPressed(KEY_V)) state.visualizeSignals = !state.visualizeSignals;
+        if (!isDialogActive && IsKeyPressed(KEY_V)) { state.visualizeSignals = !state.visualizeSignals; state.simulation = nullptr; }
         if (!isDialogActive && IsKeyPressed(KEY_T)) tidyLayout(state);
 
         if (state.showSideMenu && mousePos.x < sideMenuWidth && mousePos.y >= TOOLBAR_HEIGHT && !isDialogActive)
@@ -89,7 +89,7 @@ void handleInput(AppState& state)
                                         }
                                         if (i == 3) state.showHelp = !state.showHelp;
                                         if (i == 4) state.darkMode = !state.darkMode;
-                                        if (i == 5) state.isSimulating = !state.isSimulating;
+                                        if (i == 5) { state.isSimulating = !state.isSimulating; state.simulation = nullptr; }
                                         if (i == 6)
                                         {
                                                 state.isSimulating = false;
@@ -307,7 +307,7 @@ void handleInput(AppState& state)
                 return;
         }
 
-        if (IsKeyPressed(KEY_SPACE) && !isDialogActive) state.isSimulating = !state.isSimulating;
+        if (IsKeyPressed(KEY_SPACE) && !isDialogActive) { state.isSimulating = !state.isSimulating; state.simulation = nullptr; }
 
         bool up = IsKeyDown(KEY_UP);
         bool down = IsKeyDown(KEY_DOWN);

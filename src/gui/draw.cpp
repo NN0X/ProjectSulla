@@ -848,6 +848,9 @@ void drawUI(AppState& state)
         std::string vizStr = state.visualizeSignals ? "signal viz: ON (V)" : "signal viz: off (V)";
         Color vizC = state.visualizeSignals ? (Color){90, 200, 130, 255} : (Color){120, 124, 132, 255};
         DrawText(vizStr.c_str(), hxr - MeasureText(vizStr.c_str(), HUD_FONT_SIZE), HUD_Y + 62, HUD_FONT_SIZE, vizC);
+        std::string engStr = state.nativeActive ? "engine: native" : "engine: interpreted";
+        Color engC = state.nativeActive ? (Color){90, 200, 130, 255} : (Color){160, 165, 172, 255};
+        DrawText(engStr.c_str(), hxr - MeasureText(engStr.c_str(), HUD_FONT_SIZE), HUD_Y + 84, HUD_FONT_SIZE, engC);
 }
 
 static void drawToolbarIcon(int idx, Rectangle b, Color c, Color bg, const AppState& state)
