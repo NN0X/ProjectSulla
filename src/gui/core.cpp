@@ -1,5 +1,6 @@
 #include "gui.h"
 #include "common.h"
+#include "../compiler/compiler.h"
 
 #include <iostream>
 #include <fstream>
@@ -246,6 +247,56 @@ void tidyLayout(AppState& state)
         }
 }
 
+bool buildNativeSimulation(AppState& state)
+{
+        std::vector<int> srcs, outs;
+        for (std::map<int, PartType>::iterator it = state.partTypes.begin(); it != state.partTypes.end(); ++it)
+        {
+                if (it->second == PART_TYPE_SOURCE) srcs.push_back(it->first);
+                if (it->second == PART_TYPE_OUTPUT || it->second == PART_TYPE_DISPLAY) outs.push_back(it->first);
+        }
+        if (outs.empty()) return false;
+
+        std::map<int, int> gIn; int gi = 0;
+        for (std::map<int, std::vector<State>>::iterator it = state.sourceValues.begin(); it != state.sourceValues.end(); ++it) { gIn[it->first] = gi; gi += (int)it->second.size(); }
+        std::map<int, int> gOut; int go = 0;
+        for (std::map<int, PartType>::iterator it = state.partTypes.begin(); it != state.partTypes.end(); ++it)
+                if (it->second == PART_TYPE_OUTPUT || it->second == PART_TYPE_DISPLAY) { gOut[it->first] = go; go += state.inputCounts[it->first]; }
+        int totalIn = gi, totalOut = go;
+
+        auto posLess = [&](int a, int b) -> bool {
+                std::pair<float, float> pa = state.positions[a], pb = state.positions[b];
+                if (std::fabs(pa.second - pb.second) > 0.1f) return pa.second < pb.second;
+                if (std::fabs(pa.first - pb.first) > 0.1f) return pa.first < pb.first;
+                return a < b;
+        };
+        std::vector<int> sp = srcs, op = outs;
+        std::sort(sp.begin(), sp.end(), posLess);
+        std::sort(op.begin(), op.end(), posLess);
+        std::map<int, int> nIn; int ni = 0; for (size_t i = 0; i < sp.size(); ++i) { nIn[sp[i]] = ni; ni += state.outputCounts[sp[i]]; }
+        std::map<int, int> nOut; int no = 0; for (size_t i = 0; i < op.size(); ++i) { nOut[op[i]] = no; no += state.inputCounts[op[i]]; }
+
+        std::vector<int> inRemap(totalIn, 0), outRemap(totalOut, 0);
+        for (size_t k = 0; k < srcs.size(); ++k) { int s = srcs[k], c = state.outputCounts[s]; for (int i = 0; i < c; ++i) if (nIn[s] + i < totalIn) inRemap[nIn[s] + i] = gIn[s] + i; }
+        for (size_t k = 0; k < outs.size(); ++k) { int o = outs[k], c = state.inputCounts[o]; for (int i = 0; i < c; ++i) if (gOut[o] + i < totalOut) outRemap[gOut[o] + i] = nOut[o] + i; }
+
+        std::string cpp = transpileToCpp(state, false);
+        if (!compilePartLibrary(cpp, "__live__", false, true)) return false;
+        Part native = loadCompiledPart("__live__", totalOut);
+        if (!native) return false;
+
+        state.simulation = [native, inRemap, outRemap, totalIn, totalOut](std::vector<State> runtimeInput) -> std::vector<State> {
+                std::vector<State> soIn(totalIn, STATE_LOW);
+                for (int j = 0; j < totalIn; ++j) { int g = inRemap[j]; if (g >= 0 && g < (int)runtimeInput.size()) soIn[j] = runtimeInput[g]; }
+                std::vector<State> soOut = native(soIn);
+                std::vector<State> guiOut(totalOut, STATE_LOW);
+                for (int j = 0; j < totalOut; ++j) { int n = outRemap[j]; if (n >= 0 && n < (int)soOut.size()) guiOut[j] = soOut[n]; }
+                return guiOut;
+        };
+        state.nativeActive = true;
+        return true;
+}
+
 void recompileSimulation(AppState& state)
 {
         std::map<int, Part> simulationParts = state.parts;
@@ -292,6 +343,8 @@ void recompileSimulation(AppState& state)
                 }
         }
 
+        if (state.isSimulating && !state.visualizeSignals && buildNativeSimulation(state)) return;
+        state.nativeActive = false;
         state.simulation = assemblePart(simulationParts, simConnections, state.rootSinkID, &state.captureNets, &state.netStates);
 }
 

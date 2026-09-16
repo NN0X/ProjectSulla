@@ -60,6 +60,7 @@ struct AppState
         std::vector<State> runtimeInput;
         std::vector<State> lastOutputStates;
         bool visualizeSignals = false;
+        bool nativeActive = false;
         bool captureNets = false;
         std::map<int, std::vector<State>> netStates;
 

@@ -15,6 +15,7 @@ Vector2 getPinPos(const AppState& state, int id, bool isInput, int index);
 void refreshLayouts(AppState& state);
 void refreshCompiledModules(AppState& state);
 void drawTextFit(const char* text, float x, float y, float width, int fontSize, Color color);
+bool buildNativeSimulation(AppState& state);
 void recompileSimulation(AppState& state);
 void tidyLayout(AppState& state);
 void cleanupInputPinConnections(AppState& state, int partID, int removedIdx);
