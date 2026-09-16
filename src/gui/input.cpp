@@ -21,6 +21,24 @@
 #include "../part.h"
 #include "../compiler/compiler.h"
 
+static float distToPolyline(Vector2 p, const std::vector<Vector2>& path)
+{
+        float best = 1e30f;
+        for (size_t i = 0; i + 1 < path.size(); ++i)
+        {
+                Vector2 a = path[i], b = path[i + 1];
+                Vector2 ab = {b.x - a.x, b.y - a.y};
+                float len2 = ab.x * ab.x + ab.y * ab.y;
+                float t = (len2 > 0.0001f) ? ((p.x - a.x) * ab.x + (p.y - a.y) * ab.y) / len2 : 0.0f;
+                if (t < 0.0f) t = 0.0f;
+                if (t > 1.0f) t = 1.0f;
+                float dx = p.x - (a.x + t * ab.x), dy = p.y - (a.y + t * ab.y);
+                float d = sqrtf(dx * dx + dy * dy);
+                if (d < best) best = d;
+        }
+        return best;
+}
+
 void handleInput(AppState& state)
 {
         float sideMenuWidth = state.showSideMenu ? state.sidebarWidth : 0;
@@ -52,19 +70,12 @@ void handleInput(AppState& state)
         state.hoveredNet = {-1, -1};
         if (!mouseOverUI && state.wireStartPartID == -1)
         {
-                float bestDist = 10.0f / (state.camera.zoom > 0.01f ? state.camera.zoom : 1.0f);
+                float bestDist = 8.0f / (state.camera.zoom > 0.01f ? state.camera.zoom : 1.0f);
                 for (std::map<PartPin, PartPin>::iterator it = state.connections.begin(); it != state.connections.end(); ++it)
                 {
-                        Vector2 a = getPinPos(state, it->second.first, false, it->second.second);
-                        Vector2 b = getPinPos(state, it->first.first, true, it->first.second);
-                        Vector2 ab = {b.x - a.x, b.y - a.y};
-                        float len2 = ab.x * ab.x + ab.y * ab.y;
-                        float t = (len2 > 0.0001f) ? ((worldMouse.x - a.x) * ab.x + (worldMouse.y - a.y) * ab.y) / len2 : 0.0f;
-                        if (t < 0.0f) t = 0.0f;
-                        if (t > 1.0f) t = 1.0f;
-                        float dx = worldMouse.x - (a.x + t * ab.x);
-                        float dy = worldMouse.y - (a.y + t * ab.y);
-                        float d = sqrtf(dx * dx + dy * dy);
+                        std::map<PartPin, std::vector<Vector2>>::iterator pit = state.wirePaths.find(it->first);
+                        if (pit == state.wirePaths.end() || pit->second.size() < 2) continue;
+                        float d = distToPolyline(worldMouse, pit->second);
                         if (d < bestDist) { bestDist = d; state.hoveredNet = it->second; }
                 }
         }
@@ -447,42 +458,19 @@ void handleInput(AppState& state)
 
                 if (!hitSomething)
                 {
+                        float best = 8.0f / (state.camera.zoom > 0.01f ? state.camera.zoom : 1.0f);
+                        PartPin sel = {-1, -1};
                         for (std::map<PartPin, PartPin>::iterator it = state.connections.begin(); it != state.connections.end(); ++it)
                         {
-                                int fromID = it->second.first;
-                                int toID = it->first.first;
-                                Vector2 startPos = {state.positions[fromID].first, state.positions[fromID].second};
-                                Vector2 fromSize = getPartSize(state, fromID);
-
-                                int fromOutCount = state.outputCounts[fromID];
-                                float pinYStepFrom = (fromOutCount > 1) ? (fromSize.y - PIN_Y_OFFSET_BASE*2) / (fromOutCount - 1) : 0;
-                                float yOffStart = -fromSize.y/2 + PIN_Y_OFFSET_BASE + it->second.second * pinYStepFrom;
-                                if (fromOutCount <= 1) yOffStart = 0;
-                                Vector2 start = {startPos.x + fromSize.x/2, startPos.y + yOffStart};
-
-                                Vector2 endPos = {state.positions[toID].first, state.positions[toID].second};
-                                Vector2 toSize = getPartSize(state, toID);
-                                int inCount = state.inputCounts[toID];
-                                float pinYStep = (inCount > 1) ? (toSize.y - PIN_Y_OFFSET_BASE*2) / (inCount - 1) : 0;
-                                float yOff = -toSize.y/2 + PIN_Y_OFFSET_BASE + it->first.second * pinYStep;
-                                if (inCount <= 1) yOff = 0;
-                                Vector2 end = {endPos.x - toSize.x/2, endPos.y + yOff};
-
-                                float midX = (start.x + end.x) / 2.0f;
-                                Vector2 p1 = {midX, start.y};
-                                Vector2 p2 = {midX, end.y};
-
-                                bool hit = false;
-                                if (CheckCollisionPointRec(worldMouse, {fminf(start.x, p1.x)-WIRE_HITBOX_PADDING, start.y-WIRE_HITBOX_PADDING, fabsf(start.x-p1.x)+WIRE_HITBOX_SIZE, WIRE_HITBOX_SIZE})) hit = true;
-                                else if (CheckCollisionPointRec(worldMouse, {p1.x-WIRE_HITBOX_PADDING, fminf(p1.y, p2.y)-WIRE_HITBOX_PADDING, WIRE_HITBOX_SIZE, fabsf(p1.y-p2.y)+WIRE_HITBOX_SIZE})) hit = true;
-                                else if (CheckCollisionPointRec(worldMouse, {fminf(p2.x, end.x)-WIRE_HITBOX_PADDING, end.y-WIRE_HITBOX_PADDING, fabsf(p2.x-end.x)+WIRE_HITBOX_SIZE, WIRE_HITBOX_SIZE})) hit = true;
-
-                                if (hit)
-                                {
-                                        state.selectedConnection = it->first;
-                                        hitSomething = true;
-                                        break;
-                                }
+                                std::map<PartPin, std::vector<Vector2>>::iterator pit = state.wirePaths.find(it->first);
+                                if (pit == state.wirePaths.end() || pit->second.size() < 2) continue;
+                                float d = distToPolyline(worldMouse, pit->second);
+                                if (d < best) { best = d; sel = it->first; }
+                        }
+                        if (sel.first != -1)
+                        {
+                                state.selectedConnection = sel;
+                                hitSomething = true;
                         }
                 }
 

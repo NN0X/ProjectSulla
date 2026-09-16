@@ -51,6 +51,7 @@ struct AppState
         std::map<PartPin, int> connColorIdx;
         int nextConnColor = 0;
         PartPin hoveredNet = {-1, -1};
+        std::map<PartPin, std::vector<Vector2>> wirePaths;
         Vector2 wireDragStartPos = {0, 0};
         std::map<int, std::string> labels;
         std::map<int, std::pair<float, float>> positions;

@@ -85,6 +85,7 @@ static size_t computeOutputSlotIndex(const AppState& state, int targetID)
 
 void drawWires(AppState& state)
 {
+        state.wirePaths.clear();
         const float KINK = 16.0f;
         const float HB = 14.0f, HS = 8.0f;
         const float VB = 14.0f, VS = 7.0f;
@@ -167,6 +168,7 @@ void drawWires(AppState& state)
                         DrawLineEx({vx1, ly}, {vx2, ly}, th, c);
                         DrawLineEx({vx2, ly}, {vx2, e.y}, th, c);
                         DrawLineEx({vx2, e.y}, e, th, c);
+                        state.wirePaths[it->first] = { s, {vx1, s.y}, {vx1, ly}, {vx2, ly}, {vx2, e.y}, e };
                 }
                 else
                 {
@@ -179,6 +181,7 @@ void drawWires(AppState& state)
                         DrawLineEx({vx1, midY}, {vx2, midY}, th, c);
                         DrawLineEx({vx2, midY}, {vx2, e.y}, th, c);
                         DrawLineEx({vx2, e.y}, e, th, c);
+                        state.wirePaths[it->first] = { s, {vx1, s.y}, {vx1, midY}, {vx2, midY}, {vx2, e.y}, e };
                 }
 
                 if (fanout[it->second] > 1) DrawCircleV(s, 3.0f, c);
