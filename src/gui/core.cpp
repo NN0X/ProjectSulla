@@ -321,22 +321,31 @@ void updateSimulation(AppState& state)
                 }
         }
 
-        int stepsToDo = 0;
-        if (state.isSimulating)
+        if (state.isSimulating && state.simulation)
         {
                 state.simTimer += GetFrameTime();
                 float stepTime = 1.0f / state.targetHZ;
                 if (stepTime < 0.000001f) stepTime = 0.000001f;
-                while (state.simTimer >= stepTime && stepsToDo < 10000)
+                double stepStart = GetTime();
+                long steps = 0;
+                while (state.simTimer >= stepTime)
                 {
-                        stepsToDo++;
+                        state.captureNets = state.visualizeSignals;
+                        state.lastOutputStates = state.simulation(state.runtimeInput);
+                        state.stepCount++;
                         state.simTimer -= stepTime;
+                        ++steps;
+                        if ((steps & 31) == 0 && GetTime() - stepStart > SIM_STEP_BUDGET_SEC) break;
                 }
+                state.captureNets = false;
                 if (state.simTimer >= stepTime) state.simTimer = fmod(state.simTimer, stepTime);
         }
-        else
+        else if (!state.isSimulating && state.simulation && IsKeyPressed(KEY_RIGHT))
         {
-                if (IsKeyPressed(KEY_RIGHT)) stepsToDo = 1;
+                state.captureNets = state.visualizeSignals;
+                state.lastOutputStates = state.simulation(state.runtimeInput);
+                state.captureNets = false;
+                state.stepCount++;
         }
 
         state.hzSampleTimer += GetFrameTime();
@@ -348,15 +357,4 @@ void updateSimulation(AppState& state)
                 state.simSaturated = state.isSimulating && state.actualHz > 0.0f && state.actualHz < state.targetHZ * 0.85f;
         }
         if (!state.isSimulating) state.simSaturated = false;
-
-        if (state.simulation)
-        {
-                for (int i = 0; i < stepsToDo; ++i)
-                {
-                        state.captureNets = state.visualizeSignals && (i == stepsToDo - 1);
-                        state.lastOutputStates = state.simulation(state.runtimeInput);
-                        state.stepCount++;
-                }
-                state.captureNets = false;
-        }
 }
