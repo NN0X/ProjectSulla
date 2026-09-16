@@ -378,9 +378,10 @@ void updateSimulation(AppState& state)
         {
                 state.simTimer += GetFrameTime();
                 float stepTime = 1.0f / state.targetHZ;
-                if (stepTime < 0.000001f) stepTime = 0.000001f;
+                if (stepTime < 1e-9f) stepTime = 1e-9f;
                 double stepStart = GetTime();
                 long steps = 0;
+                bool capped = false;
                 while (state.simTimer >= stepTime)
                 {
                         state.captureNets = state.visualizeSignals;
@@ -388,10 +389,10 @@ void updateSimulation(AppState& state)
                         state.stepCount++;
                         state.simTimer -= stepTime;
                         ++steps;
-                        if ((steps & 31) == 0 && GetTime() - stepStart > SIM_STEP_BUDGET_SEC) break;
+                        if ((steps & 31) == 0 && GetTime() - stepStart > SIM_STEP_BUDGET_SEC) { capped = true; break; }
                 }
                 state.captureNets = false;
-                if (state.simTimer >= stepTime) state.simTimer = fmod(state.simTimer, stepTime);
+                if (capped) state.simTimer = 0.0f;
         }
         else if (!state.isSimulating && state.simulation && IsKeyPressed(KEY_RIGHT))
         {
