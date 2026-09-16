@@ -1,4 +1,5 @@
 #include "gui.h"
+#include "../theme.h"
 #include "common.h"
 #include "../gates.h"
 
@@ -206,31 +207,31 @@ static Color gateAccent(PartType t)
         switch (t)
         {
         case PART_TYPE_AND:  return (Color){ 90, 156, 220, 255};
-        case PART_TYPE_NAND: return (Color){120, 180, 230, 255};
+        case PART_TYPE_NAND: return THEME_GATE_BLUE;
         case PART_TYPE_OR:   return (Color){ 92, 184,  92, 255};
         case PART_TYPE_NOR:  return (Color){ 80, 190, 160, 255};
-        case PART_TYPE_XOR:  return (Color){170, 120, 210, 255};
-        case PART_TYPE_XNOR: return (Color){210, 120, 190, 255};
-        case PART_TYPE_NOT:  return (Color){230, 150,  70, 255};
-        default:             return (Color){160, 160, 170, 255};
+        case PART_TYPE_XOR:  return THEME_GATE_PURPLE;
+        case PART_TYPE_XNOR: return THEME_GATE_MAGENTA;
+        case PART_TYPE_NOT:  return THEME_GATE_ORANGE;
+        default:             return THEME_GATE_GRAY;
         }
 }
 
 static void drawToolbarIcon(int idx, Rectangle b, Color c, Color bg, const AppState& state);
 static void drawPin(Rectangle r, bool isInput, bool connected, int sig)
 {
-        Color base = isInput ? (Color){95, 150, 230, 255} : (Color){90, 200, 130, 255};
-        if (sig == 1) base = (Color){120, 225, 150, 255};
-        else if (sig == 0) base = (Color){78, 90, 104, 255};
+        Color base = isInput ? THEME_PIN_INPUT : THEME_ACCENT_GREEN;
+        if (sig == 1) base = THEME_ACCENT_GREEN_HI;
+        else if (sig == 0) base = THEME_PIN_LOW;
         if (isInput && !connected)
         {
-                DrawRectangleRounded(r, 0.35f, 4, (Color){40, 44, 50, 255});
-                DrawRectangleRoundedLinesEx(r, 0.35f, 4, 1.5f, (Color){115, 122, 132, 255});
+                DrawRectangleRounded(r, 0.35f, 4, THEME_PIN_EMPTY);
+                DrawRectangleRoundedLinesEx(r, 0.35f, 4, 1.5f, THEME_PIN_EMPTY_EDGE);
         }
         else
         {
                 DrawRectangleRounded(r, 0.35f, 4, base);
-                DrawRectangleRoundedLinesEx(r, 0.35f, 4, 1.0f, (Color){20, 22, 26, 160});
+                DrawRectangleRoundedLinesEx(r, 0.35f, 4, 1.0f, THEME_PIN_BORDER);
         }
 }
 
@@ -473,9 +474,9 @@ void drawUI(AppState& state)
                 Rectangle btn = {x, TOOLBAR_PADDING, TOOLBAR_BTN_WIDTH, TOOLBAR_BTN_HEIGHT};
                 bool hovered = CheckCollisionPointRec(GetMousePosition(), btn);
                 bool active = (i == 5 && state.isSimulating) || (i == 3 && state.showHelp);
-                Color fill = active ? (Color){60, 150, 90, 255} : (hovered ? (Color){95, 100, 110, 255} : (Color){70, 74, 82, 255});
-                Color edge = active ? (Color){120, 220, 150, 255} : (hovered ? (Color){110, 160, 230, 255} : (Color){45, 48, 54, 255});
-                Color ic = active ? WHITE : (Color){225, 228, 233, 255};
+                Color fill = active ? THEME_BTN_ACTIVE : (hovered ? THEME_BTN_HOVER : THEME_BTN_FILL);
+                Color edge = active ? THEME_ACCENT_GREEN_HI2 : (hovered ? THEME_ACCENT_BLUE : THEME_BTN_EDGE);
+                Color ic = active ? WHITE : THEME_BTN_ICON;
                 DrawRectangleRounded(btn, 0.25f, 8, fill);
                 DrawRectangleRoundedLinesEx(btn, 0.25f, 8, 1.5f, edge);
                 drawToolbarIcon(i, btn, ic, fill, state);
@@ -499,7 +500,7 @@ void drawUI(AppState& state)
                         float ax = SIDEMENU_PADDING_X + 2, ay = y + SIDEMENU_HEADER_TEXT_SIZE / 2.0f;
                         if (state.sidebarCollapsed[section]) DrawTriangle({ax, ay - 4}, {ax, ay + 4}, {ax + 6, ay}, textC);
                         else DrawTriangle({ax - 1, ay - 2}, {ax + 7, ay - 2}, {ax + 3, ay + 5}, textC);
-                        DrawText(title, SIDEMENU_PADDING_X + 14, y, SIDEMENU_HEADER_TEXT_SIZE, hov ? (Color){140, 180, 240, 255} : textC);
+                        DrawText(title, SIDEMENU_PADDING_X + 14, y, SIDEMENU_HEADER_TEXT_SIZE, hov ? THEME_HEADER_HOVER : textC);
                         if (hov && notDragging && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) state.sidebarCollapsed[section] = !state.sidebarCollapsed[section];
                         y += SIDEMENU_HEADER_MARGIN;
                         return !state.sidebarCollapsed[section];
@@ -598,7 +599,7 @@ void drawUI(AppState& state)
                         }
                         else state.sidebarResizing = false;
                 }
-                if (overRH || state.sidebarResizing) DrawRectangle((int)(state.sidebarWidth - 2), (int)TOOLBAR_HEIGHT, 4, screenH - (int)TOOLBAR_HEIGHT, (Color){110, 160, 230, 200});
+                if (overRH || state.sidebarResizing) DrawRectangle((int)(state.sidebarWidth - 2), (int)TOOLBAR_HEIGHT, 4, screenH - (int)TOOLBAR_HEIGHT, THEME_ACCENT_BLUE_A);
         }
         if (state.draggingNewPartType != -1)
         {
@@ -839,17 +840,17 @@ void drawUI(AppState& state)
         std::string tgtStr = std::format("target {}", fmtHz(state.targetHZ));
         DrawText(tgtStr.c_str(), hxr - MeasureText(tgtStr.c_str(), HUD_FONT_SIZE), HUD_Y, HUD_FONT_SIZE, textC);
         Color actualC = textC;
-        if (state.isSimulating && state.simSaturated) actualC = (Color){235, 130, 40, 255};
+        if (state.isSimulating && state.simSaturated) actualC = THEME_WARN;
         std::string actStr = state.isSimulating ? std::format("actual {}", fmtHz(state.actualHz)) : std::string("actual --");
         if (state.isSimulating && state.simSaturated) actStr += "  MAX";
         DrawText(actStr.c_str(), hxr - MeasureText(actStr.c_str(), HUD_FONT_SIZE), HUD_Y + 20, HUD_FONT_SIZE, actualC);
         std::string tickStr = std::format("Tick: {}", state.stepCount);
         DrawText(tickStr.c_str(), hxr - MeasureText(tickStr.c_str(), HUD_FONT_SIZE), HUD_Y + 40, HUD_FONT_SIZE, textC);
         std::string vizStr = state.visualizeSignals ? "signal viz: ON (V)" : "signal viz: off (V)";
-        Color vizC = state.visualizeSignals ? (Color){90, 200, 130, 255} : (Color){120, 124, 132, 255};
+        Color vizC = state.visualizeSignals ? THEME_ACCENT_GREEN : THEME_TEXT_DIM2;
         DrawText(vizStr.c_str(), hxr - MeasureText(vizStr.c_str(), HUD_FONT_SIZE), HUD_Y + 62, HUD_FONT_SIZE, vizC);
         std::string engStr = state.nativeActive ? "engine: native" : "engine: interpreted";
-        Color engC = state.nativeActive ? (Color){90, 200, 130, 255} : (Color){160, 165, 172, 255};
+        Color engC = state.nativeActive ? THEME_ACCENT_GREEN : THEME_TEXT_DIM;
         DrawText(engStr.c_str(), hxr - MeasureText(engStr.c_str(), HUD_FONT_SIZE), HUD_Y + 84, HUD_FONT_SIZE, engC);
 }
 
