@@ -135,7 +135,7 @@ Part getPartFromType(PartType type)
         case EVAL_SINK:
                 return displayPart;
         case EVAL_CUSTOM:
-                return [](std::vector<State> inputs) -> std::vector<State> {
+                return [](std::vector<State>) -> std::vector<State> {
                         return std::vector<State>(1, STATE_UNDEFINED);
                 };
         case EVAL_SOURCE:

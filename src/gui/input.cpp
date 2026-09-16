@@ -56,7 +56,8 @@ void handleInput(AppState& state)
                         Vector2 ab = {b.x - a.x, b.y - a.y};
                         float len2 = ab.x * ab.x + ab.y * ab.y;
                         float t = (len2 > 0.0001f) ? ((worldMouse.x - a.x) * ab.x + (worldMouse.y - a.y) * ab.y) / len2 : 0.0f;
-                        if (t < 0.0f) t = 0.0f; if (t > 1.0f) t = 1.0f;
+                        if (t < 0.0f) t = 0.0f;
+                        if (t > 1.0f) t = 1.0f;
                         float dx = worldMouse.x - (a.x + t * ab.x);
                         float dy = worldMouse.y - (a.y + t * ab.y);
                         float d = sqrtf(dx * dx + dy * dy);

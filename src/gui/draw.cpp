@@ -153,9 +153,9 @@ void drawWires(AppState& state)
                                 if (nit != state.netStates.end() && it->second.second < (int)nit->second.size())
                                         v = nit->second[it->second.second];
                                 if (v != STATE_HIGH)
-                                        c = (Color){ (unsigned char)(c.r * 0.34f), (unsigned char)(c.g * 0.34f), (unsigned char)(c.b * 0.34f), 255 };
+                                        c = Color{ (unsigned char)(c.r * 0.34f), (unsigned char)(c.g * 0.34f), (unsigned char)(c.b * 0.34f), 255 };
                         }
-                        if (hovered) c = (Color){ (unsigned char)(c.r + (255 - c.r) * 0.5f), (unsigned char)(c.g + (255 - c.g) * 0.5f), (unsigned char)(c.b + (255 - c.b) * 0.5f), 255 };
+                        if (hovered) c = Color{ (unsigned char)(c.r + (255 - c.r) * 0.5f), (unsigned char)(c.g + (255 - c.g) * 0.5f), (unsigned char)(c.b + (255 - c.b) * 0.5f), 255 };
                 }
                 float th = hovered ? WIRE_THICKNESS + 1.5f : WIRE_THICKNESS;
 
@@ -206,10 +206,10 @@ static Color gateAccent(PartType t)
 {
         switch (t)
         {
-        case PART_TYPE_AND:  return (Color){ 90, 156, 220, 255};
+        case PART_TYPE_AND:  return Color{ 90, 156, 220, 255};
         case PART_TYPE_NAND: return THEME_GATE_BLUE;
-        case PART_TYPE_OR:   return (Color){ 92, 184,  92, 255};
-        case PART_TYPE_NOR:  return (Color){ 80, 190, 160, 255};
+        case PART_TYPE_OR:   return Color{ 92, 184,  92, 255};
+        case PART_TYPE_NOR:  return Color{ 80, 190, 160, 255};
         case PART_TYPE_XOR:  return THEME_GATE_PURPLE;
         case PART_TYPE_XNOR: return THEME_GATE_MAGENTA;
         case PART_TYPE_NOT:  return THEME_GATE_ORANGE;
@@ -385,7 +385,8 @@ void drawParts(AppState& state)
                         float half = 9.0f;
                         float stepTime = 1.0f / (state.targetHZ > 0.0001f ? state.targetHZ : 1.0f);
                         float sub = (state.isSimulating && stepTime > 0.0f) ? (state.simTimer / stepTime) : 0.0f;
-                        if (sub < 0.0f) sub = 0.0f; if (sub > 1.0f) sub = 1.0f;
+                        if (sub < 0.0f) sub = 0.0f;
+                        if (sub > 1.0f) sub = 1.0f;
                         float phase = (float)(state.stepCount % 100000ULL) + sub;
                         float scroll = fmodf(phase * half, 2.0f * half);
                         auto levelAt = [&](float xx) -> float { long k = (long)floorf((xx + scroll) / half); return (((k % 2) + 2) % 2 == 0) ? lo : hi; };
