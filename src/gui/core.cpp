@@ -247,6 +247,30 @@ void tidyLayout(AppState& state)
         }
 }
 
+static size_t circuitHash(const AppState& state)
+{
+        size_t h = 1469598103934665603ULL;
+        auto mix = [&](size_t v) { h ^= v; h *= 1099511628211ULL; };
+        for (std::map<int, PartType>::const_iterator it = state.partTypes.begin(); it != state.partTypes.end(); ++it)
+        {
+                mix((size_t)it->first); mix((size_t)it->second);
+                std::map<int, int>::const_iterator ic = state.inputCounts.find(it->first);
+                std::map<int, int>::const_iterator oc = state.outputCounts.find(it->first);
+                mix(ic != state.inputCounts.end() ? (size_t)ic->second : 0);
+                mix(oc != state.outputCounts.end() ? (size_t)oc->second : 0);
+                std::map<int, std::pair<float, float>>::const_iterator pp = state.positions.find(it->first);
+                if (pp != state.positions.end()) { mix((size_t)(long)(pp->second.first + 0.5f)); mix((size_t)(long)(pp->second.second + 0.5f)); }
+                std::map<int, std::string>::const_iterator lb = state.labels.find(it->first);
+                if (lb != state.labels.end()) mix(std::hash<std::string>{}(lb->second));
+        }
+        for (std::map<PartPin, PartPin>::const_iterator it = state.connections.begin(); it != state.connections.end(); ++it)
+        {
+                mix((size_t)it->first.first); mix((size_t)it->first.second);
+                mix((size_t)it->second.first); mix((size_t)it->second.second);
+        }
+        return h;
+}
+
 bool buildNativeSimulation(AppState& state)
 {
         std::vector<int> srcs, outs;
@@ -280,8 +304,14 @@ bool buildNativeSimulation(AppState& state)
         for (size_t k = 0; k < srcs.size(); ++k) { int s = srcs[k], c = state.outputCounts[s]; for (int i = 0; i < c; ++i) if (nIn[s] + i < totalIn) inRemap[nIn[s] + i] = gIn[s] + i; }
         for (size_t k = 0; k < outs.size(); ++k) { int o = outs[k], c = state.inputCounts[o]; for (int i = 0; i < c; ++i) if (gOut[o] + i < totalOut) outRemap[gOut[o] + i] = nOut[o] + i; }
 
-        std::string cpp = transpileToCpp(state, false);
-        if (!compilePartLibrary(cpp, "__live__", false, true)) return false;
+        size_t h = circuitHash(state);
+        bool soReady = (h == state.nativeHash) && !sullaFindDynamic("__live__").empty();
+        if (!soReady)
+        {
+                std::string cpp = transpileToCpp(state, false);
+                if (!compilePartLibrary(cpp, "__live__", false, true)) return false;
+                state.nativeHash = h;
+        }
         Part native = loadCompiledPart("__live__", totalOut);
         if (!native) return false;
 

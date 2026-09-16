@@ -61,6 +61,7 @@ struct AppState
         std::vector<State> lastOutputStates;
         bool visualizeSignals = false;
         bool nativeActive = false;
+        size_t nativeHash = 0;
         bool captureNets = false;
         std::map<int, std::vector<State>> netStates;
 
