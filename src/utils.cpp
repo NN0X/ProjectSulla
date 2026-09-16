@@ -15,6 +15,7 @@
 #include "part.h"
 #include "primitives.h"
 #include "utils.h"
+#include "schema.h"
 #include "appstate.h"
 #include "config.h"
 #include "compiler/compiler.h"
@@ -44,9 +45,19 @@ typedef struct SerializableConnection
 
 struct LayoutData
 {
+        int version = 0;
         std::vector<SPart> parts;
         std::vector<SConn> connections;
 };
+
+static void migrateLayout(LayoutData& ld, const std::string& name)
+{
+        if (ld.version > SULLA_SCHEMA_VERSION)
+                std::cerr << "Warning: layout '" << name << "' is schema v" << ld.version
+                          << " but this build supports up to v" << SULLA_SCHEMA_VERSION
+                          << "; newer fields may be ignored." << std::endl;
+        ld.version = SULLA_SCHEMA_VERSION;
+}
 
 static void loadPinLabelsForCustom(AppState& state, int partID, const std::string& label, int numOutputs)
 {
@@ -140,6 +151,7 @@ void saveLayout(const std::map<int, PartType>& partTypes,
         }
 
         std::string json;
+        layoutData.version = SULLA_SCHEMA_VERSION;
         if (glz::write<glz::opts{.prettify = true}>(layoutData, json)) return;
 
         std::ofstream file(filename);
@@ -160,6 +172,7 @@ int loadLayout(AppState& state, const std::string& filename)
 
         LayoutData layoutData{};
         if (glz::read_json(layoutData, json)) return 0;
+        migrateLayout(layoutData, filename);
 
         state.parts.clear();
 
@@ -265,6 +278,7 @@ Part loadLayoutAsPart(const std::string& filename, int& nInputs, int& nOutputs)
 
         LayoutData layoutData{};
         if (glz::read_json(layoutData, json)) return nullptr;
+        migrateLayout(layoutData, filename);
 
         std::map<int, Part> subParts;
         std::map<int, PartType> subTypes;
@@ -417,6 +431,7 @@ std::set<int> importLayout(AppState& state, const std::string& filename, float m
 
         LayoutData layoutData{};
         if (glz::read_json(layoutData, json)) return newIDs;
+        migrateLayout(layoutData, filename);
 
         int nextID = state.parts.empty() ? 100 : state.parts.rbegin()->first + 1;
         std::map<int, int> idMap;
