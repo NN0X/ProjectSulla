@@ -58,7 +58,7 @@ void drawGrid(const AppState& state)
         float startY = floorf(tl.y / GRID_SIZE) * GRID_SIZE;
         float endY = br.y + GRID_SIZE;
         if ((endX - startX) / GRID_SIZE > 600.0f || (endY - startY) / GRID_SIZE > 600.0f) return;
-        Color c = getThemeColor(state, COLOR_GRID_LIGHT, COLOR_GRID_DARK);
+        Color c = state.theme.grid;
         for (float x = startX; x < endX; x += GRID_SIZE)
         {
                 DrawLineV({x, startY}, {x, endY}, c);
@@ -293,9 +293,9 @@ static void drawGateGlyph(PartType type, Rectangle b, Color fill, Color accent)
 
 void drawParts(AppState& state)
 {
-        Color cBg = getThemeColor(state, COLOR_PART_BG_LIGHT, COLOR_PART_BG_DARK);
-        Color cBorder = getThemeColor(state, COLOR_PART_BORDER_LIGHT, COLOR_PART_BORDER_DARK);
-        Color cText = getThemeColor(state, COLOR_TEXT_LIGHT, COLOR_TEXT_DARK);
+        Color cBg = state.theme.partBg;
+        Color cBorder = state.theme.partBorder;
+        Color cText = state.theme.text;
         for (std::map<int, std::pair<float, float>>::iterator it = state.positions.begin(); it != state.positions.end(); ++it)
         {
                 int id = it->first;
@@ -462,9 +462,9 @@ void drawParts(AppState& state)
 
 void drawUI(AppState& state)
 {
-        Color uiBg = getThemeColor(state, COLOR_UI_BG_LIGHT, COLOR_UI_BG_DARK);
-        Color uiBorder = getThemeColor(state, COLOR_UI_BORDER_LIGHT, COLOR_UI_BORDER_DARK);
-        Color textC = getThemeColor(state, COLOR_TEXT_LIGHT, COLOR_TEXT_DARK);
+        Color uiBg = state.theme.uiBg;
+        Color uiBorder = state.theme.uiBorder;
+        Color textC = state.theme.text;
         DrawRectangle(0, 0, GetScreenWidth(), TOOLBAR_HEIGHT, uiBg);
         DrawLine(0, TOOLBAR_HEIGHT, GetScreenWidth(), TOOLBAR_HEIGHT, uiBorder);
         const char* btnLabels[] = { "Save", "Load", "Clear", "Help", state.darkMode ? "Light" : "Dark", state.isSimulating ? "Pause" : "Play", "Step", "Reset", "+", "-", "Compile" };
@@ -917,7 +917,8 @@ static void drawToolbarIcon(int idx, Rectangle b, Color c, Color bg, const AppSt
 
 void drawApp(AppState& state)
 {
-        Color bg = getThemeColor(state, COLOR_BG_LIGHT, COLOR_BG_DARK);
+        state.theme = buildTheme(state.darkMode);
+        Color bg = state.theme.bg;
         ClearBackground(bg);
         BeginMode2D(state.camera);
         drawGrid(state);

@@ -30,4 +30,30 @@
 #define THEME_GATE_BLUE        ((Color){120, 180, 230, 255})
 #define THEME_GATE_GRAY        ((Color){160, 160, 170, 255})
 
+
+#include "theme_colors.h"
+
+struct Theme
+{
+        Color bg, grid, partBg, partBorder, text, uiBg, uiBorder;
+};
+
+inline Theme buildTheme(bool dark)
+{
+        Theme t;
+        if (dark)
+        {
+                t.bg = COLOR_BG_DARK; t.grid = COLOR_GRID_DARK; t.partBg = COLOR_PART_BG_DARK;
+                t.partBorder = COLOR_PART_BORDER_DARK; t.text = COLOR_TEXT_DARK; t.uiBg = COLOR_UI_BG_DARK;
+                t.uiBorder = COLOR_UI_BORDER_DARK;
+        }
+        else
+        {
+                t.bg = COLOR_BG_LIGHT; t.grid = COLOR_GRID_LIGHT; t.partBg = COLOR_PART_BG_LIGHT;
+                t.partBorder = COLOR_PART_BORDER_LIGHT; t.text = COLOR_TEXT_LIGHT; t.uiBg = COLOR_UI_BG_LIGHT;
+                t.uiBorder = COLOR_UI_BORDER_LIGHT;
+        }
+        return t;
+}
+
 #endif

@@ -1,6 +1,7 @@
 #ifndef APPSTATE_H
 #define APPSTATE_H
 
+#include "theme.h"
 #include <map>
 #include <vector>
 #include <set>
@@ -100,6 +101,7 @@ struct AppState
         bool benchmarkPending = false;
         BenchmarkResult benchmark;
         bool darkMode = true;
+        Theme theme;
         bool shouldQuit = false;
         bool linkCustomParts = false;
         bool compileStatic = true;
