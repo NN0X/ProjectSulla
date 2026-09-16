@@ -271,6 +271,61 @@ static size_t circuitHash(const AppState& state)
         return h;
 }
 
+CircuitSnapshot takeSnapshot(const AppState& s)
+{
+        CircuitSnapshot c;
+        c.partTypes = s.partTypes; c.connections = s.connections; c.connColorIdx = s.connColorIdx; c.nextConnColor = s.nextConnColor;
+        c.labels = s.labels; c.positions = s.positions; c.inputCounts = s.inputCounts; c.outputCounts = s.outputCounts;
+        c.sourceValues = s.sourceValues; c.nextID = s.nextID;
+        return c;
+}
+
+void applySnapshot(AppState& s, const CircuitSnapshot& c)
+{
+        s.partTypes = c.partTypes; s.connections = c.connections; s.connColorIdx = c.connColorIdx; s.nextConnColor = c.nextConnColor;
+        s.labels = c.labels; s.positions = c.positions; s.inputCounts = c.inputCounts; s.outputCounts = c.outputCounts;
+        s.sourceValues = c.sourceValues; s.nextID = c.nextID;
+        s.simulation = nullptr;
+        s.selectedConnection = {-1, -1};
+        s.selectedParts.clear();
+        s.wireStartPartID = -1;
+}
+
+void updateHistory(AppState& s)
+{
+        if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) return;
+        size_t h = circuitHash(s);
+        if (!s.histInit) { s.histLast = takeSnapshot(s); s.histHash = h; s.histInit = true; return; }
+        if (h != s.histHash)
+        {
+                s.undoStack.push_back(s.histLast);
+                if (s.undoStack.size() > 200) s.undoStack.erase(s.undoStack.begin());
+                s.redoStack.clear();
+                s.histLast = takeSnapshot(s);
+                s.histHash = h;
+        }
+}
+
+void doUndo(AppState& s)
+{
+        if (s.undoStack.empty()) return;
+        s.redoStack.push_back(takeSnapshot(s));
+        applySnapshot(s, s.undoStack.back());
+        s.undoStack.pop_back();
+        s.histLast = takeSnapshot(s);
+        s.histHash = circuitHash(s);
+}
+
+void doRedo(AppState& s)
+{
+        if (s.redoStack.empty()) return;
+        s.undoStack.push_back(takeSnapshot(s));
+        applySnapshot(s, s.redoStack.back());
+        s.redoStack.pop_back();
+        s.histLast = takeSnapshot(s);
+        s.histHash = circuitHash(s);
+}
+
 bool buildNativeSimulation(AppState& state)
 {
         std::vector<int> srcs, outs;

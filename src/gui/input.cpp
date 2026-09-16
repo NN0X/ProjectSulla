@@ -33,6 +33,10 @@ void handleInput(AppState& state)
         if (IsKeyPressed(KEY_F11)) ToggleFullscreen();
         if (!isDialogActive && IsKeyPressed(KEY_V)) { state.visualizeSignals = !state.visualizeSignals; state.simulation = nullptr; }
         if (!isDialogActive && IsKeyPressed(KEY_T)) tidyLayout(state);
+        bool ctrlHeld = IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL);
+        bool shiftHeld = IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT);
+        if (ctrlHeld && !isDialogActive && IsKeyPressed(KEY_Z)) { if (shiftHeld) doRedo(state); else doUndo(state); }
+        if (ctrlHeld && !isDialogActive && IsKeyPressed(KEY_Y)) doRedo(state);
 
         if (state.showSideMenu && mousePos.x < sideMenuWidth && mousePos.y >= TOOLBAR_HEIGHT && !isDialogActive)
         {
@@ -611,4 +615,6 @@ void handleInput(AppState& state)
                         }
                 }
         }
+
+        updateHistory(state);
 }

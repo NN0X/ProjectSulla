@@ -29,6 +29,20 @@ struct BenchmarkResult
         bool linkOk = false;
 };
 
+struct CircuitSnapshot
+{
+        std::map<int, PartType> partTypes;
+        std::map<PartPin, PartPin> connections;
+        std::map<PartPin, int> connColorIdx;
+        int nextConnColor = 0;
+        std::map<int, std::string> labels;
+        std::map<int, std::pair<float, float>> positions;
+        std::map<int, int> inputCounts;
+        std::map<int, int> outputCounts;
+        std::map<int, std::vector<State>> sourceValues;
+        int nextID = 100;
+};
+
 struct AppState
 {
         std::map<int, Part> parts;
@@ -80,6 +94,11 @@ struct AppState
         PartPin selectedConnection = {-1, -1};
 
         int nextID = 100;
+        std::vector<CircuitSnapshot> undoStack;
+        std::vector<CircuitSnapshot> redoStack;
+        CircuitSnapshot histLast;
+        size_t histHash = 0;
+        bool histInit = false;
         int rootSourceID = 0;
         int rootSinkID = 1;
 
