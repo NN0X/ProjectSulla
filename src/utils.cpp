@@ -37,10 +37,17 @@ typedef struct SerializableConnectionPin
         int pin;
 } SCPin;
 
+typedef struct SerializablePoint
+{
+        float x;
+        float y;
+} SPoint;
+
 typedef struct SerializableConnection
 {
         SCPin from;
         SCPin to;
+        std::vector<SPoint> waypoints;
 } SConn;
 
 struct LayoutData
@@ -116,6 +123,7 @@ void saveLayout(const std::map<int, PartType>& partTypes,
                 const std::map<int, std::pair<float, float>>& positions,
                 const std::map<int, int>& inputCounts,
                 const std::map<int, int>& outputCounts,
+                const std::map<PartPin, std::vector<Vector2>>& connectionWaypoints,
                 const std::string& filename)
 {
         LayoutData layoutData;
@@ -146,7 +154,11 @@ void saveLayout(const std::map<int, PartType>& partTypes,
                 SConn conn;
                 SCPin from = {connIt->second.first, connIt->second.second};
                 SCPin to = {connIt->first.first, connIt->first.second};
-                conn = {from, to};
+                conn.from = from;
+                conn.to = to;
+                std::map<PartPin, std::vector<Vector2>>::const_iterator wpIt = connectionWaypoints.find(connIt->first);
+                if (wpIt != connectionWaypoints.end())
+                        for (Vector2 wp : wpIt->second) conn.waypoints.push_back({wp.x, wp.y});
                 layoutData.connections.push_back(conn);
         }
 
@@ -262,6 +274,11 @@ int loadLayout(AppState& state, const std::string& filename)
                 if (validIDs.count(conn.to.id) && validIDs.count(conn.from.id))
                 {
                         state.connections[{conn.to.id, conn.to.pin}] = {conn.from.id, conn.from.pin};
+                        if (!conn.waypoints.empty())
+                        {
+                                std::vector<Vector2>& wl = state.connectionWaypoints[{conn.to.id, conn.to.pin}];
+                                for (const SPoint& sp : conn.waypoints) wl.push_back({sp.x, sp.y});
+                        }
                 }
         }
 
@@ -527,6 +544,11 @@ std::set<int> importLayout(AppState& state, const std::string& filename, float m
                 if (idMap.count(conn.to.id) && idMap.count(conn.from.id))
                 {
                         state.connections[{idMap[conn.to.id], conn.to.pin}] = {idMap[conn.from.id], conn.from.pin};
+                        if (!conn.waypoints.empty())
+                        {
+                                std::vector<Vector2>& wl = state.connectionWaypoints[{idMap[conn.to.id], conn.to.pin}];
+                                for (const SPoint& sp : conn.waypoints) wl.push_back({sp.x, sp.y});
+                        }
                 }
         }
 
