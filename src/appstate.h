@@ -29,6 +29,30 @@ struct BenchmarkResult
         bool linkOk = false;
 };
 
+struct ClipboardPart
+{
+        int id;
+        PartType type;
+        std::string label;
+        float x;
+        float y;
+        int inputs;
+        int outputs;
+        std::vector<State> sourceValues;
+};
+
+struct ClipboardConn
+{
+        PartPin from;
+        PartPin to;
+};
+
+struct Clipboard
+{
+        std::vector<ClipboardPart> parts;
+        std::vector<ClipboardConn> connections;
+};
+
 struct CircuitSnapshot
 {
         std::map<int, PartType> partTypes;
@@ -88,6 +112,7 @@ struct AppState
         std::map<int, std::vector<State>> netStates;
 
         std::set<int> selectedParts;
+        Clipboard clipboard;
 
         int dragPartID = -1; 
         Vector2 dragStartMousePos = {0, 0};

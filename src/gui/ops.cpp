@@ -207,3 +207,68 @@ void deleteParts(AppState& state)
         state.selectedParts.clear();
         state.simulation = nullptr;
 }
+
+void copySelection(AppState& state)
+{
+        state.clipboard.parts.clear();
+        state.clipboard.connections.clear();
+        for (int id : state.selectedParts)
+        {
+                ClipboardPart cp;
+                cp.id = id;
+                cp.type = state.partTypes[id];
+                cp.label = state.labels[id];
+                cp.x = state.positions[id].first;
+                cp.y = state.positions[id].second;
+                cp.inputs = state.inputCounts[id];
+                cp.outputs = state.outputCounts[id];
+                std::map<int, std::vector<State>>::iterator sv = state.sourceValues.find(id);
+                if (sv != state.sourceValues.end()) cp.sourceValues = sv->second;
+                state.clipboard.parts.push_back(cp);
+        }
+        for (std::map<PartPin, PartPin>::iterator c = state.connections.begin(); c != state.connections.end(); ++c)
+        {
+                if (state.selectedParts.count(c->first.first) && state.selectedParts.count(c->second.first))
+                        state.clipboard.connections.push_back({c->second, c->first});
+        }
+}
+
+void pasteClipboard(AppState& state, Vector2 offset)
+{
+        std::map<int, int> idMap;
+        state.selectedParts.clear();
+        for (ClipboardPart cp : state.clipboard.parts)
+        {
+                int id = state.parts.empty() ? 100 : state.parts.rbegin()->first + 1;
+                if (cp.type == PART_TYPE_SOURCE) setSourcePart(state.parts, id);
+                else if (cp.type == PART_TYPE_OUTPUT) setOutputPart(state.parts, id);
+                else setPart(state.parts, id, getPartFromType(cp.type));
+                state.partTypes[id] = cp.type;
+                state.positions[id] = {cp.x + offset.x, cp.y + offset.y};
+                state.labels[id] = cp.label;
+                state.inputCounts[id] = cp.inputs;
+                state.outputCounts[id] = cp.outputs;
+                if (!cp.sourceValues.empty()) state.sourceValues[id] = cp.sourceValues;
+                idMap[cp.id] = id;
+                state.selectedParts.insert(id);
+        }
+        for (ClipboardConn cc : state.clipboard.connections)
+        {
+                if (idMap.count(cc.from.first) && idMap.count(cc.to.first))
+                        state.connections[{idMap[cc.to.first], cc.to.second}] = {idMap[cc.from.first], cc.from.second};
+        }
+        state.simulation = nullptr;
+}
+
+void duplicateSelection(AppState& state)
+{
+        copySelection(state);
+        pasteClipboard(state, {GRID_SIZE * 2.0f, GRID_SIZE * 2.0f});
+}
+
+void selectAllParts(AppState& state)
+{
+        state.selectedParts.clear();
+        for (std::map<int, PartType>::iterator it = state.partTypes.begin(); it != state.partTypes.end(); ++it)
+                state.selectedParts.insert(it->first);
+}

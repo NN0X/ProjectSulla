@@ -20,6 +20,11 @@ void recompileSimulation(AppState& state);
 void updateHistory(AppState& state);
 void doUndo(AppState& state);
 void doRedo(AppState& state);
+void copySelection(AppState& state);
+void pasteClipboard(AppState& state, Vector2 offset);
+void duplicateSelection(AppState& state);
+void selectAllParts(AppState& state);
+
 void tidyLayout(AppState& state);
 void cleanupInputPinConnections(AppState& state, int partID, int removedIdx);
 void cleanupOutputPinConnections(AppState& state, int partID, int removedIdx);

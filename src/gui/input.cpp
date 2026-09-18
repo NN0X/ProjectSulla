@@ -66,12 +66,16 @@ void handleInput(AppState& state)
         bool mouseOverUI = (mousePos.x < sideMenuWidth) || (mousePos.y < TOOLBAR_HEIGHT) || isDialogActive;
 
         if (IsKeyPressed(KEY_F11)) ToggleFullscreen();
-        if (!isDialogActive && IsKeyPressed(KEY_V)) { state.visualizeSignals = !state.visualizeSignals; state.simulation = nullptr; }
-        if (!isDialogActive && IsKeyPressed(KEY_T)) state.showTidyConfirm = true;
         bool ctrlHeld = IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL);
         bool shiftHeld = IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT);
+        if (!isDialogActive && !ctrlHeld && IsKeyPressed(KEY_V)) { state.visualizeSignals = !state.visualizeSignals; state.simulation = nullptr; }
+        if (!isDialogActive && IsKeyPressed(KEY_T)) state.showTidyConfirm = true;
         if (ctrlHeld && !isDialogActive && IsKeyPressed(KEY_Z)) { if (shiftHeld) doRedo(state); else doUndo(state); }
         if (ctrlHeld && !isDialogActive && IsKeyPressed(KEY_Y)) doRedo(state);
+        if (ctrlHeld && !isDialogActive && IsKeyPressed(KEY_C)) copySelection(state);
+        if (ctrlHeld && !isDialogActive && IsKeyPressed(KEY_V)) pasteClipboard(state, {GRID_SIZE * 2.0f, GRID_SIZE * 2.0f});
+        if (ctrlHeld && !isDialogActive && IsKeyPressed(KEY_D)) duplicateSelection(state);
+        if (ctrlHeld && !isDialogActive && IsKeyPressed(KEY_A)) selectAllParts(state);
 
         if (state.showSideMenu && mousePos.x < sideMenuWidth && mousePos.y >= TOOLBAR_HEIGHT && !isDialogActive)
         {
