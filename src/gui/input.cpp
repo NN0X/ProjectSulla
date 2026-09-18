@@ -80,6 +80,81 @@ void handleInput(AppState& state)
                 }
         }
 
+        if (!mouseOverUI && state.wireStartPartID == -1)
+        {
+                const float WAYPOINT_GRAB = 8.0f / (state.camera.zoom > 0.01f ? state.camera.zoom : 1.0f);
+                const double DOUBLE_CLICK_SEC = 0.35;
+                if (state.dragWpIdx >= 0)
+                {
+                        std::map<PartPin, std::vector<Vector2>>::iterator w = state.connectionWaypoints.find(state.dragWpConn);
+                        if (IsMouseButtonDown(MOUSE_BUTTON_LEFT) && w != state.connectionWaypoints.end() && state.dragWpIdx < (int)w->second.size())
+                                w->second[state.dragWpIdx] = { roundf(worldMouse.x / GRID_SIZE) * GRID_SIZE, roundf(worldMouse.y / GRID_SIZE) * GRID_SIZE };
+                        else
+                                state.dragWpIdx = -1;
+                }
+                else if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) || IsMouseButtonPressed(MOUSE_BUTTON_RIGHT))
+                {
+                        bool onHandle = false;
+                        for (std::map<PartPin, std::vector<Vector2>>::iterator w = state.connectionWaypoints.begin(); w != state.connectionWaypoints.end() && !onHandle; ++w)
+                        {
+                                for (size_t k = 0; k < w->second.size(); ++k)
+                                {
+                                        if (Vector2Distance(worldMouse, w->second[k]) < WAYPOINT_GRAB)
+                                        {
+                                                if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT))
+                                                {
+                                                        w->second.erase(w->second.begin() + (long)k);
+                                                        if (w->second.empty()) state.connectionWaypoints.erase(w);
+                                                }
+                                                else
+                                                {
+                                                        state.dragWpConn = w->first;
+                                                        state.dragWpIdx = (int)k;
+                                                }
+                                                onHandle = true;
+                                                break;
+                                        }
+                                }
+                        }
+                        if (!onHandle && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+                        {
+                                PartPin nearConn = {-1, -1};
+                                int nearSeg = -1;
+                                float best = WAYPOINT_GRAB;
+                                for (std::map<PartPin, std::vector<Vector2>>::iterator p = state.wirePaths.begin(); p != state.wirePaths.end(); ++p)
+                                {
+                                        for (size_t k = 0; k + 1 < p->second.size(); ++k)
+                                        {
+                                                Vector2 a = p->second[k], b = p->second[k + 1];
+                                                Vector2 ab = { b.x - a.x, b.y - a.y };
+                                                float len2 = ab.x * ab.x + ab.y * ab.y;
+                                                float t = (len2 > 0.0001f) ? ((worldMouse.x - a.x) * ab.x + (worldMouse.y - a.y) * ab.y) / len2 : 0.0f;
+                                                if (t < 0.0f) t = 0.0f;
+                                                if (t > 1.0f) t = 1.0f;
+                                                float dx = worldMouse.x - (a.x + t * ab.x), dy = worldMouse.y - (a.y + t * ab.y);
+                                                float d = sqrtf(dx * dx + dy * dy);
+                                                if (d < best) { best = d; nearConn = p->first; nearSeg = (int)k; }
+                                        }
+                                }
+                                double now = GetTime();
+                                bool doubleClick = (now - state.lastWireClickTime < DOUBLE_CLICK_SEC) && (Vector2Distance(mousePos, state.lastWireClickPos) < 6.0f);
+                                if (nearConn.first != -1 && doubleClick)
+                                {
+                                        std::vector<Vector2>& wl = state.connectionWaypoints[nearConn];
+                                        int idx = nearSeg - 1;
+                                        if (idx < 0) idx = 0;
+                                        if (idx > (int)wl.size()) idx = (int)wl.size();
+                                        Vector2 snapped = { roundf(worldMouse.x / GRID_SIZE) * GRID_SIZE, roundf(worldMouse.y / GRID_SIZE) * GRID_SIZE };
+                                        wl.insert(wl.begin() + (long)idx, snapped);
+                                        state.dragWpConn = nearConn;
+                                        state.dragWpIdx = idx;
+                                }
+                                state.lastWireClickTime = now;
+                                state.lastWireClickPos = mousePos;
+                        }
+                }
+        }
+
         if (handleDialogs(state)) return;
 
         if (!isDialogActive)

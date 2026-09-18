@@ -171,6 +171,11 @@ void drawWires(AppState& state)
                         path.push_back(e);
                         for (size_t k = 0; k + 1 < path.size(); ++k) DrawLineEx(path[k], path[k + 1], th, c);
                         state.wirePaths[it->first] = path;
+                        for (Vector2 wp : wpit->second)
+                        {
+                                DrawCircleV(wp, 4.0f, c);
+                                DrawCircleLines((int)wp.x, (int)wp.y, 4.0f, THEME_BTN_ICON);
+                        }
                 }
                 else if (ws[i].fwd)
                 {
