@@ -160,7 +160,19 @@ void drawWires(AppState& state)
                 }
                 float th = hovered ? WIRE_THICKNESS + 1.5f : WIRE_THICKNESS;
 
-                if (ws[i].fwd)
+                std::map<PartPin, std::vector<Vector2>>::iterator wpit = state.connectionWaypoints.find(it->first);
+                if (wpit != state.connectionWaypoints.end() && !wpit->second.empty())
+                {
+                        std::vector<Vector2> path;
+                        path.push_back(s);
+                        path.push_back({s.x + KINK, s.y});
+                        for (Vector2 wp : wpit->second) path.push_back(wp);
+                        path.push_back({e.x - KINK, e.y});
+                        path.push_back(e);
+                        for (size_t k = 0; k + 1 < path.size(); ++k) DrawLineEx(path[k], path[k + 1], th, c);
+                        state.wirePaths[it->first] = path;
+                }
+                else if (ws[i].fwd)
                 {
                         float vx1 = ws[i].vx1, vx2 = ws[i].vx2, ly = ws[i].laneY;
                         DrawLineEx(s, {vx1, s.y}, th, c);

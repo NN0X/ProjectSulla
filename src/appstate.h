@@ -33,6 +33,7 @@ struct CircuitSnapshot
 {
         std::map<int, PartType> partTypes;
         std::map<PartPin, PartPin> connections;
+        std::map<PartPin, std::vector<Vector2>> connectionWaypoints;
         std::map<PartPin, int> connColorIdx;
         int nextConnColor = 0;
         std::map<int, std::string> labels;
@@ -48,6 +49,7 @@ struct AppState
         std::map<int, Part> parts;
         std::map<int, PartType> partTypes;
         std::map<PartPin, PartPin> connections;
+        std::map<PartPin, std::vector<Vector2>> connectionWaypoints;
         std::map<PartPin, int> connColorIdx;
         int nextConnColor = 0;
         PartPin hoveredNet = {-1, -1};

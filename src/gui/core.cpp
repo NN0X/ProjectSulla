@@ -268,12 +268,18 @@ static size_t circuitHash(const AppState& state)
                 mix((size_t)it->first.first); mix((size_t)it->first.second);
                 mix((size_t)it->second.first); mix((size_t)it->second.second);
         }
+        for (std::map<PartPin, std::vector<Vector2>>::const_iterator it = state.connectionWaypoints.begin(); it != state.connectionWaypoints.end(); ++it)
+        {
+                mix((size_t)it->first.first); mix((size_t)it->first.second);
+                for (Vector2 wp : it->second) { mix((size_t)(long)wp.x); mix((size_t)(long)wp.y); }
+        }
         return h;
 }
 
 CircuitSnapshot takeSnapshot(const AppState& s)
 {
         CircuitSnapshot c;
+        c.connectionWaypoints = s.connectionWaypoints;
         c.partTypes = s.partTypes; c.connections = s.connections; c.connColorIdx = s.connColorIdx; c.nextConnColor = s.nextConnColor;
         c.labels = s.labels; c.positions = s.positions; c.inputCounts = s.inputCounts; c.outputCounts = s.outputCounts;
         c.sourceValues = s.sourceValues; c.nextID = s.nextID;
@@ -282,6 +288,7 @@ CircuitSnapshot takeSnapshot(const AppState& s)
 
 void applySnapshot(AppState& s, const CircuitSnapshot& c)
 {
+        s.connectionWaypoints = c.connectionWaypoints;
         s.partTypes = c.partTypes; s.connections = c.connections; s.connColorIdx = c.connColorIdx; s.nextConnColor = c.nextConnColor;
         s.labels = c.labels; s.positions = c.positions; s.inputCounts = c.inputCounts; s.outputCounts = c.outputCounts;
         s.sourceValues = c.sourceValues; s.nextID = c.nextID;
