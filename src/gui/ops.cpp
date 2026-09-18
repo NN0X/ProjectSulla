@@ -272,3 +272,28 @@ void selectAllParts(AppState& state)
         for (std::map<int, PartType>::iterator it = state.partTypes.begin(); it != state.partTypes.end(); ++it)
                 state.selectedParts.insert(it->first);
 }
+
+void fitView(AppState& state)
+{
+        if (state.positions.empty()) return;
+        float minX = 1e30f, minY = 1e30f, maxX = -1e30f, maxY = -1e30f;
+        for (std::map<int, std::pair<float, float>>::iterator it = state.positions.begin(); it != state.positions.end(); ++it)
+        {
+                Rectangle r = getBodyRect(state, it->first);
+                if (r.x < minX) minX = r.x;
+                if (r.y < minY) minY = r.y;
+                if (r.x + r.width > maxX) maxX = r.x + r.width;
+                if (r.y + r.height > maxY) maxY = r.y + r.height;
+        }
+        const float MARGIN = 80.0f;
+        const float MAX_FIT_ZOOM = 2.0f;
+        float boxW = maxX - minX + MARGIN * 2.0f;
+        float boxH = maxY - minY + MARGIN * 2.0f;
+        float zoomX = (float)GetScreenWidth() / boxW;
+        float zoomY = (float)GetScreenHeight() / boxH;
+        float zoom = zoomX < zoomY ? zoomX : zoomY;
+        if (zoom > MAX_FIT_ZOOM) zoom = MAX_FIT_ZOOM;
+        state.camera.zoom = zoom;
+        state.camera.target = {(minX + maxX) / 2.0f, (minY + maxY) / 2.0f};
+        state.camera.offset = {(float)GetScreenWidth() / 2.0f, (float)GetScreenHeight() / 2.0f};
+}

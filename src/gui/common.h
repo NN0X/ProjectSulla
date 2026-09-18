@@ -24,6 +24,7 @@ void copySelection(AppState& state);
 void pasteClipboard(AppState& state, Vector2 offset);
 void duplicateSelection(AppState& state);
 void selectAllParts(AppState& state);
+void fitView(AppState& state);
 
 void tidyLayout(AppState& state);
 void cleanupInputPinConnections(AppState& state, int partID, int removedIdx);

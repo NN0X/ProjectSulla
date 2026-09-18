@@ -70,6 +70,7 @@ void handleInput(AppState& state)
         bool shiftHeld = IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT);
         if (!isDialogActive && !ctrlHeld && IsKeyPressed(KEY_V)) { state.visualizeSignals = !state.visualizeSignals; state.simulation = nullptr; }
         if (!isDialogActive && IsKeyPressed(KEY_T)) state.showTidyConfirm = true;
+        if (!isDialogActive && !ctrlHeld && IsKeyPressed(KEY_F)) fitView(state);
         if (ctrlHeld && !isDialogActive && IsKeyPressed(KEY_Z)) { if (shiftHeld) doRedo(state); else doUndo(state); }
         if (ctrlHeld && !isDialogActive && IsKeyPressed(KEY_Y)) doRedo(state);
         if (ctrlHeld && !isDialogActive && IsKeyPressed(KEY_C)) copySelection(state);
