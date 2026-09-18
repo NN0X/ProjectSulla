@@ -500,7 +500,7 @@ void updateSimulation(AppState& state)
                 state.captureNets = false;
                 if (capped) state.simTimer = 0.0f;
         }
-        else if (!state.isSimulating && state.simulation && IsKeyPressed(KEY_RIGHT))
+        else if (!state.isSimulating && state.simulation && state.selectedParts.empty() && IsKeyPressed(KEY_RIGHT))
         {
                 state.captureNets = state.visualizeSignals;
                 state.lastOutputStates = state.simulation(state.runtimeInput);

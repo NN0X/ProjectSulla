@@ -297,3 +297,53 @@ void fitView(AppState& state)
         state.camera.target = {(minX + maxX) / 2.0f, (minY + maxY) / 2.0f};
         state.camera.offset = {(float)GetScreenWidth() / 2.0f, (float)GetScreenHeight() / 2.0f};
 }
+
+void nudgeSelection(AppState& state, float dx, float dy)
+{
+        for (int id : state.selectedParts)
+        {
+                state.positions[id].first += dx;
+                state.positions[id].second += dy;
+        }
+}
+
+void alignSelection(AppState& state, int edge)
+{
+        if (state.selectedParts.empty()) return;
+        bool wantMax = (edge == 1 || edge == 3);
+        float target = wantMax ? -1e30f : 1e30f;
+        for (int id : state.selectedParts)
+        {
+                Rectangle r = getBodyRect(state, id);
+                float v = (edge == 0) ? r.x : (edge == 1) ? r.x + r.width : (edge == 2) ? r.y : r.y + r.height;
+                if (wantMax) { if (v > target) target = v; }
+                else { if (v < target) target = v; }
+        }
+        for (int id : state.selectedParts)
+        {
+                Vector2 sz = getPartSize(state, id);
+                if (edge == 0) state.positions[id].first = target + sz.x / 2.0f;
+                else if (edge == 1) state.positions[id].first = target - sz.x / 2.0f;
+                else if (edge == 2) state.positions[id].second = target + sz.y / 2.0f;
+                else state.positions[id].second = target - sz.y / 2.0f;
+        }
+}
+
+void distributeSelection(AppState& state, bool horizontal)
+{
+        if (state.selectedParts.size() < 3) return;
+        std::vector<int> ids(state.selectedParts.begin(), state.selectedParts.end());
+        std::sort(ids.begin(), ids.end(), [&](int a, int b) {
+                return horizontal ? state.positions[a].first < state.positions[b].first
+                                  : state.positions[a].second < state.positions[b].second;
+        });
+        float first = horizontal ? state.positions[ids.front()].first : state.positions[ids.front()].second;
+        float last = horizontal ? state.positions[ids.back()].first : state.positions[ids.back()].second;
+        float step = (last - first) / (float)(ids.size() - 1);
+        for (size_t i = 0; i < ids.size(); ++i)
+        {
+                float v = first + (float)i * step;
+                if (horizontal) state.positions[ids[i]].first = v;
+                else state.positions[ids[i]].second = v;
+        }
+}

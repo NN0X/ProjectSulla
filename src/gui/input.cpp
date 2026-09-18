@@ -77,6 +77,28 @@ void handleInput(AppState& state)
         if (ctrlHeld && !isDialogActive && IsKeyPressed(KEY_V)) pasteClipboard(state, {GRID_SIZE * 2.0f, GRID_SIZE * 2.0f});
         if (ctrlHeld && !isDialogActive && IsKeyPressed(KEY_D)) duplicateSelection(state);
         if (ctrlHeld && !isDialogActive && IsKeyPressed(KEY_A)) selectAllParts(state);
+        if (!isDialogActive && !state.selectedParts.empty())
+        {
+                if (shiftHeld)
+                {
+                        if (IsKeyPressed(KEY_LEFT)) alignSelection(state, 0);
+                        if (IsKeyPressed(KEY_RIGHT)) alignSelection(state, 1);
+                        if (IsKeyPressed(KEY_UP)) alignSelection(state, 2);
+                        if (IsKeyPressed(KEY_DOWN)) alignSelection(state, 3);
+                }
+                else if (ctrlHeld)
+                {
+                        if (IsKeyPressed(KEY_H)) distributeSelection(state, true);
+                        if (IsKeyPressed(KEY_J)) distributeSelection(state, false);
+                }
+                else
+                {
+                        if (IsKeyPressed(KEY_LEFT)) nudgeSelection(state, -GRID_SIZE, 0.0f);
+                        if (IsKeyPressed(KEY_RIGHT)) nudgeSelection(state, GRID_SIZE, 0.0f);
+                        if (IsKeyPressed(KEY_UP)) nudgeSelection(state, 0.0f, -GRID_SIZE);
+                        if (IsKeyPressed(KEY_DOWN)) nudgeSelection(state, 0.0f, GRID_SIZE);
+                }
+        }
 
         if (state.showSideMenu && mousePos.x < sideMenuWidth && mousePos.y >= TOOLBAR_HEIGHT && !isDialogActive)
         {
