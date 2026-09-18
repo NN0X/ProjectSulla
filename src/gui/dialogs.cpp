@@ -159,6 +159,26 @@ bool handleDialogs(AppState& state)
                 return true;
         }
 
+        if (state.showTidyConfirm)
+        {
+                bool confirm = false;
+                if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+                {
+                        float btnY = GetScreenHeight()/2 - DIALOG_HEIGHT/2 + SAVE_DIALOG_BTN_Y_OFFSET;
+                        float startX = GetScreenWidth()/2 - SAVE_DIALOG_BTN_WIDTH - SAVE_DIALOG_BTN_SPACING/2;
+                        Rectangle cancelBtn = {startX, btnY, SAVE_DIALOG_BTN_WIDTH, SAVE_DIALOG_BTN_HEIGHT};
+                        Rectangle confirmBtn = {startX + SAVE_DIALOG_BTN_WIDTH + SAVE_DIALOG_BTN_SPACING, btnY, SAVE_DIALOG_BTN_WIDTH, SAVE_DIALOG_BTN_HEIGHT};
+                        if (CheckCollisionPointRec(mousePos, cancelBtn)) state.showTidyConfirm = false;
+                        if (CheckCollisionPointRec(mousePos, confirmBtn)) confirm = true;
+                }
+                if (IsKeyPressed(KEY_ENTER) || confirm)
+                {
+                        tidyLayout(state);
+                        state.showTidyConfirm = false;
+                }
+                if (IsKeyPressed(KEY_ESCAPE)) state.showTidyConfirm = false;
+                return true;
+        }
         if (state.showDeleteConfirm)
         {
                 bool confirm = false;

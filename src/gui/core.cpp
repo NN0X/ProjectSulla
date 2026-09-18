@@ -237,13 +237,27 @@ void tidyLayout(AppState& state)
                 int c = (t == PART_TYPE_SOURCE) ? 0 : (t == PART_TYPE_OUTPUT) ? (gmax + 2) : std::max(1, depth[ids[i]]);
                 cols[c].push_back(ids[i]);
         }
-        const float COLDX = 190.0f, ROWDY = 96.0f;
+        const float COL_GAP = 60.0f;
+        const float ROW_GAP = 24.0f;
+        float colX = 0.0f;
         for (std::map<int, std::vector<int>>::iterator it = cols.begin(); it != cols.end(); ++it)
         {
                 std::vector<int>& g = it->second;
                 std::sort(g.begin(), g.end(), [&](int a, int b) { return state.positions[a].second < state.positions[b].second; });
-                for (size_t r = 0; r < g.size(); ++r)
-                        state.positions[g[r]] = std::make_pair((float)it->first * COLDX, (float)r * ROWDY);
+                float maxW = 0.0f;
+                for (int id : g)
+                {
+                        float w = getPartSize(state, id).x;
+                        if (w > maxW) maxW = w;
+                }
+                float y = 0.0f;
+                for (int id : g)
+                {
+                        float h = getPartSize(state, id).y;
+                        state.positions[id] = std::make_pair(colX + maxW / 2.0f, y + h / 2.0f);
+                        y += h + ROW_GAP;
+                }
+                colX += maxW + COL_GAP;
         }
 }
 

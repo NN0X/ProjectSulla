@@ -725,6 +725,27 @@ void drawUI(AppState& state)
                 int overW = MeasureText("Overwrite", 10);
                 DrawText("Overwrite", confirmBtn.x + confirmBtn.width/2 - overW/2, confirmBtn.y + confirmBtn.height/2 - 5, 10, BLACK);
         }
+        if (state.showTidyConfirm)
+        {
+                DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), Fade(BLACK, 0.5f));
+                DrawRectangle(GetScreenWidth()/2 - DIALOG_WIDTH/2, GetScreenHeight()/2 - DIALOG_HEIGHT/2, DIALOG_WIDTH, DIALOG_HEIGHT, uiBg);
+                DrawRectangleLines(GetScreenWidth()/2 - DIALOG_WIDTH/2, GetScreenHeight()/2 - DIALOG_HEIGHT/2, DIALOG_WIDTH, DIALOG_HEIGHT, uiBorder);
+                const char* tText = "Tidy layout? This repositions all parts.";
+                int tW = MeasureText(tText, 20);
+                DrawText(tText, GetScreenWidth()/2 - tW/2, GetScreenHeight()/2 - 30, 20, textC);
+                float btnY = GetScreenHeight()/2 - DIALOG_HEIGHT/2 + SAVE_DIALOG_BTN_Y_OFFSET;
+                float startX = GetScreenWidth()/2 - SAVE_DIALOG_BTN_WIDTH - SAVE_DIALOG_BTN_SPACING/2;
+                Rectangle cancelBtn = {startX, btnY, SAVE_DIALOG_BTN_WIDTH, SAVE_DIALOG_BTN_HEIGHT};
+                Rectangle confirmBtn = {startX + SAVE_DIALOG_BTN_WIDTH + SAVE_DIALOG_BTN_SPACING, btnY, SAVE_DIALOG_BTN_WIDTH, SAVE_DIALOG_BTN_HEIGHT};
+                DrawRectangleRounded(cancelBtn, 0.2f, 8, LIGHTGRAY);
+                DrawRectangleRoundedLines(cancelBtn, 0.2f, 8, DARKGRAY);
+                int cW = MeasureText("Cancel", 10);
+                DrawText("Cancel", cancelBtn.x + cancelBtn.width/2 - cW/2, cancelBtn.y + cancelBtn.height/2 - 5, 10, BLACK);
+                DrawRectangleRounded(confirmBtn, 0.2f, 8, LIGHTGRAY);
+                DrawRectangleRoundedLines(confirmBtn, 0.2f, 8, DARKGRAY);
+                int tyW = MeasureText("Tidy", 10);
+                DrawText("Tidy", confirmBtn.x + confirmBtn.width/2 - tyW/2, confirmBtn.y + confirmBtn.height/2 - 5, 10, BLACK);
+        }
         if (state.showDeleteConfirm)
         {
                 DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), Fade(BLACK, 0.5f));

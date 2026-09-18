@@ -113,6 +113,7 @@ struct AppState
         bool showLoadDialog = false;
         bool showCompileDialog = false;
         bool showDeleteConfirm = false;
+        bool showTidyConfirm = false;
         bool showOverwriteConfirm = false;
         bool showQuitConfirm = false;
         bool showRenameDialog = false;

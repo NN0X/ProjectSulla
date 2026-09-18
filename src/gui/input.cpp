@@ -62,12 +62,12 @@ void handleInput(AppState& state)
         Vector2 mousePos = GetMousePosition();
         Vector2 worldMouse = GetScreenToWorld2D(mousePos, state.camera);
 
-        bool isDialogActive = state.showSaveDialog || state.showLoadDialog || state.showRenameDialog || state.showCompileDialog || state.showDeleteConfirm || state.showOverwriteConfirm || state.showQuitConfirm;
+        bool isDialogActive = state.showSaveDialog || state.showLoadDialog || state.showRenameDialog || state.showCompileDialog || state.showDeleteConfirm || state.showOverwriteConfirm || state.showQuitConfirm || state.showTidyConfirm;
         bool mouseOverUI = (mousePos.x < sideMenuWidth) || (mousePos.y < TOOLBAR_HEIGHT) || isDialogActive;
 
         if (IsKeyPressed(KEY_F11)) ToggleFullscreen();
         if (!isDialogActive && IsKeyPressed(KEY_V)) { state.visualizeSignals = !state.visualizeSignals; state.simulation = nullptr; }
-        if (!isDialogActive && IsKeyPressed(KEY_T)) tidyLayout(state);
+        if (!isDialogActive && IsKeyPressed(KEY_T)) state.showTidyConfirm = true;
         bool ctrlHeld = IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL);
         bool shiftHeld = IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT);
         if (ctrlHeld && !isDialogActive && IsKeyPressed(KEY_Z)) { if (shiftHeld) doRedo(state); else doUndo(state); }
