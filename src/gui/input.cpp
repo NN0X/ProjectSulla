@@ -39,6 +39,23 @@ static float distToPolyline(Vector2 p, const std::vector<Vector2>& path)
         return best;
 }
 
+static void makeConnection(AppState& state, int fromPart, int fromPin, int toPart, int toPin, bool bus)
+{
+        if (bus)
+        {
+                int count = state.outputCounts[fromPart] - fromPin;
+                int inRoom = state.inputCounts[toPart] - toPin;
+                if (inRoom < count) count = inRoom;
+                for (int j = 0; j < count; ++j)
+                        state.connections[{toPart, toPin + j}] = {fromPart, fromPin + j};
+        }
+        else
+        {
+                state.connections[{toPart, toPin}] = {fromPart, fromPin};
+        }
+        state.simulation = nullptr;
+}
+
 void handleInput(AppState& state)
 {
         float sideMenuWidth = state.showSideMenu ? state.sidebarWidth : 0;
@@ -480,8 +497,7 @@ void handleInput(AppState& state)
                                         {
                                                 if (state.wireStartPartID != -1)
                                                 {
-                                                        state.connections[{id, i}] = {state.wireStartPartID, state.wireStartPin};
-                                                        state.simulation = nullptr;
+                                                        makeConnection(state, state.wireStartPartID, state.wireStartPin, id, i, ctrlHeld);
                                                         state.wireStartPartID = -1;
                                                 }
                                                 else
@@ -604,8 +620,7 @@ void handleInput(AppState& state)
                                 {
                                         if (CheckCollisionPointRec(worldMouse, getPinRect(state, id, true, i)))
                                         {
-                                                state.connections[{id, i}] = {state.wireStartPartID, state.wireStartPin};
-                                                state.simulation = nullptr;
+                                                makeConnection(state, state.wireStartPartID, state.wireStartPin, id, i, ctrlHeld);
                                                 done = true;
                                                 break;
                                         }
