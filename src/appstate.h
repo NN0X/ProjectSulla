@@ -146,6 +146,8 @@ struct AppState
         float sidebarWidth = 200.0f;
         bool sidebarResizing = false;
         bool sidebarCollapsed[3] = {false, false, false};
+        std::string sidebarSearch;
+        bool sidebarSearchFocused = false;
         float sidebarScroll = 0.0f;
         float sidebarMaxScroll = 0.0f;
         bool showHelp = false;

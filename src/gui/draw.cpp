@@ -1,3 +1,4 @@
+#include <cctype>
 #include "gui.h"
 #include "../theme.h"
 #include "common.h"
@@ -32,6 +33,8 @@ static const Color WIRE_PALETTE[] = {
         {180, 80, 80, 255},
 };
 static const int WIRE_PALETTE_SIZE = sizeof(WIRE_PALETTE) / sizeof(WIRE_PALETTE[0]);
+
+static bool containsIgnoreCase(const std::string& hay, const std::string& needle);
 
 void drawTextFit(const char* text, float x, float y, float width, int fontSize, Color color)
 {
@@ -509,10 +512,18 @@ void drawUI(AppState& state)
         if (state.showSideMenu)
         {
                 int screenH = GetScreenHeight();
+                const float SEARCH_BAR_H = 30.0f;
+                float contentTop = SIDEMENU_Y_START + SEARCH_BAR_H;
                 DrawRectangle(0, TOOLBAR_HEIGHT, state.sidebarWidth, screenH - TOOLBAR_HEIGHT, uiBg);
                 DrawLine(state.sidebarWidth, TOOLBAR_HEIGHT, state.sidebarWidth, screenH, uiBorder);
-                BeginScissorMode(0, (int)TOOLBAR_HEIGHT, (int)state.sidebarWidth, screenH - (int)TOOLBAR_HEIGHT);
-                float yStart = SIDEMENU_Y_START - state.sidebarScroll;
+                Rectangle searchBox = {SIDEMENU_PADDING_X, TOOLBAR_HEIGHT + 5.0f, state.sidebarWidth - SIDEMENU_PADDING_X * 2.0f, 24.0f};
+                DrawRectangleRounded(searchBox, 0.3f, 6, state.sidebarSearchFocused ? THEME_BTN_HOVER : THEME_BTN_FILL);
+                DrawRectangleRoundedLinesEx(searchBox, 0.3f, 6, 1.5f, state.sidebarSearchFocused ? THEME_ACCENT_BLUE : uiBorder);
+                bool searchEmpty = state.sidebarSearch.empty() && !state.sidebarSearchFocused;
+                std::string shown = searchEmpty ? std::string("search...") : state.sidebarSearch + (state.sidebarSearchFocused ? "_" : "");
+                DrawText(shown.c_str(), (int)(searchBox.x + 6), (int)(searchBox.y + 6), 12, searchEmpty ? THEME_TEXT_DIM2 : textC);
+                BeginScissorMode(0, (int)contentTop, (int)state.sidebarWidth, screenH - (int)contentTop);
+                float yStart = contentTop - state.sidebarScroll;
                 float y = yStart;
                 Vector2 mp = GetMousePosition();
                 auto sbHeader = [&](const char* title, int section) -> bool {
@@ -548,6 +559,7 @@ void drawUI(AppState& state)
                 for (size_t i = 0; i < files.size(); ++i)
                 {
                         std::string file = files[i];
+                        if (!containsIgnoreCase(std::filesystem::path(file).stem().string(), state.sidebarSearch)) continue;
                         Rectangle btn = {SIDEMENU_BUTTON_MARGIN, y, state.sidebarWidth - SIDEMENU_BUTTON_MARGIN*2 - 25, SIDEMENU_BUTTON_HEIGHT};
                         Rectangle delBtn = {btn.x + btn.width + 5, y + 5, SIDEMENU_DELETE_BTN_SIZE, SIDEMENU_DELETE_BTN_SIZE};
                         bool hovered = CheckCollisionPointRec(GetMousePosition(), btn);
@@ -573,6 +585,7 @@ void drawUI(AppState& state)
                 for (size_t i = 0; i < state.compiledModules.size(); ++i)
                 {
                         std::string mod = state.compiledModules[i];
+                        if (!containsIgnoreCase(mod, state.sidebarSearch)) continue;
                         Rectangle btn = {SIDEMENU_BUTTON_MARGIN, y, state.sidebarWidth - SIDEMENU_BUTTON_MARGIN*2 - 25, SIDEMENU_BUTTON_HEIGHT};
                         Rectangle delBtn = {btn.x + btn.width + 5, y + 5, SIDEMENU_DELETE_BTN_SIZE, SIDEMENU_DELETE_BTN_SIZE};
                         bool hovered = CheckCollisionPointRec(GetMousePosition(), btn);
@@ -595,7 +608,7 @@ void drawUI(AppState& state)
                 EndScissorMode();
 
                 float contentH = y - yStart;
-                float visibleH = (float)screenH - SIDEMENU_Y_START;
+                float visibleH = (float)screenH - contentTop;
                 state.sidebarMaxScroll = (contentH > visibleH) ? (contentH - visibleH + 12.0f) : 0.0f;
                 if (state.sidebarScroll > state.sidebarMaxScroll) state.sidebarScroll = state.sidebarMaxScroll;
                 if (state.sidebarMaxScroll > 0.0f)
@@ -603,7 +616,7 @@ void drawUI(AppState& state)
                         float trackH = visibleH;
                         float thumbH = trackH * (visibleH / contentH);
                         if (thumbH < 24.0f) thumbH = 24.0f;
-                        float thumbY = SIDEMENU_Y_START + (state.sidebarScroll / state.sidebarMaxScroll) * (trackH - thumbH);
+                        float thumbY = contentTop + (state.sidebarScroll / state.sidebarMaxScroll) * (trackH - thumbH);
                         DrawRectangleRounded({state.sidebarWidth - 6.0f, thumbY, 4.0f, thumbH}, 0.5f, 6, LIGHTGRAY);
                 }
 
@@ -955,6 +968,15 @@ static void drawToolbarIcon(int idx, Rectangle b, Color c, Color bg, const AppSt
                 for (int k = -3; k <= 3; k += 3) { DrawLineEx({cx + k, cy - 8}, {cx + k, cy - 5}, 1.5f, c); DrawLineEx({cx + k, cy + 5}, {cx + k, cy + 8}, 1.5f, c); DrawLineEx({cx - 8, cy + k}, {cx - 5, cy + k}, 1.5f, c); DrawLineEx({cx + 5, cy + k}, {cx + 8, cy + k}, 1.5f, c); }
                 break;
         }
+}
+
+static bool containsIgnoreCase(const std::string& hay, const std::string& needle)
+{
+        if (needle.empty()) return true;
+        std::string h = hay, n = needle;
+        for (char& c : h) c = (char)tolower((unsigned char)c);
+        for (char& c : n) c = (char)tolower((unsigned char)c);
+        return h.find(n) != std::string::npos;
 }
 
 void drawApp(AppState& state)

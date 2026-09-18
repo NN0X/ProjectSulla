@@ -65,19 +65,35 @@ void handleInput(AppState& state)
         bool isDialogActive = state.showSaveDialog || state.showLoadDialog || state.showRenameDialog || state.showCompileDialog || state.showDeleteConfirm || state.showOverwriteConfirm || state.showQuitConfirm || state.showTidyConfirm;
         bool mouseOverUI = (mousePos.x < sideMenuWidth) || (mousePos.y < TOOLBAR_HEIGHT) || isDialogActive;
 
+        Rectangle searchBox = {SIDEMENU_PADDING_X, TOOLBAR_HEIGHT + 5.0f, sideMenuWidth - SIDEMENU_PADDING_X * 2.0f, 24.0f};
+        if (state.showSideMenu && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !isDialogActive)
+                state.sidebarSearchFocused = CheckCollisionPointRec(mousePos, searchBox);
+        if (state.sidebarSearchFocused)
+        {
+                int ch = GetCharPressed();
+                while (ch > 0)
+                {
+                        if (ch >= 32 && ch < 127) state.sidebarSearch += (char)ch;
+                        ch = GetCharPressed();
+                }
+                if (IsKeyPressed(KEY_BACKSPACE) && !state.sidebarSearch.empty()) state.sidebarSearch.pop_back();
+                if (IsKeyPressed(KEY_ESCAPE)) { state.sidebarSearch.clear(); state.sidebarSearchFocused = false; }
+        }
+        bool keyInputBlocked = isDialogActive || state.sidebarSearchFocused;
+
         if (IsKeyPressed(KEY_F11)) ToggleFullscreen();
         bool ctrlHeld = IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL);
         bool shiftHeld = IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT);
-        if (!isDialogActive && !ctrlHeld && IsKeyPressed(KEY_V)) { state.visualizeSignals = !state.visualizeSignals; state.simulation = nullptr; }
-        if (!isDialogActive && IsKeyPressed(KEY_T)) state.showTidyConfirm = true;
-        if (!isDialogActive && !ctrlHeld && IsKeyPressed(KEY_F)) fitView(state);
-        if (ctrlHeld && !isDialogActive && IsKeyPressed(KEY_Z)) { if (shiftHeld) doRedo(state); else doUndo(state); }
-        if (ctrlHeld && !isDialogActive && IsKeyPressed(KEY_Y)) doRedo(state);
-        if (ctrlHeld && !isDialogActive && IsKeyPressed(KEY_C)) copySelection(state);
-        if (ctrlHeld && !isDialogActive && IsKeyPressed(KEY_V)) pasteClipboard(state, {GRID_SIZE * 2.0f, GRID_SIZE * 2.0f});
-        if (ctrlHeld && !isDialogActive && IsKeyPressed(KEY_D)) duplicateSelection(state);
-        if (ctrlHeld && !isDialogActive && IsKeyPressed(KEY_A)) selectAllParts(state);
-        if (!isDialogActive && !state.selectedParts.empty())
+        if (!keyInputBlocked && !ctrlHeld && IsKeyPressed(KEY_V)) { state.visualizeSignals = !state.visualizeSignals; state.simulation = nullptr; }
+        if (!keyInputBlocked && IsKeyPressed(KEY_T)) state.showTidyConfirm = true;
+        if (!keyInputBlocked && !ctrlHeld && IsKeyPressed(KEY_F)) fitView(state);
+        if (ctrlHeld && !keyInputBlocked && IsKeyPressed(KEY_Z)) { if (shiftHeld) doRedo(state); else doUndo(state); }
+        if (ctrlHeld && !keyInputBlocked && IsKeyPressed(KEY_Y)) doRedo(state);
+        if (ctrlHeld && !keyInputBlocked && IsKeyPressed(KEY_C)) copySelection(state);
+        if (ctrlHeld && !keyInputBlocked && IsKeyPressed(KEY_V)) pasteClipboard(state, {GRID_SIZE * 2.0f, GRID_SIZE * 2.0f});
+        if (ctrlHeld && !keyInputBlocked && IsKeyPressed(KEY_D)) duplicateSelection(state);
+        if (ctrlHeld && !keyInputBlocked && IsKeyPressed(KEY_A)) selectAllParts(state);
+        if (!keyInputBlocked && !state.selectedParts.empty())
         {
                 if (shiftHeld)
                 {
