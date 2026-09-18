@@ -409,6 +409,18 @@ void handleInput(AppState& state)
                                                         state.simulation = nullptr;
                                                         state.wireStartPartID = -1;
                                                 }
+                                                else
+                                                {
+                                                        std::map<PartPin, PartPin>::iterator existing = state.connections.find({id, i});
+                                                        if (existing != state.connections.end())
+                                                        {
+                                                                state.wireStartPartID = existing->second.first;
+                                                                state.wireStartPin = existing->second.second;
+                                                                state.wireDragStartPos = mousePos;
+                                                                state.connections.erase(existing);
+                                                                state.simulation = nullptr;
+                                                        }
+                                                }
                                                 hitSomething = true;
                                                 break;
                                         }
