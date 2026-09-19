@@ -1,4 +1,5 @@
 #include "compiler.h"
+#include "../config.h"
 
 #include <fstream>
 #include <sstream>
@@ -30,8 +31,24 @@ static std::string collectStaticLinks(const std::string& cppCode)
         return extra;
 }
 
+static std::string sullaPartCompiler()
+{
+        static std::string cached;
+        static bool detected = false;
+        if (detected) return cached;
+        detected = true;
+        const char* candidates[] = { PART_COMPILER, "clang++", "g++", "c++" };
+        for (const char* c : candidates)
+        {
+                if (std::system((std::string(c) + " --version > NUL 2>&1").c_str()) == 0) { cached = c; break; }
+        }
+        return cached;
+}
+
 bool compileSharedLibrary(const std::string& cppCode, const std::string& moduleName)
 {
+        std::string cc = sullaPartCompiler();
+        if (cc.empty()) return false;
         if (!std::filesystem::exists("parts")) std::filesystem::create_directory("parts");
 
         std::string srcFile = "parts/" + moduleName + ".cpp";
@@ -42,7 +59,7 @@ bool compileSharedLibrary(const std::string& cppCode, const std::string& moduleN
         out.close();
 
         std::string staticLibs = collectStaticLinks(cppCode);
-        std::string command = "clang++ -O3 -shared " + srcFile + staticLibs + " -o " + outFile;
+        std::string command = cc + " -O3 -shared " + srcFile + staticLibs + " -o " + outFile;
         int result = std::system(command.c_str());
 
         std::filesystem::remove(srcFile);
@@ -63,6 +80,8 @@ void unloadCompiledPart(const std::string& moduleName)
 bool compilePartLibrary(const std::string& cppCode, const std::string& label,
                         bool buildStatic, bool buildDynamic)
 {
+        std::string cc = sullaPartCompiler();
+        if (cc.empty()) return false;
         std::string dir = sullaPartDir(label);
         std::filesystem::create_directories(dir);
         std::string staticLibs = collectStaticLinks(cppCode);
@@ -73,7 +92,7 @@ bool compilePartLibrary(const std::string& cppCode, const std::string& label,
                 std::string srcFile = dir + "/" + label + ".dyn.cpp";
                 std::string outFile = dir + "/lib" + label + ".dll";
                 std::ofstream(srcFile) << cppCode;
-                std::string command = "clang++ -O3 -shared " + srcFile + staticLibs + " -o " + outFile;
+                std::string command = cc + " -O3 -shared " + srcFile + staticLibs + " -o " + outFile;
                 ok = (std::system(command.c_str()) == 0) && ok;
                 std::filesystem::remove(srcFile);
         }
@@ -90,7 +109,7 @@ bool compilePartLibrary(const std::string& cppCode, const std::string& label,
                 std::string objFile = dir + "/" + label + ".o";
                 std::string arFile  = dir + "/lib" + label + ".a";
                 std::ofstream(srcFile) << code;
-                int r1 = std::system(("clang++ -O3 -c " + srcFile + " -o " + objFile).c_str());
+                int r1 = std::system((cc + " -O3 -c " + srcFile + " -o " + objFile).c_str());
                 std::error_code ec; std::filesystem::remove(arFile, ec);
                 int r2 = std::system(("ar rcs " + arFile + " " + objFile).c_str());
                 std::filesystem::remove(srcFile);

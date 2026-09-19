@@ -7,6 +7,7 @@ tests/validate
 
 parts/lib__live__.so
 parts/lib.live.so
+parts/__live__
 
 tests/parts/*.so
 tests/parts/*.dll
