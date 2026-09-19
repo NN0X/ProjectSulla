@@ -35,6 +35,7 @@ static const Color WIRE_PALETTE[] = {
 static const int WIRE_PALETTE_SIZE = sizeof(WIRE_PALETTE) / sizeof(WIRE_PALETTE[0]);
 
 static bool containsIgnoreCase(const std::string& hay, const std::string& needle);
+static void drawWrappedText(const std::string& text, float x, float y, float maxWidth, int fontSize, Color color);
 
 void drawTextFit(const char* text, float x, float y, float width, int fontSize, Color color)
 {
@@ -738,6 +739,23 @@ void drawUI(AppState& state)
                 int overW = MeasureText("Overwrite", 10);
                 DrawText("Overwrite", confirmBtn.x + confirmBtn.width/2 - overW/2, confirmBtn.y + confirmBtn.height/2 - 5, 10, BLACK);
         }
+        if (state.showError)
+        {
+                DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), Fade(BLACK, 0.5f));
+                const float EW = 460.0f;
+                const float EH = 180.0f;
+                float dx = GetScreenWidth() / 2.0f - EW / 2.0f;
+                float dy = GetScreenHeight() / 2.0f - EH / 2.0f;
+                DrawRectangle((int)dx, (int)dy, (int)EW, (int)EH, uiBg);
+                DrawRectangleLines((int)dx, (int)dy, (int)EW, (int)EH, uiBorder);
+                DrawText("Error", (int)(dx + 20), (int)(dy + 16), 20, THEME_WARN);
+                drawWrappedText(state.errorMessage, dx + 20, dy + 50, EW - 40, 16, textC);
+                Rectangle okBtn = {GetScreenWidth() / 2.0f - SAVE_DIALOG_BTN_WIDTH / 2.0f, dy + EH - SAVE_DIALOG_BTN_HEIGHT - 16, SAVE_DIALOG_BTN_WIDTH, SAVE_DIALOG_BTN_HEIGHT};
+                DrawRectangleRounded(okBtn, 0.2f, 8, LIGHTGRAY);
+                DrawRectangleRoundedLines(okBtn, 0.2f, 8, DARKGRAY);
+                int okW = MeasureText("OK", 10);
+                DrawText("OK", (int)(okBtn.x + okBtn.width / 2 - okW / 2), (int)(okBtn.y + okBtn.height / 2 - 5), 10, BLACK);
+        }
         if (state.showTidyConfirm)
         {
                 DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), Fade(BLACK, 0.5f));
@@ -977,6 +995,31 @@ static bool containsIgnoreCase(const std::string& hay, const std::string& needle
         for (char& c : h) c = (char)tolower((unsigned char)c);
         for (char& c : n) c = (char)tolower((unsigned char)c);
         return h.find(n) != std::string::npos;
+}
+
+static void drawWrappedText(const std::string& text, float x, float y, float maxWidth, int fontSize, Color color)
+{
+        std::string line;
+        std::string word;
+        float cy = y;
+        for (size_t i = 0; i <= text.size(); ++i)
+        {
+                char c = (i < text.size()) ? text[i] : ' ';
+                if (c == ' ')
+                {
+                        std::string test = line.empty() ? word : line + " " + word;
+                        if (!line.empty() && MeasureText(test.c_str(), fontSize) > maxWidth)
+                        {
+                                DrawText(line.c_str(), (int)x, (int)cy, fontSize, color);
+                                cy += (float)fontSize + 4.0f;
+                                line = word;
+                        }
+                        else line = test;
+                        word.clear();
+                }
+                else word += c;
+        }
+        if (!line.empty()) DrawText(line.c_str(), (int)x, (int)cy, fontSize, color);
 }
 
 void drawApp(AppState& state)

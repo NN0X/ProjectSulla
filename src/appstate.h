@@ -139,6 +139,9 @@ struct AppState
         bool showCompileDialog = false;
         bool showDeleteConfirm = false;
         bool showTidyConfirm = false;
+        bool showError = false;
+        std::string errorMessage;
+        size_t nativeFailedHash = 0;
         bool showOverwriteConfirm = false;
         bool showQuitConfirm = false;
         bool showRenameDialog = false;

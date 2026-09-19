@@ -51,7 +51,12 @@ void doCompile(AppState& state, const std::string& modName)
 {
         if (!state.compileStatic && !state.compileDynamic) return; // nothing selected
         std::string cpp = transpileToCpp(state, state.linkCustomParts);
-        if (compilePartLibrary(cpp, modName, state.compileStatic, state.compileDynamic))
+        if (!compilePartLibrary(cpp, modName, state.compileStatic, state.compileDynamic))
+        {
+                state.errorMessage = "Compilation failed. Ensure a C++ compiler (clang++ or g++) is installed.";
+                state.showError = true;
+        }
+        else
         {
                 int inC = 0, outC = 0;
                 std::vector<std::string> inLabels;

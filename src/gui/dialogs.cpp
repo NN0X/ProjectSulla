@@ -159,6 +159,18 @@ bool handleDialogs(AppState& state)
                 return true;
         }
 
+        if (state.showError)
+        {
+                bool ok = false;
+                if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+                {
+                        float dy = GetScreenHeight() / 2.0f - 90.0f;
+                        Rectangle okBtn = {GetScreenWidth() / 2.0f - SAVE_DIALOG_BTN_WIDTH / 2.0f, dy + 180.0f - SAVE_DIALOG_BTN_HEIGHT - 16, SAVE_DIALOG_BTN_WIDTH, SAVE_DIALOG_BTN_HEIGHT};
+                        if (CheckCollisionPointRec(mousePos, okBtn)) ok = true;
+                }
+                if (ok || IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_ESCAPE)) state.showError = false;
+                return true;
+        }
         if (state.showTidyConfirm)
         {
                 bool confirm = false;

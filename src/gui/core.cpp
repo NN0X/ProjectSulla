@@ -381,15 +381,29 @@ bool buildNativeSimulation(AppState& state)
         for (size_t k = 0; k < outs.size(); ++k) { int o = outs[k], c = state.inputCounts[o]; for (int i = 0; i < c; ++i) if (gOut[o] + i < totalOut) outRemap[gOut[o] + i] = nOut[o] + i; }
 
         size_t h = circuitHash(state);
+        if (h == state.nativeFailedHash) return false;
         bool soReady = (h == state.nativeHash) && !sullaFindDynamic("__live__").empty();
         if (!soReady)
         {
                 std::string cpp = transpileToCpp(state, false);
-                if (!compilePartLibrary(cpp, "__live__", false, true)) return false;
+                if (!compilePartLibrary(cpp, "__live__", false, true))
+                {
+                        state.nativeFailedHash = h;
+                        state.errorMessage = "Native compilation failed. Ensure a C++ compiler (clang++ or g++) is installed. Falling back to the interpreter.";
+                        state.showError = true;
+                        return false;
+                }
                 state.nativeHash = h;
         }
         Part native = loadCompiledPart("__live__", totalOut);
-        if (!native) return false;
+        if (!native)
+        {
+                state.nativeFailedHash = h;
+                state.errorMessage = "Failed to load the compiled circuit. Falling back to the interpreter.";
+                state.showError = true;
+                return false;
+        }
+        state.nativeFailedHash = 0;
 
         state.simulation = [native, inRemap, outRemap, totalIn, totalOut](std::vector<State> runtimeInput) -> std::vector<State> {
                 std::vector<State> soIn(totalIn, STATE_LOW);

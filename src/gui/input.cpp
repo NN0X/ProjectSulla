@@ -62,7 +62,7 @@ void handleInput(AppState& state)
         Vector2 mousePos = GetMousePosition();
         Vector2 worldMouse = GetScreenToWorld2D(mousePos, state.camera);
 
-        bool isDialogActive = state.showSaveDialog || state.showLoadDialog || state.showRenameDialog || state.showCompileDialog || state.showDeleteConfirm || state.showOverwriteConfirm || state.showQuitConfirm || state.showTidyConfirm;
+        bool isDialogActive = state.showSaveDialog || state.showLoadDialog || state.showRenameDialog || state.showCompileDialog || state.showDeleteConfirm || state.showOverwriteConfirm || state.showQuitConfirm || state.showTidyConfirm || state.showError;
         bool mouseOverUI = (mousePos.x < sideMenuWidth) || (mousePos.y < TOOLBAR_HEIGHT) || isDialogActive;
 
         Rectangle searchBox = {SIDEMENU_PADDING_X, TOOLBAR_HEIGHT + 5.0f, sideMenuWidth - SIDEMENU_PADDING_X * 2.0f, 24.0f};
