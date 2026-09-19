@@ -353,3 +353,22 @@ void distributeSelection(AppState& state, bool horizontal)
                 else state.positions[ids[i]].second = v;
         }
 }
+
+void loadExternalLayout(AppState& state, const std::string& path)
+{
+        if (path.empty()) return;
+        std::error_code ec;
+        std::filesystem::create_directories("layouts");
+        std::filesystem::path src(path);
+        std::filesystem::path dest = std::filesystem::path("layouts") / src.filename();
+        std::filesystem::copy_file(src, dest, std::filesystem::copy_options::overwrite_existing, ec);
+        if (ec)
+        {
+                state.errorMessage = "Could not copy the layout into layouts/: " + ec.message();
+                state.showError = true;
+                return;
+        }
+        loadLayout(state, dest.string());
+        recompileSimulation(state);
+        refreshLayouts(state);
+}

@@ -35,6 +35,9 @@ std::string sullaStatelessMarker(const std::string& label);
 bool sullaPartIsStateless(const std::string& label);
 std::string sullaFindMeta(const std::string& label);
 
+bool hasNativeFileDialog();
+std::string openNativeFileDialog();
+
 bool compilePartLibrary(const std::string& cppCode, const std::string& label,
                         bool buildStatic, bool buildDynamic);
 

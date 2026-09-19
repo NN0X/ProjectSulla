@@ -10,6 +10,7 @@
 #include <memory>
 #include <vector>
 #include <windows.h>
+#include <commdlg.h>
 
 static std::map<std::string, HINSTANCE> loadedHandles;
 
@@ -176,4 +177,25 @@ RawTickFn loadRawTick(const std::string& moduleName)
                 loadedHandles[moduleName] = handle;
         }
         return (RawTickFn)GetProcAddress(handle, "executeTick");
+}
+
+bool hasNativeFileDialog()
+{
+        return true;
+}
+
+std::string openNativeFileDialog()
+{
+        char filename[MAX_PATH] = "";
+        OPENFILENAMEA ofn;
+        ZeroMemory(&ofn, sizeof(ofn));
+        ofn.lStructSize = sizeof(ofn);
+        ofn.hwndOwner = nullptr;
+        ofn.lpstrFilter = "Layout Files\0*.json\0All Files\0*.*\0\0";
+        ofn.lpstrFile = filename;
+        ofn.nMaxFile = MAX_PATH;
+        ofn.lpstrTitle = "Load Layout";
+        ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR;
+        if (GetOpenFileNameA(&ofn)) return std::string(filename);
+        return "";
 }

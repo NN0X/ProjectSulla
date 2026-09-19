@@ -249,3 +249,27 @@ RawTickFn loadRawTick(const std::string& moduleName)
         }
         return (RawTickFn)dlsym(handle, "executeTick");
 }
+
+bool hasNativeFileDialog()
+{
+        return std::system("which zenity > /dev/null 2>&1") == 0 || std::system("which kdialog > /dev/null 2>&1") == 0;
+}
+
+std::string openNativeFileDialog()
+{
+        std::string cmd;
+        if (std::system("which zenity > /dev/null 2>&1") == 0)
+                cmd = "zenity --file-selection --title='Load Layout' --file-filter='Layouts | *.json' 2>/dev/null";
+        else if (std::system("which kdialog > /dev/null 2>&1") == 0)
+                cmd = "kdialog --getopenfilename . '*.json' 2>/dev/null";
+        else
+                return "";
+        FILE* pipe = popen(cmd.c_str(), "r");
+        if (!pipe) return "";
+        char buffer[4096];
+        std::string result;
+        while (fgets(buffer, sizeof(buffer), pipe) != nullptr) result += buffer;
+        pclose(pipe);
+        while (!result.empty() && (result.back() == '\n' || result.back() == '\r')) result.pop_back();
+        return result;
+}

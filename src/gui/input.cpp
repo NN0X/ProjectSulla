@@ -129,6 +129,19 @@ static std::vector<int> pinTargets(AppState& state, int tid)
         return targets;
 }
 
+static void triggerLoad(AppState& state)
+{
+        if (hasNativeFileDialog())
+        {
+                std::string path = openNativeFileDialog();
+                if (!path.empty()) loadExternalLayout(state, path);
+        }
+        else
+        {
+                state.showLoadDialog = true;
+        }
+}
+
 void handleInput(AppState& state)
 {
         float sideMenuWidth = state.showSideMenu ? state.sidebarWidth : 0;
@@ -301,7 +314,7 @@ void handleInput(AppState& state)
                                 if (CheckCollisionPointRec(mousePos, btn))
                                 {
                                         if (i == 0) state.showSaveDialog = true;
-                                        if (i == 1) state.showLoadDialog = true;
+                                        if (i == 1) triggerLoad(state);
                                         if (i == 2)
                                         {
                                                 state.selectedParts.clear();
@@ -558,7 +571,7 @@ void handleInput(AppState& state)
         else state.hzKeyTimer = 0.0f;
 
         if (IsKeyPressed(KEY_S) && !isDialogActive) state.showSaveDialog = true;
-        if (IsKeyPressed(KEY_L) && !isDialogActive) state.showLoadDialog = true;
+        if (IsKeyPressed(KEY_L) && !keyInputBlocked) triggerLoad(state);
 
         if (IsKeyPressed(KEY_DELETE) && !isDialogActive)
         {

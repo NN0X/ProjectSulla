@@ -13,6 +13,7 @@ float getPinYOffset(const AppState& state, int id, bool isInput, int index);
 Rectangle getPinRect(const AppState& state, int id, bool isInput, int index);
 Vector2 getPinPos(const AppState& state, int id, bool isInput, int index);
 void refreshLayouts(AppState& state);
+void loadExternalLayout(AppState& state, const std::string& path);
 void refreshCompiledModules(AppState& state);
 void drawTextFit(const char* text, float x, float y, float width, int fontSize, Color color);
 bool buildNativeSimulation(AppState& state);
