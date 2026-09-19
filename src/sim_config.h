@@ -14,6 +14,7 @@
 #define WIRE_THICKNESS 2.0f
 #define WIRE_ARROW_SIZE 6.0f
 #define SIM_STEP_BUDGET_SEC 0.008
+#define WIRE_KINK 16.0f
 #define PART_COMPILER "clang++"
 #define ZOOM_MIN 0.1f
 #define ZOOM_MAX 5.0f

@@ -90,7 +90,7 @@ static size_t computeOutputSlotIndex(const AppState& state, int targetID)
 void drawWires(AppState& state)
 {
         state.wirePaths.clear();
-        const float KINK = 16.0f;
+        const float KINK = WIRE_KINK;
         const float HB = 14.0f, HS = 8.0f;
         const float VB = 14.0f, VS = 7.0f;
 

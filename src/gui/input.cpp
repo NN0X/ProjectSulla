@@ -78,20 +78,32 @@ static void makeConnection(AppState& state, int fromPart, int fromPin, int toPar
         state.simulation = nullptr;
 }
 
-static Vector2 snapWaypoint(AppState& state, PartPin connKey, Vector2 pos)
+static Vector2 snapWaypoint(AppState& state, PartPin connKey, int idx, Vector2 pos)
 {
         const float SNAP_PIXELS = 10.0f;
         float snap = SNAP_PIXELS / (state.camera.zoom > 0.01f ? state.camera.zoom : 1.0f);
         Vector2 result = pos;
+        std::vector<Vector2> anchors;
         Vector2 destP = getPinPos(state, connKey.first, true, connKey.second);
-        if (fabsf(pos.y - destP.y) < snap) result.y = destP.y;
-        if (fabsf(pos.x - destP.x) < snap) result.x = destP.x;
+        anchors.push_back(destP);
+        anchors.push_back({destP.x - WIRE_KINK, destP.y});
         std::map<PartPin, PartPin>::iterator c = state.connections.find(connKey);
         if (c != state.connections.end())
         {
                 Vector2 srcP = getPinPos(state, c->second.first, false, c->second.second);
-                if (fabsf(pos.y - srcP.y) < snap) result.y = srcP.y;
-                if (fabsf(pos.x - srcP.x) < snap) result.x = srcP.x;
+                anchors.push_back(srcP);
+                anchors.push_back({srcP.x + WIRE_KINK, srcP.y});
+        }
+        std::map<PartPin, std::vector<Vector2>>::iterator w = state.connectionWaypoints.find(connKey);
+        if (w != state.connectionWaypoints.end())
+        {
+                if (idx - 1 >= 0 && idx - 1 < (int)w->second.size()) anchors.push_back(w->second[idx - 1]);
+                if (idx + 1 < (int)w->second.size()) anchors.push_back(w->second[idx + 1]);
+        }
+        for (Vector2 a : anchors)
+        {
+                if (fabsf(pos.y - a.y) < snap) result.y = a.y;
+                if (fabsf(pos.x - a.x) < snap) result.x = a.x;
         }
         return result;
 }
@@ -209,7 +221,7 @@ void handleInput(AppState& state)
                 {
                         std::map<PartPin, std::vector<Vector2>>::iterator w = state.connectionWaypoints.find(state.dragWpConn);
                         if (IsMouseButtonDown(MOUSE_BUTTON_LEFT) && w != state.connectionWaypoints.end() && state.dragWpIdx < (int)w->second.size())
-                                w->second[state.dragWpIdx] = snapWaypoint(state, state.dragWpConn, worldMouse);
+                                w->second[state.dragWpIdx] = snapWaypoint(state, state.dragWpConn, state.dragWpIdx, worldMouse);
                         else
                                 state.dragWpIdx = -1;
                 }
@@ -265,7 +277,7 @@ void handleInput(AppState& state)
                                         int idx = nearSeg - 1;
                                         if (idx < 0) idx = 0;
                                         if (idx > (int)wl.size()) idx = (int)wl.size();
-                                        Vector2 snapped = snapWaypoint(state, nearConn, worldMouse);
+                                        Vector2 snapped = snapWaypoint(state, nearConn, idx, worldMouse);
                                         wl.insert(wl.begin() + (long)idx, snapped);
                                         state.dragWpConn = nearConn;
                                         state.dragWpIdx = idx;
