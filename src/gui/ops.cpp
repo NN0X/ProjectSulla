@@ -207,6 +207,7 @@ void deleteParts(AppState& state)
                 for(size_t i = 0; i < toRemove.size(); ++i)
                 {
                         state.connections.erase(toRemove[i]);
+                        state.connectionWaypoints.erase(toRemove[i]);
                 }
         }
         state.selectedParts.clear();
