@@ -74,6 +74,17 @@ static Vector2 snapWaypoint(AppState& state, PartPin connKey, Vector2 pos)
         return result;
 }
 
+static int coarseAddStep(int current)
+{
+        return (current / 8 + 1) * 8 - current;
+}
+
+static int coarseRemoveStep(int current)
+{
+        if (current <= 0) return 0;
+        return current - (current - 1) / 8 * 8;
+}
+
 void handleInput(AppState& state)
 {
         float sideMenuWidth = state.showSideMenu ? state.sidebarWidth : 0;
@@ -347,13 +358,13 @@ void handleInput(AppState& state)
                                 }
                                 else if (CheckCollisionPointRec(mousePos, rAddIn))
                                 {
-                                        int step = IsKeyDown(KEY_LEFT_SHIFT) ? 8 : 1;
+                                        int step = IsKeyDown(KEY_LEFT_SHIFT) ? coarseAddStep(state.inputCounts[tid]) : 1;
                                         state.inputCounts[tid] += step;
                                         state.simulation = nullptr;
                                 }
                                 else if (CheckCollisionPointRec(mousePos, rRemIn))
                                 {
-                                        int step = IsKeyDown(KEY_LEFT_SHIFT) ? 8 : 1;
+                                        int step = IsKeyDown(KEY_LEFT_SHIFT) ? coarseRemoveStep(state.inputCounts[tid]) : 1;
                                         for (int k = 0; k < step && state.inputCounts[tid] > 0; ++k)
                                         {
                                                 cleanupInputPinConnections(state, tid, state.inputCounts[tid] - 1);
@@ -363,13 +374,13 @@ void handleInput(AppState& state)
                                 }
                                 else if (CheckCollisionPointRec(mousePos, rAddOut))
                                 {
-                                        int step = IsKeyDown(KEY_LEFT_SHIFT) ? 8 : 1;
+                                        int step = IsKeyDown(KEY_LEFT_SHIFT) ? coarseAddStep(state.outputCounts[tid]) : 1;
                                         state.outputCounts[tid] += step;
                                         state.simulation = nullptr;
                                 }
                                 else if (CheckCollisionPointRec(mousePos, rRemOut))
                                 {
-                                        int step = IsKeyDown(KEY_LEFT_SHIFT) ? 8 : 1;
+                                        int step = IsKeyDown(KEY_LEFT_SHIFT) ? coarseRemoveStep(state.outputCounts[tid]) : 1;
                                         for (int k = 0; k < step && state.outputCounts[tid] > 0; ++k)
                                         {
                                                 cleanupOutputPinConnections(state, tid, state.outputCounts[tid] - 1);
@@ -407,7 +418,8 @@ void handleInput(AppState& state)
                                 }
                                 else if (canModPins && CheckCollisionPointRec(mousePos, rAdd))
                                 {
-                                        int step = IsKeyDown(KEY_LEFT_SHIFT) ? 8 : 1;
+                                        int current = (type == PART_TYPE_SOURCE || type == PART_TYPE_CLOCK) ? state.outputCounts[tid] : state.inputCounts[tid];
+                                        int step = IsKeyDown(KEY_LEFT_SHIFT) ? coarseAddStep(current) : 1;
                                         for (int k = 0; k < step; ++k)
                                         {
                                                 if (type == PART_TYPE_SOURCE)
@@ -428,7 +440,8 @@ void handleInput(AppState& state)
                                 }
                                 else if (canModPins && CheckCollisionPointRec(mousePos, rRem))
                                 {
-                                        int step = IsKeyDown(KEY_LEFT_SHIFT) ? 8 : 1;
+                                        int current = (type == PART_TYPE_SOURCE || type == PART_TYPE_CLOCK) ? state.outputCounts[tid] : state.inputCounts[tid];
+                                        int step = IsKeyDown(KEY_LEFT_SHIFT) ? coarseRemoveStep(current) : 1;
                                         for (int k = 0; k < step; ++k)
                                         {
                                                 if (type == PART_TYPE_SOURCE)
