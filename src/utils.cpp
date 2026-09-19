@@ -237,6 +237,7 @@ int loadLayout(AppState& state, const std::string& filename)
                         {
                                 Part layoutPart = loadLayoutAsPart(layoutPath, dummyIn, dummyOut);
                                 if (layoutPart) setPart(state.parts, part.id, layoutPart); 
+                                else { state.errorMessage = "Could not load subpart layout '" + part.label + "'."; state.showError = true; }
                                 loadPinLabelsForCustom(state, part.id, part.label, part.numOutputs);
                         }
                         else
@@ -249,7 +250,8 @@ int loadLayout(AppState& state, const std::string& filename)
                                 }
                                 else
                                 {
-                                        std::cerr << "Warning: Could not load custom part '" << part.label << "'" << std::endl;
+                                        state.errorMessage = "Could not load compiled subpart '" + part.label + "'. Try recompiling it (Compile).";
+                                        state.showError = true;
                                 }
                         }
                 }
