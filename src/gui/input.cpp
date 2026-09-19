@@ -41,6 +41,28 @@ static float distToPolyline(Vector2 p, const std::vector<Vector2>& path)
 
 static void makeConnection(AppState& state, int fromPart, int fromPin, int toPart, int toPin, bool bus)
 {
+        if (state.selectedParts.count(fromPart) && state.selectedParts.size() > 1)
+        {
+                std::vector<int> srcs(state.selectedParts.begin(), state.selectedParts.end());
+                std::sort(srcs.begin(), srcs.end(), [&](int a, int b) {
+                        if (fabsf(state.positions[a].second - state.positions[b].second) > 0.5f)
+                                return state.positions[a].second < state.positions[b].second;
+                        return state.positions[a].first < state.positions[b].first;
+                });
+                int inRoom = state.inputCounts[toPart] - toPin;
+                int i = 0;
+                for (int s : srcs)
+                {
+                        if (i >= inRoom) break;
+                        if (state.outputCounts[s] > 0)
+                        {
+                                state.connections[{toPart, toPin + i}] = {s, 0};
+                                ++i;
+                        }
+                }
+                state.simulation = nullptr;
+                return;
+        }
         if (bus)
         {
                 int count = state.outputCounts[fromPart] - fromPin;
@@ -83,6 +105,16 @@ static int coarseRemoveStep(int current)
 {
         if (current <= 0) return 0;
         return current - (current - 1) / 8 * 8;
+}
+
+static std::vector<int> pinTargets(AppState& state, int tid)
+{
+        std::vector<int> targets;
+        if (state.selectedParts.count(tid) && state.selectedParts.size() > 1)
+                targets.assign(state.selectedParts.begin(), state.selectedParts.end());
+        else
+                targets.push_back(tid);
+        return targets;
 }
 
 void handleInput(AppState& state)
@@ -418,55 +450,63 @@ void handleInput(AppState& state)
                                 }
                                 else if (canModPins && CheckCollisionPointRec(mousePos, rAdd))
                                 {
-                                        int current = (type == PART_TYPE_SOURCE || type == PART_TYPE_CLOCK) ? state.outputCounts[tid] : state.inputCounts[tid];
-                                        int step = IsKeyDown(KEY_LEFT_SHIFT) ? coarseAddStep(current) : 1;
-                                        for (int k = 0; k < step; ++k)
+                                        for (int pid : pinTargets(state, tid))
                                         {
-                                                if (type == PART_TYPE_SOURCE)
+                                                PartType ptype = state.partTypes[pid];
+                                                int current = (ptype == PART_TYPE_SOURCE || ptype == PART_TYPE_CLOCK) ? state.outputCounts[pid] : state.inputCounts[pid];
+                                                int step = IsKeyDown(KEY_LEFT_SHIFT) ? coarseAddStep(current) : 1;
+                                                for (int k = 0; k < step; ++k)
                                                 {
-                                                        state.outputCounts[tid]++;
-                                                        state.sourceValues[tid].push_back(STATE_LOW);
-                                                }
-                                                else if (type == PART_TYPE_CLOCK)
-                                                {
-                                                        state.outputCounts[tid]++;
-                                                }
-                                                else
-                                                {
-                                                        state.inputCounts[tid]++;
+                                                        if (ptype == PART_TYPE_SOURCE)
+                                                        {
+                                                                state.outputCounts[pid]++;
+                                                                state.sourceValues[pid].push_back(STATE_LOW);
+                                                        }
+                                                        else if (ptype == PART_TYPE_CLOCK)
+                                                        {
+                                                                state.outputCounts[pid]++;
+                                                        }
+                                                        else
+                                                        {
+                                                                state.inputCounts[pid]++;
+                                                        }
                                                 }
                                         }
                                         state.simulation = nullptr;
                                 }
                                 else if (canModPins && CheckCollisionPointRec(mousePos, rRem))
                                 {
-                                        int current = (type == PART_TYPE_SOURCE || type == PART_TYPE_CLOCK) ? state.outputCounts[tid] : state.inputCounts[tid];
-                                        int step = IsKeyDown(KEY_LEFT_SHIFT) ? coarseRemoveStep(current) : 1;
-                                        for (int k = 0; k < step; ++k)
+                                        for (int pid : pinTargets(state, tid))
                                         {
-                                                if (type == PART_TYPE_SOURCE)
+                                                PartType ptype = state.partTypes[pid];
+                                                int current = (ptype == PART_TYPE_SOURCE || ptype == PART_TYPE_CLOCK) ? state.outputCounts[pid] : state.inputCounts[pid];
+                                                int step = IsKeyDown(KEY_LEFT_SHIFT) ? coarseRemoveStep(current) : 1;
+                                                for (int k = 0; k < step; ++k)
                                                 {
-                                                        if (state.outputCounts[tid] > 1)
+                                                        if (ptype == PART_TYPE_SOURCE)
                                                         {
-                                                                cleanupOutputPinConnections(state, tid, state.outputCounts[tid] - 1);
-                                                                state.outputCounts[tid]--;
-                                                                state.sourceValues[tid].pop_back();
+                                                                if (state.outputCounts[pid] > 1)
+                                                                {
+                                                                        cleanupOutputPinConnections(state, pid, state.outputCounts[pid] - 1);
+                                                                        state.outputCounts[pid]--;
+                                                                        state.sourceValues[pid].pop_back();
+                                                                }
                                                         }
-                                                }
-                                                else if (type == PART_TYPE_CLOCK)
-                                                {
-                                                        if (state.outputCounts[tid] > 1)
+                                                        else if (ptype == PART_TYPE_CLOCK)
                                                         {
-                                                                cleanupOutputPinConnections(state, tid, state.outputCounts[tid] - 1);
-                                                                state.outputCounts[tid]--;
+                                                                if (state.outputCounts[pid] > 1)
+                                                                {
+                                                                        cleanupOutputPinConnections(state, pid, state.outputCounts[pid] - 1);
+                                                                        state.outputCounts[pid]--;
+                                                                }
                                                         }
-                                                }
-                                                else
-                                                {
-                                                        if (state.inputCounts[tid] > 0)
+                                                        else
                                                         {
-                                                                cleanupInputPinConnections(state, tid, state.inputCounts[tid] - 1);
-                                                                state.inputCounts[tid]--;
+                                                                if (state.inputCounts[pid] > 0)
+                                                                {
+                                                                        cleanupInputPinConnections(state, pid, state.inputCounts[pid] - 1);
+                                                                        state.inputCounts[pid]--;
+                                                                }
                                                         }
                                                 }
                                         }
@@ -512,6 +552,7 @@ void handleInput(AppState& state)
         {
                  if (state.selectedConnection.first != -1)
                  {
+                         state.connectionWaypoints.erase(state.selectedConnection);
                          state.connections.erase(state.selectedConnection);
                          state.selectedConnection = {-1, -1};
                          state.simulation = nullptr;
@@ -582,6 +623,7 @@ void handleInput(AppState& state)
                                                                 state.wireStartPartID = existing->second.first;
                                                                 state.wireStartPin = existing->second.second;
                                                                 state.wireDragStartPos = mousePos;
+                                                                state.connectionWaypoints.erase(existing->first);
                                                                 state.connections.erase(existing);
                                                                 state.simulation = nullptr;
                                                         }
@@ -753,6 +795,11 @@ void handleInput(AppState& state)
                                         state.inputPinLabels[id] = state.compiledInputLabels[state.draggingCompiledFile];
                                 if (state.compiledOutputLabels.count(state.draggingCompiledFile))
                                         state.outputPinLabels[id] = state.compiledOutputLabels[state.draggingCompiledFile];
+                        }
+                        else
+                        {
+                                state.errorMessage = "Failed to load compiled part '" + state.draggingCompiledFile + "'. Its library may be missing or built for another compiler - try recompiling it (Compile).";
+                                state.showError = true;
                         }
                 }
                 state.dragPartID = -1;
