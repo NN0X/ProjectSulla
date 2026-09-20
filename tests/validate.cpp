@@ -313,6 +313,11 @@ int main()
         testCombinational("7432_Quad_2-input_OR_Gates", 8, [](const std::vector<int>& v){ return std::vector<int>{ v[0]|v[1], v[2]|v[3], v[4]|v[5], v[6]|v[7] }; });
         testCombinational("7486_Quad_2-input_XOR_Gates", 8, [](const std::vector<int>& v){ return std::vector<int>{ v[0]^v[1], v[2]^v[3], v[4]^v[5], v[6]^v[7] }; });
 
+        testCombinational("74283_4-bit_Binary_Full_Adder", 9, [](const std::vector<int>& v){ int A = v[0] | v[1] << 1 | v[2] << 2 | v[3] << 3; int B = v[4] | v[5] << 1 | v[6] << 2 | v[7] << 3; int s = A + B + v[8]; return std::vector<int>{ s & 1, (s >> 1) & 1, (s >> 2) & 1, (s >> 3) & 1, (s >> 4) & 1 }; });
+        testCombinational("74139_Dual_2-to-4_Line_Decoder", 6, [](const std::vector<int>& v){ std::vector<int> r(8); for (int d = 0; d < 2; ++d) { int en = !v[d * 3 + 2]; int sel = v[d * 3] | v[d * 3 + 1] << 1; for (int k = 0; k < 4; ++k) r[d * 4 + k] = (en && sel == k) ? 0 : 1; } return r; });
+        testCombinational("74157_Quad_2-to-1_Multiplexer", 10, [](const std::vector<int>& v){ int S = v[8]; int en = !v[9]; std::vector<int> r(4); for (int i = 0; i < 4; ++i) r[i] = en ? (S ? v[4 + i] : v[i]) : 0; return r; });
+        testCombinational("74153_Dual_4-to-1_Multiplexer", 12, [](const std::vector<int>& v){ int sel = v[8] | v[9] << 1; std::vector<int> r(2); for (int d = 0; d < 2; ++d) { int en = !v[10 + d]; r[d] = en ? v[d * 4 + sel] : 0; } return r; });
+
         testCombinational("and3",  3, [](const std::vector<int>& v){ return std::vector<int>{ v[0] & v[1] & v[2] }; });
         testCombinational("xor4",  4, [](const std::vector<int>& v){ return std::vector<int>{ v[0] ^ v[1] ^ v[2] ^ v[3] }; });
 
