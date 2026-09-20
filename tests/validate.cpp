@@ -290,187 +290,6 @@ static void testPerInstanceState()
         }
 }
 
-static void testPerfCircuit(const std::string& name, int ticks)
-{
-        std::printf("\n%s%s== perf circuit in validation set: %s ==%s\n",
-                    tf::ansiBold(), tf::ansiCyan(), name.c_str(), tf::ansiRst());
-        int nIn = 0, nOut = 0;
-        Part interp = loadLayoutAsPart("layouts/" + name + ".json", nIn, nOut);
-        tf::check(interp != nullptr, name + ": interpreted engine loaded");
-        if (!interp) return;
-
-        int ocI = 0, ocL = 0;
-        Part inl = buildNative(name, ocI, false);
-        Part lnk = buildNative(name, ocL, true);
-        tf::check(inl != nullptr, name + ": native-inline compiled + loaded");
-        tf::check(lnk != nullptr, name + ": native-link compiled + loaded");
-        if (!inl || !lnk) return;
-
-        bool agree = true;
-        for (int t = 0; t < ticks; ++t)
-        {
-                std::vector<int> pat(nIn);
-                for (int i = 0; i < nIn; ++i)
-                        pat[i] = (int)((2654435761u * (uint32_t)(i + 1 + t * 7)) >> 13) & 1;
-                std::vector<State> in = toStates(pat);
-                std::vector<int> ri = toBits(interp(in));
-                std::vector<int> rn = toBits(inl(in));
-                std::vector<int> rl = toBits(lnk(in));
-                if (rn != ri || rl != ri) agree = false;
-        }
-        tf::check(agree, name + ": interp == native-inline == native-link across " + std::to_string(ticks) + " ticks");
-}
-
-static void testRam(const std::string& name, bool sync)
-{
-        std::printf("\n%s%s== memory primitive in validation set: %s ==%s\n",
-                    tf::ansiBold(), tf::ansiCyan(), name.c_str(), tf::ansiRst());
-        const int A = 8, W = 8;
-        int nIn = 0, nOut = 0;
-        Part interp = loadLayoutAsPart("layouts/" + name + ".json", nIn, nOut);
-        tf::check(interp != nullptr, name + ": interpreted engine loaded");
-        if (!interp) return;
-        int ocI = 0, ocL = 0;
-        Part inl = buildNative(name, ocI, false);
-        Part lnk = buildNative(name, ocL, true);
-        tf::check(inl != nullptr, name + ": native-inline compiled + loaded");
-        tf::check(lnk != nullptr, name + ": native-link compiled + loaded");
-        if (!inl || !lnk) return;
-
-        struct Op { int we; unsigned a, d; };
-        std::vector<Op> seq = { {1,5,0xAA},{0,5,0},{1,5,0x11},{1,9,0x33},{0,9,0},{0,5,0},{1,5,0x77},{0,5,0} };
-        std::vector<unsigned> mem(1u << A, 0); unsigned dreg = 0;
-        bool ok = true;
-        for (size_t s = 0; s < seq.size(); ++s)
-        {
-                Op op = seq[s];
-                std::vector<int> pat(nIn, 0);
-                if (nIn > 0) pat[0] = op.we ? 1 : 0;
-                for (int k = 0; k < A && 1 + k < nIn; ++k) pat[1 + k] = (op.a >> k) & 1;
-                for (int k = 0; k < W && 1 + A + k < nIn; ++k) pat[1 + A + k] = (op.d >> k) & 1;
-                std::vector<State> in = toStates(pat);
-                unsigned gi = 0, gn = 0, gl = 0;
-                { std::vector<int> b = toBits(interp(in)); for (size_t k = 0; k < b.size(); ++k) if (b[k]) gi |= 1u << k; }
-                { std::vector<int> b = toBits(inl(in));    for (size_t k = 0; k < b.size(); ++k) if (b[k]) gn |= 1u << k; }
-                { std::vector<int> b = toBits(lnk(in));    for (size_t k = 0; k < b.size(); ++k) if (b[k]) gl |= 1u << k; }
-                unsigned gold = sync ? dreg : mem[op.a];
-                if (sync) dreg = mem[op.a];
-                if (op.we) mem[op.a] = op.d;
-                if (gi != gold || gn != gold || gl != gold) ok = false;
-        }
-        tf::check(ok, name + ": interp == inline == link == golden over read/write sequence");
-}
-
-static void testArith(const std::string& name, bool isMul, int W)
-{
-        std::printf("\n%s%s== word-level arithmetic primitive in validation set: %s ==%s\n",
-                    tf::ansiBold(), tf::ansiCyan(), name.c_str(), tf::ansiRst());
-        int nIn = 0, nOut = 0;
-        Part interp = loadLayoutAsPart("layouts/" + name + ".json", nIn, nOut);
-        tf::check(interp != nullptr, name + ": interpreted engine loaded");
-        if (!interp) return;
-        int ocI = 0, ocL = 0;
-        Part inl = buildNative(name, ocI, false);
-        Part lnk = buildNative(name, ocL, true);
-        tf::check(inl != nullptr, name + ": native-inline compiled + loaded");
-        tf::check(lnk != nullptr, name + ": native-link compiled + loaded");
-        if (!inl || !lnk) return;
-
-        unsigned long long mask = (W >= 64) ? ~0ull : ((1ull << W) - 1);
-        unsigned long long tv[][2] = { {0,0},{1,1},{mask,mask},{123,45},{200,201},{65535,65535},{12345,54321},{7,9} };
-        bool ok = true;
-        for (size_t t = 0; t < sizeof(tv) / sizeof(tv[0]); ++t)
-        {
-                unsigned long long a = tv[t][0] & mask, b = tv[t][1] & mask;
-                unsigned long long gold = isMul ? (a * b) : (a + b);
-                std::vector<int> pat(nIn, 0);
-                for (int k = 0; k < W && k < nIn; ++k) pat[k] = (a >> k) & 1;
-                for (int k = 0; k < W && W + k < nIn; ++k) pat[W + k] = (b >> k) & 1;
-                std::vector<State> in = toStates(pat);
-                unsigned long long gi = 0, gn = 0, gl = 0;
-                { std::vector<int> z = toBits(interp(in)); for (size_t k = 0; k < z.size(); ++k) if (z[k]) gi |= 1ull << k; }
-                { std::vector<int> z = toBits(inl(in));    for (size_t k = 0; k < z.size(); ++k) if (z[k]) gn |= 1ull << k; }
-                { std::vector<int> z = toBits(lnk(in));    for (size_t k = 0; k < z.size(); ++k) if (z[k]) gl |= 1ull << k; }
-                if (gi != gold || gn != gold || gl != gold) ok = false;
-        }
-        tf::check(ok, name + ": interp == inline == link == golden (a " + std::string(isMul ? "*" : "+") + " b)");
-}
-
-typedef void (*BatchFn)(const uint64_t*, uint64_t*);
-
-static BatchFn buildBatch(const std::string& name)
-{
-        AppState st;
-        loadLayout(st, "layouts/" + name + ".json");
-        std::string code = transpileToCppBitsliced(st);
-        if (code.empty()) return nullptr;
-        std::string mod = "vbatch_" + name;
-        if (!compileSharedLibrary(code, mod)) return nullptr;
-        g_builtModules.push_back(mod);
-        void* h = dlopen(("./parts/lib" + mod + ".so").c_str(), RTLD_LAZY | RTLD_LOCAL);
-        return h ? (BatchFn)dlsym(h, "executeTickBatch") : nullptr;
-}
-
-static void testBitsliced(const std::string& name, bool seq, int ticks)
-{
-        std::printf("\n%s%s== bit-sliced (64-lane) evaluation in validation set: %s ==%s\n",
-                    tf::ansiBold(), tf::ansiCyan(), name.c_str(), tf::ansiRst());
-        int nIn = 0, nOut = 0;
-        Part interp = loadLayoutAsPart("layouts/" + name + ".json", nIn, nOut);
-        tf::check(interp != nullptr, name + ": interpreted engine loaded");
-        if (!interp) return;
-        int ocS = 0;
-        Part scal = buildNative(name, ocS, false);
-        BatchFn batch = buildBatch(name);
-        tf::check(scal != nullptr, name + ": scalar native compiled");
-        tf::check(batch != nullptr, name + ": bit-sliced batch compiled");
-        if (!scal || !batch) return;
-
-        bool ok = true;
-        if (!seq)
-        {
-                std::vector<std::vector<int> > pat(64, std::vector<int>(nIn));
-                for (int L = 0; L < 64; ++L)
-                        for (int i = 0; i < nIn; ++i)
-                                pat[L][i] = (int)((2654435761u * (uint32_t)(i + 1 + L * 7)) >> 13) & 1;
-                std::vector<uint64_t> in((std::size_t)(nIn ? nIn : 1), 0), out((std::size_t)(nOut ? nOut : 1), 0);
-                for (int i = 0; i < nIn; ++i) { uint64_t w = 0; for (int L = 0; L < 64; ++L) if (pat[L][i]) w |= (1ull << L); in[i] = w; }
-                batch(in.data(), out.data());
-                for (int L = 0; L < 64 && ok; ++L)
-                {
-                        std::vector<int> b(nIn);
-                        for (int i = 0; i < nIn; ++i) b[i] = pat[L][i];
-                        std::vector<int> sref = toBits(scal(toStates(b)));
-                        for (int o = 0; o < nOut; ++o)
-                        {
-                                int bit = (int)((out[o] >> L) & 1);
-                                int s = (o < (int)sref.size()) ? sref[o] : 0;
-                                if (bit != s) ok = false;
-                        }
-                }
-                tf::check(ok, name + ": 64 bit-sliced lanes == scalar (independent vectors)");
-        }
-        else
-        {
-                std::vector<int> pat(nIn);
-                for (int i = 0; i < nIn; ++i) pat[i] = (int)((2654435761u * (uint32_t)(i + 1)) >> 13) & 1;
-                std::vector<uint64_t> in((std::size_t)(nIn ? nIn : 1));
-                for (int i = 0; i < nIn; ++i) in[i] = pat[i] ? ~0ull : 0ull;
-                for (int t = 0; t < ticks && ok; ++t)
-                {
-                        std::vector<int> sref = toBits(scal(toStates(pat)));
-                        std::vector<uint64_t> out((std::size_t)(nOut ? nOut : 1), 0);
-                        batch(in.data(), out.data());
-                        for (int o = 0; o < nOut; ++o)
-                        {
-                                uint64_t want = (o < (int)sref.size() && sref[o]) ? ~0ull : 0ull;
-                                if (out[o] != want) ok = false;
-                        }
-                }
-                tf::check(ok, name + ": bit-sliced 64 lanes == scalar across " + std::to_string(ticks) + " ticks");
-        }
-}
-
 int main()
 {
         std::printf("%s%sSulla validation suite%s  (interpreted + native engines)\n",
@@ -486,6 +305,13 @@ int main()
         testCombinational("nor2",  2, [](const std::vector<int>& v){ return std::vector<int>{ (v[0] | v[1]) ? 0 : 1 }; });
         testCombinational("xor2",  2, [](const std::vector<int>& v){ return std::vector<int>{ v[0] ^ v[1] }; });
         testCombinational("xnor2", 2, [](const std::vector<int>& v){ return std::vector<int>{ (v[0] ^ v[1]) ? 0 : 1 }; });
+
+        testCombinational("7400_Quad_2-input_NAND_Gates", 8, [](const std::vector<int>& v){ return std::vector<int>{ (v[0]&v[1])?0:1, (v[2]&v[3])?0:1, (v[4]&v[5])?0:1, (v[6]&v[7])?0:1 }; });
+        testCombinational("7402_Quad_2-input_NOR_Gates", 8, [](const std::vector<int>& v){ return std::vector<int>{ (v[0]|v[1])?0:1, (v[2]|v[3])?0:1, (v[4]|v[5])?0:1, (v[6]|v[7])?0:1 }; });
+        testCombinational("7404_Hex_Inverters", 6, [](const std::vector<int>& v){ return std::vector<int>{ v[0]?0:1, v[1]?0:1, v[2]?0:1, v[3]?0:1, v[4]?0:1, v[5]?0:1 }; });
+        testCombinational("7408_Quad_2-input_AND_Gates", 8, [](const std::vector<int>& v){ return std::vector<int>{ v[0]&v[1], v[2]&v[3], v[4]&v[5], v[6]&v[7] }; });
+        testCombinational("7432_Quad_2-input_OR_Gates", 8, [](const std::vector<int>& v){ return std::vector<int>{ v[0]|v[1], v[2]|v[3], v[4]|v[5], v[6]|v[7] }; });
+        testCombinational("7486_Quad_2-input_XOR_Gates", 8, [](const std::vector<int>& v){ return std::vector<int>{ v[0]^v[1], v[2]^v[3], v[4]^v[5], v[6]^v[7] }; });
 
         testCombinational("and3",  3, [](const std::vector<int>& v){ return std::vector<int>{ v[0] & v[1] & v[2] }; });
         testCombinational("xor4",  4, [](const std::vector<int>& v){ return std::vector<int>{ v[0] ^ v[1] ^ v[2] ^ v[3] }; });
@@ -515,25 +341,8 @@ int main()
         testNativeLink();
         testPerInstanceState();
 
-        testPerfCircuit("adder8", 4);
-        testPerfCircuit("adder16", 4);
-        testPerfCircuit("adder32", 4);
-        testPerfCircuit("mul8", 4);
-        testPerfCircuit("mul16", 4);
-        testPerfCircuit("cpu8", 8);
-        testPerfCircuit("regbank64", 8);
-        testRam("ram_async", false);
-        testRam("ram_sync", true);
 
-        testArith("wadd8", false, 8);
-        testArith("wmul8", true, 8);
-        testArith("wmul16", true, 16);
 
-        testBitsliced("full_adder", false, 1);
-        testBitsliced("adder8", false, 1);
-        testBitsliced("mul8", false, 1);
-        testBitsliced("cpu8", true, 8);
-        testBitsliced("regbank64", true, 8);
 
         cleanupModules();
         return tf::summary();

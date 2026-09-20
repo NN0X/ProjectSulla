@@ -17,3 +17,5 @@ perf/parts/*.dll
 perf/parts/*.cpp
 
 out.png
+
+parts/
