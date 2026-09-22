@@ -19,7 +19,7 @@ native engines.
 
 ## Reference
 
-Texas Instruments 7400 datasheet (SN747400). The datasheet PDF is copyrighted by
-Texas Instruments and is therefore **not redistributed here**; see the official
-document at <https://www.ti.com/lit/gpn/sn747400>. The truth table and function
-above are factual and taken from that specification.
+The function and pin behaviour summarised above are taken from the Texas Instruments
+datasheet for the 7400 function. TI publishes it in the High-Speed CMOS family as
+**SN74HC00**; the datasheet PDF is copyrighted by TI and is not redistributed here.
+Official document: <https://www.ti.com/lit/ds/symlink/sn74hc00.pdf>.

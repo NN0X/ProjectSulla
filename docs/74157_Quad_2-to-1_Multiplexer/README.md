@@ -12,7 +12,7 @@ in `make test` on both the interpreted and native engines.
 
 ## Reference
 
-Texas Instruments 74157 datasheet (SN7474157). The datasheet PDF is copyrighted by
-Texas Instruments and is **not redistributed here**; see the official document at
-<https://www.ti.com/lit/gpn/sn7474157>. The function and pin behaviour summarised
-above are factual and taken from that specification.
+The function and pin behaviour summarised above are taken from the Texas Instruments
+datasheet for the 74157 function. TI publishes it in the High-Speed CMOS family as
+**SN74HC157**; the datasheet PDF is copyrighted by TI and is not redistributed here.
+Official document: <https://www.ti.com/lit/ds/symlink/sn74hc157.pdf>.

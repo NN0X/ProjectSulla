@@ -20,7 +20,7 @@ engines.
 
 ## Reference
 
-Texas Instruments 74161 datasheet (SN74161). The datasheet PDF is copyrighted by
-Texas Instruments and is **not redistributed here**; see the official document at
-<https://www.ti.com/lit/gpn/sn74161>. The function and pin behaviour summarised
-above are factual and taken from that specification.
+The function and pin behaviour summarised above are taken from the Texas Instruments
+datasheet for the 74161 function. TI publishes it in the High-Speed CMOS family as
+**SN74HC161**; the datasheet PDF is copyrighted by TI and is not redistributed here.
+Official document: <https://www.ti.com/lit/ds/symlink/sn74hc161.pdf>.

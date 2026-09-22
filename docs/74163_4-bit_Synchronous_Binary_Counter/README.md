@@ -13,7 +13,7 @@ enables are high (ENP and ENT), otherwise hold. A ripple-carry chain drives
 
 ## Reference
 
-Texas Instruments 74163 datasheet (SN7474163). The datasheet PDF is copyrighted by
-Texas Instruments and is **not redistributed here**; see the official document at
-<https://www.ti.com/lit/gpn/sn7474163>. The function and pin behaviour summarised
-above are factual and taken from that specification.
+The function and pin behaviour summarised above are taken from the Texas Instruments
+datasheet for the 74163 function. TI publishes it in the High-Speed CMOS family as
+**SN74HC163**; the datasheet PDF is copyrighted by TI and is not redistributed here.
+Official document: <https://www.ti.com/lit/ds/symlink/sn74hc163.pdf>.
