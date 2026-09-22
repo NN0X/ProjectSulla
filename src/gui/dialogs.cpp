@@ -104,7 +104,7 @@ bool handleDialogs(AppState& state)
                                 else
                                 {
                                         if (!std::filesystem::exists("layouts")) std::filesystem::create_directory("layouts");
-                                        saveLayout(state.partTypes, state.connections, state.labels, 
+                                        saveLayout(state.partTypes, state.romData, state.connections, state.labels, 
                                                    state.positions, state.inputCounts, state.outputCounts, state.connectionWaypoints, fname);
                                         state.showSaveDialog = false;
                                         refreshLayouts(state);
@@ -146,7 +146,7 @@ bool handleDialogs(AppState& state)
                 }
                 if (IsKeyPressed(KEY_ENTER) || confirm)
                 {
-                        saveLayout(state.partTypes, state.connections, state.labels, 
+                        saveLayout(state.partTypes, state.romData, state.connections, state.labels, 
                                    state.positions, state.inputCounts, state.outputCounts, state.connectionWaypoints, state.pendingSaveFilename);
                         state.showOverwriteConfirm = false;
                         refreshLayouts(state);

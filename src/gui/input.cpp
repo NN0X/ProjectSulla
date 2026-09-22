@@ -2,6 +2,7 @@
 #include "common.h"
 #include "../gates.h"
 
+#include <iterator>
 #include <iostream>
 #include <filesystem>
 #include <algorithm>
@@ -142,6 +143,27 @@ static void triggerLoad(AppState& state)
         }
 }
 
+static void triggerLoadRomHex(AppState& state)
+{
+        if (state.selectedParts.size() != 1) return;
+        int id = *state.selectedParts.begin();
+        if (state.partTypes.find(id) == state.partTypes.end() || state.partTypes.at(id) != PART_TYPE_ROM) return;
+        if (!hasNativeFileDialog()) return;
+        std::string path = openNativeFileDialog();
+        if (path.empty()) return;
+        std::ifstream in(path);
+        if (!in.is_open()) return;
+        std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+        int addrBits = state.inputCounts.find(id) != state.inputCounts.end() ? state.inputCounts.at(id) : 0;
+        int dataBits = state.outputCounts.find(id) != state.outputCounts.end() ? state.outputCounts.at(id) : 0;
+        std::vector<uint32_t> words = parseHexDump(text, dataBits);
+        std::vector<uint32_t> contents((std::size_t)1 << addrBits, 0u);
+        for (std::size_t i = 0; i < words.size() && i < contents.size(); ++i) contents[i] = words[i];
+        state.romData[id] = contents;
+        setPart(state.parts, id, makeRomPart(contents, addrBits, dataBits));
+        state.simulation = nullptr;
+}
+
 void handleInput(AppState& state)
 {
         float sideMenuWidth = state.showSideMenu ? state.sidebarWidth : 0;
@@ -173,6 +195,7 @@ void handleInput(AppState& state)
         if (!keyInputBlocked && !ctrlHeld && IsKeyPressed(KEY_V)) { state.visualizeSignals = !state.visualizeSignals; state.simulation = nullptr; }
         if (!keyInputBlocked && IsKeyPressed(KEY_T)) state.showTidyConfirm = true;
         if (!keyInputBlocked && !ctrlHeld && IsKeyPressed(KEY_F)) fitView(state);
+        if (!keyInputBlocked && !ctrlHeld && IsKeyPressed(KEY_R)) triggerLoadRomHex(state);
         if (ctrlHeld && !keyInputBlocked && IsKeyPressed(KEY_Z)) { if (shiftHeld) doRedo(state); else doUndo(state); }
         if (ctrlHeld && !keyInputBlocked && IsKeyPressed(KEY_Y)) doRedo(state);
         if (ctrlHeld && !keyInputBlocked && IsKeyPressed(KEY_C)) copySelection(state);

@@ -11,6 +11,7 @@
 #include "appstate.h"
 
 void saveLayout(const std::map<int, PartType>& partTypes,
+                const std::map<int, std::vector<uint32_t> >& romData,
                 const std::map<PartPin, PartPin>& connections,
                 const std::map<int, std::string>& labels,
                 const std::map<int, std::pair<float, float>>& positions,

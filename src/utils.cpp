@@ -119,6 +119,7 @@ static void loadPinLabelsForCustom(AppState& state, int partID, const std::strin
 }
 
 void saveLayout(const std::map<int, PartType>& partTypes,
+                const std::map<int, std::vector<uint32_t> >& romData,
                 const std::map<PartPin, PartPin>& connections,
                 const std::map<int, std::string>& labels,
                 const std::map<int, std::pair<float, float>>& positions,
@@ -147,6 +148,7 @@ void saveLayout(const std::map<int, PartType>& partTypes,
                 }
                 if (inputCounts.find(part.id) != inputCounts.end()) part.numInputs = inputCounts.at(part.id);
                 if (outputCounts.find(part.id) != outputCounts.end()) part.numOutputs = outputCounts.at(part.id);
+                if (romData.find(part.id) != romData.end()) part.romData = romData.at(part.id);
 
                 layoutData.parts.push_back(part);
         }

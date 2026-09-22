@@ -539,7 +539,7 @@ void drawUI(AppState& state)
                         return !state.sidebarCollapsed[section];
                 };
                 if (sbHeader("Parts Library", 0))
-                for (int i = 0; i <= PART_TYPE_DISPLAY; ++i)
+                for (int i = 0; i <= PART_TYPE_ROM; ++i)
                 {
                         if (i == PART_TYPE_CUSTOM) continue;
 
