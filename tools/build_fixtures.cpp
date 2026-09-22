@@ -18,7 +18,7 @@ static void compileFixture(const std::string& name)
         AppState s;
         loadLayout(s, path);
         std::string cpp = transpileToCpp(s, false);
-        if (!compilePartLibrary(cpp, name, true, false))
+        if (!compilePartLibrary(cpp, name, true, true))
         {
                 std::fprintf(stderr, "compile failed: %s\n", name.c_str());
                 return;
