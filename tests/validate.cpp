@@ -462,6 +462,61 @@ static void testCounterAsync()
         }
 }
 
+struct RamStep { int a; int din; int we; int clk; };
+
+static std::vector<int> runRamOnEngine(Part& p, const std::vector<RamStep>& seq, int settle)
+{
+        std::vector<int> outs;
+        for (const RamStep& st : seq)
+        {
+                int d = 0;
+                for (int t = 0; t < settle; ++t)
+                {
+                        std::vector<int> in(8, 0);
+                        in[0] = st.a & 1; in[1] = (st.a >> 1) & 1;
+                        for (int b = 0; b < 4; ++b) in[2 + b] = (st.din >> b) & 1;
+                        in[6] = st.we; in[7] = st.clk;
+                        std::vector<int> o = toBits(p(toStates(in)));
+                        d = 0; for (int b = 0; b < 4; ++b) d |= (o[b] << b);
+                }
+                outs.push_back(d);
+        }
+        return outs;
+}
+
+static void testRamPart()
+{
+        tf::section("RAM 4-word x 4-bit synchronous (write-enable, async read)");
+        const std::string NAME = "RAM_4word_4bit_Synchronous";
+        const int SETTLE = 22;
+        int iIn = 0, iOut = 0;
+        Part interp = loadLayoutAsPart("layouts/" + NAME + ".json", iIn, iOut);
+        if (!tf::check(interp != nullptr, "RAM: interpreted engine loaded")) return;
+        std::vector<RamStep> seq = { {0,0x5,1,0},{0,0x5,1,1},{1,0xA,1,0},{1,0xA,1,1},{2,0x3,1,0},{2,0x3,1,1},{3,0xC,1,0},{3,0xC,1,1},{0,0,0,0},{1,0,0,0},{2,0,0,0},{3,0,0,0},{0,0xF,0,0},{0,0xF,0,1},{0,0,0,0},{1,0xF,1,0},{1,0xF,1,1},{1,0,0,0} };
+        std::vector<int> golden;
+        {
+                int mem[4] = {0,0,0,0}, prev = 0;
+                for (const RamStep& st : seq)
+                {
+                        if (st.clk && !prev && st.we) mem[st.a] = st.din;
+                        prev = st.clk;
+                        golden.push_back(mem[st.a]);
+                }
+        }
+        std::vector<int> gi = runRamOnEngine(interp, seq, SETTLE);
+        tf::checkEq(gi, golden, "RAM: interpreted write/read sequence");
+        const char* modeName[2] = { "inline", "link" };
+        bool linkMode[2] = { false, true };
+        for (int m = 0; m < 2; ++m)
+        {
+                int nOut = 0;
+                Part nat = buildNative(NAME, nOut, linkMode[m]);
+                if (!tf::check(nat != nullptr, std::string("RAM: native ") + modeName[m] + " built")) continue;
+                std::vector<int> gn = runRamOnEngine(nat, seq, SETTLE);
+                tf::checkEq(gn, golden, std::string("RAM: native ") + modeName[m] + " write/read sequence");
+        }
+}
+
 int main()
 {
         std::printf("%s%sSulla validation suite%s  (interpreted + native engines)\n",
@@ -521,6 +576,7 @@ int main()
         testEnableRegister();
         testCounter();
         testCounterAsync();
+        testRamPart();
 
 
 
