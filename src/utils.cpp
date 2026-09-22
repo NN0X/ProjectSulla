@@ -257,7 +257,7 @@ int loadLayout(AppState& state, const std::string& filename)
                         }
                 }
                 break;
-                case PART_TYPE_ROM: setPart(state.parts, part.id, makeRomPart(part.romData, part.numInputs, part.numOutputs)); break;
+                case PART_TYPE_ROM: state.romData[part.id] = part.romData; setPart(state.parts, part.id, makeRomPart(part.romData, part.numInputs, part.numOutputs)); break;
                 default: setPart(state.parts, part.id, getPartFromType(part.type)); break;
                 }
                 state.partTypes[part.id] = part.type;

@@ -535,9 +535,56 @@ static void testRom()
                 if (got != ((0xA0 + a) & 0xFF)) ok = false;
         }
         tf::check(ok, "ROM: all 16 addresses read back their stored word (interpreted)");
+        const char* romMode[2] = { "inline", "link" };
+        bool romLink[2] = { false, true };
+        for (int m = 0; m < 2; ++m)
+        {
+                int nOut = 0;
+                Part nat = buildNative(NAME, nOut, romLink[m]);
+                if (!tf::check(nat != nullptr, std::string("ROM: native ") + romMode[m] + " built")) continue;
+                bool nok = true;
+                for (int a = 0; a < 16; ++a)
+                {
+                        std::vector<int> in(nIn, 0);
+                        for (int k = 0; k < 4; ++k) in[k] = (a >> k) & 1;
+                        std::vector<int> o = toBits(nat(toStates(in)));
+                        int got = 0; for (int b = 0; b < 8 && b < (int)o.size(); ++b) got |= (o[b] << b);
+                        if (got != ((0xA0 + a) & 0xFF)) nok = false;
+                }
+                tf::check(nok, std::string("ROM: native ") + romMode[m] + " matches lookup table");
+        }
         std::vector<uint32_t> parsed = parseHexDump("A0 A1\n0f FF  12", 8);
         std::vector<int> pv(parsed.begin(), parsed.end());
         tf::checkEq(pv, std::vector<int>{ 0xA0, 0xA1, 0x0F, 0xFF, 0x12 }, "ROM: parseHexDump reads whitespace/newline-separated hex bytes");
+}
+
+static void checkDualRom(Part& p, int nIn, const std::string& tag)
+{
+        const int t1[4] = { 1, 2, 4, 8 };
+        const int t2[4] = { 3, 5, 7, 9 };
+        bool okp = true;
+        for (int a = 0; a < 4; ++a)
+        {
+                std::vector<int> in(nIn, 0); in[0] = a & 1; in[1] = (a >> 1) & 1;
+                std::vector<int> o = toBits(p(toStates(in)));
+                int r1 = 0, r2 = 0;
+                for (int b = 0; b < 4; ++b) r1 |= (o[b] << b);
+                for (int b = 0; b < 4; ++b) r2 |= (o[4 + b] << b);
+                if (r1 != t1[a] || r2 != t2[a]) okp = false;
+        }
+        tf::check(okp, "dual-ROM: both ROMs keep their own table (" + tag + ")");
+}
+
+static void testRomMulti()
+{
+        tf::section("Multiple ROM parts in one circuit (independent contents)");
+        const std::string NAME = "ROM_Dual_Independent";
+        int nIn = 0, nOut = 0;
+        Part interp = loadLayoutAsPart("layouts/" + NAME + ".json", nIn, nOut);
+        if (!tf::check(interp != nullptr, "dual-ROM: fixture loaded")) return;
+        checkDualRom(interp, nIn, "interpreted");
+        int no = 0; Part ni = buildNative(NAME, no, false); if (ni) checkDualRom(ni, nIn, "native inline");
+        int no2 = 0; Part nl = buildNative(NAME, no2, true); if (nl) checkDualRom(nl, nIn, "native link");
 }
 
 int main()
@@ -601,6 +648,7 @@ int main()
         testCounterAsync();
         testRamPart();
         testRom();
+        testRomMulti();
 
 
 

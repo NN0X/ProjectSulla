@@ -23,13 +23,13 @@ interpreted engine, and `parseHexDump` is unit-tested, in `make test`.
 ## Status / remaining work
 
 - DONE: the primitive itself (type, `makeRomPart`), JSON serialisation of `romData`,
-  loading into the interpreted engine, and hex parsing - all validated.
-- TODO (mapped in the plan): native-engine transpilation (emit the contents as a
-  static table + address lookup in the compiled path - needs `romData` threaded
-  through FlatCircuit and the two emit sites in compiler/core.cpp) and the GUI
-  surface (sidebar entry, draw, getPartSize, place, and the "load hex" action wired to
-  openNativeFileDialog -> parseHexDump). Until native transpile lands, ROM fixtures are
-  kept in tests/layouts/ (interpreted-tested) rather than layouts/.
+  loading into BOTH engines (interpreted + native transpile: each ROM emits its own
+  `rom_<id>` static table + address lookup, so multiple ROMs coexist in one circuit),
+  and hex parsing - all validated. The ROM lives in `layouts/` and `make fixtures`
+  compiles it.
+- TODO: the GUI surface - sidebar entry, draw, getPartSize, place, and the "load hex"
+  action wired to openNativeFileDialog -> parseHexDump -> romData, plus saveLayout
+  writing romData back.
 
 ## Reference
 

@@ -1,6 +1,7 @@
 #ifndef APPSTATE_H
 #define APPSTATE_H
 
+#include <cstdint>
 #include "theme.h"
 #include <map>
 #include <vector>
@@ -89,6 +90,7 @@ struct AppState
         std::map<int, int> outputCounts; 
 
         std::map<int, std::vector<State>> sourceValues;
+        std::map<int, std::vector<uint32_t>> romData;
 
         std::map<int, std::vector<std::string>> inputPinLabels;
         std::map<int, std::vector<std::string>> outputPinLabels;

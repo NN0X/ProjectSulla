@@ -29,6 +29,7 @@ struct FlatCircuit
         std::map<int, std::pair<float, float>> positions;
         std::set<int> staticNodes;
         std::map<std::string, int> embedStateSize;
+        std::map<int, std::vector<uint32_t> > romData;
 };
 
 struct LSCPin { int id; int pin; };
@@ -306,6 +307,7 @@ static FlatCircuit flattenState(const AppState& state, bool linkMode)
                 fc.inputCounts[id] = state.inputCounts.count(id) ? state.inputCounts.at(id) : 0;
                 fc.outputCounts[id] = state.outputCounts.count(id) ? state.outputCounts.at(id) : 0;
                 if (state.positions.count(id)) fc.positions[id] = state.positions.at(id);
+                if (state.romData.count(id)) fc.romData[id] = state.romData.at(id);
         }
 
         std::map<int, std::vector<PartPin>> customOut;
@@ -515,6 +517,19 @@ static std::string emitCpp(const FlatCircuit& c, bool bitsliced = false)
                 if (backProd.count(id))
                         for (int p = 0; p < outC; ++p) code << "static " << T << " p_" << id << "_out_" << p << " = 0;\n";
                 if (it->second == PART_TYPE_CLOCK) code << "static " << T << " clk_" << id << " = 0;\n";
+                if (it->second == PART_TYPE_ROM)
+                {
+                        int romAddr = c.inputCounts.count(id) ? c.inputCounts.at(id) : 0;
+                        std::size_t romSize = (std::size_t)1 << romAddr;
+                        std::map<int, std::vector<uint32_t> >::const_iterator rit = c.romData.find(id);
+                        code << "static const uint32_t rom_" << id << "[" << romSize << "] = {";
+                        for (std::size_t w = 0; w < romSize; ++w)
+                        {
+                                uint32_t val = (rit != c.romData.end() && w < rit->second.size()) ? rit->second[w] : 0u;
+                                code << val << (w + 1 < romSize ? "," : "");
+                        }
+                        code << "};\n";
+                }
                 if (it->second == PART_TYPE_CUSTOM)
                 {
                         bool rs; int ra, rw;
@@ -565,7 +580,7 @@ static std::string emitCpp(const FlatCircuit& c, bool bitsliced = false)
                         }
                 }
 
-                if (inC == 0 && type != PART_TYPE_CUSTOM && type != PART_TYPE_CLOCK) continue;
+                if (inC == 0 && type != PART_TYPE_CUSTOM && type != PART_TYPE_CLOCK && type != PART_TYPE_ROM) continue;
 
                 const GateSpec& g = gateSpec(type);
                 if (g.eval == EVAL_FOLD)
@@ -585,6 +600,18 @@ static std::string emitCpp(const FlatCircuit& c, bool bitsliced = false)
                 {
                         code << "        clk_" << u << " = " << NEG << "clk_" << u << ";\n";
                         code << "        n_" << u << "_out_0 = clk_" << u << ";\n";
+                }
+                else if (type == PART_TYPE_ROM)
+                {
+                        int romData_bits = c.outputCounts.count(u) ? c.outputCounts.at(u) : 0;
+                        code << "        {\n";
+                        code << "                unsigned aR_" << u << " = 0;\n";
+                        for (int p = 0; p < inC; ++p)
+                                code << "                aR_" << u << " |= (unsigned)(" << inVars[p] << " & 1) << " << p << ";\n";
+                        code << "                uint32_t dR_" << u << " = rom_" << u << "[aR_" << u << "];\n";
+                        for (int p = 0; p < romData_bits; ++p)
+                                code << "                n_" << u << "_out_" << p << " = (" << T << ")((dR_" << u << " >> " << p << ") & 1u);\n";
+                        code << "        }\n";
                 }
                 else if (type == PART_TYPE_CUSTOM)
                 {
