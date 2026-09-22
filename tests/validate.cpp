@@ -426,6 +426,42 @@ static void testCounter()
         }
 }
 
+static void testCounterAsync()
+{
+        tf::section("74161 4-bit synchronous counter (ASYNC clear, load, count, RCO)");
+        const std::string NAME = "74161_4-bit_Synchronous_Counter_Async_Clear";
+        const int SETTLE = 24;
+        int iIn = 0, iOut = 0;
+        Part interp = loadLayoutAsPart("layouts/" + NAME + ".json", iIn, iOut);
+        if (!tf::check(interp != nullptr, "74161: interpreted engine loaded")) return;
+        std::vector<CntStep> seq = { {0,1,0,0,0,0},{0xC,0,1,0,0,0},{0xC,0,1,0,0,1},{0,1,1,1,1,0},{0,1,1,1,1,1},{0,1,1,1,1,0},{0,1,1,1,1,1},{0,1,1,1,1,0},{0,1,1,1,1,1},{0,1,0,1,1,1},{0,1,1,1,1,1},{0,1,1,1,1,0},{0,1,1,1,1,1} };
+        std::vector<int> goldenQ, goldenR;
+        {
+                int q = 0, prev = 0;
+                for (const CntStep& st : seq)
+                {
+                        if (!st.nclr) q = 0;
+                        else if (st.clk && !prev) { if (!st.nload) q = st.d; else if (st.enp && st.ent) q = (q + 1) & 15; }
+                        prev = st.clk;
+                        goldenQ.push_back(q); goldenR.push_back((st.ent && q == 15) ? 1 : 0);
+                }
+        }
+        std::vector<int> qi, ri; runCounterOnEngine(interp, seq, SETTLE, qi, ri);
+        tf::checkEq(qi, goldenQ, "74161: interpreted async-clear count/load sequence");
+        tf::checkEq(ri, goldenR, "74161: interpreted RCO sequence");
+        const char* modeName[2] = { "inline", "link" };
+        bool linkMode[2] = { false, true };
+        for (int m = 0; m < 2; ++m)
+        {
+                int nOut = 0;
+                Part nat = buildNative(NAME, nOut, linkMode[m]);
+                if (!tf::check(nat != nullptr, std::string("74161: native ") + modeName[m] + " built")) continue;
+                std::vector<int> qn, rn; runCounterOnEngine(nat, seq, SETTLE, qn, rn);
+                tf::checkEq(qn, goldenQ, std::string("74161: native ") + modeName[m] + " count sequence");
+                tf::checkEq(rn, goldenR, std::string("74161: native ") + modeName[m] + " RCO sequence");
+        }
+}
+
 int main()
 {
         std::printf("%s%sSulla validation suite%s  (interpreted + native engines)\n",
@@ -484,6 +520,7 @@ int main()
         testEdgeRegister();
         testEnableRegister();
         testCounter();
+        testCounterAsync();
 
 
 
