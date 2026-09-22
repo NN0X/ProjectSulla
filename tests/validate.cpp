@@ -290,56 +290,139 @@ static void testPerInstanceState()
         }
 }
 
-static void testEdgeRegister()
+struct RegStep { int data; int clk; int ctrl; };
+
+static std::vector<int> runRegisterOnEngine(Part& p, const std::vector<RegStep>& seq, int settle)
 {
-        tf::section("74273 octal D register (edge-triggered master-slave, async clear)");
-        const std::string NAME = "74273_Octal_D_Flip-Flop_with_Clear";
+        std::vector<int> qs;
+        for (const RegStep& st : seq)
+        {
+                int q = 0;
+                for (int t = 0; t < settle; ++t)
+                {
+                        std::vector<int> in(10, 0);
+                        for (int k = 0; k < 8; ++k) in[k] = (st.data >> k) & 1;
+                        in[8] = st.clk; in[9] = st.ctrl;
+                        std::vector<int> o = toBits(p(toStates(in)));
+                        q = 0; for (int k = 0; k < (int)o.size(); ++k) q |= (o[k] << k);
+                }
+                qs.push_back(q);
+        }
+        return qs;
+}
+
+static void checkRegister(const std::string& name, const std::vector<RegStep>& seq, const std::vector<int>& golden)
+{
         const int SETTLE = 16;
         int iIn = 0, iOut = 0;
-        Part interp = loadLayoutAsPart("layouts/" + NAME + ".json", iIn, iOut);
-        if (!tf::check(interp != nullptr, "74273: interpreted engine loaded")) return;
+        Part interp = loadLayoutAsPart("layouts/" + name + ".json", iIn, iOut);
+        if (!tf::check(interp != nullptr, name + ": interpreted engine loaded")) return;
+        std::vector<int> gotI = runRegisterOnEngine(interp, seq, SETTLE);
+        tf::checkEq(gotI, golden, name + ": interpreted matches golden sequence");
+        const char* modeName[2] = { "inline", "link" };
+        bool linkMode[2] = { false, true };
+        for (int m = 0; m < 2; ++m)
+        {
+                int nOut = 0;
+                Part nat = buildNative(name, nOut, linkMode[m]);
+                if (!tf::check(nat != nullptr, name + ": native " + modeName[m] + " built")) continue;
+                std::vector<int> gotN = runRegisterOnEngine(nat, seq, SETTLE);
+                tf::checkEq(gotN, golden, name + ": native " + modeName[m] + " matches golden");
+        }
+}
 
-        struct Step { int d; int clk; int nclr; };
-        std::vector<Step> seq = { {0x00,0,1},{0xA5,0,1},{0xA5,1,1},{0x00,1,1},{0x00,0,1},{0x3C,0,1},{0x3C,1,1},{0xFF,0,0},{0xFF,1,0},{0x0F,0,1},{0x0F,1,1} };
+static void testEdgeRegister()
+{
+        tf::section("74273 octal D register (edge master-slave, async clear)");
+        std::vector<RegStep> seq = { {0x00,0,1},{0xA5,0,1},{0xA5,1,1},{0x00,1,1},{0x00,0,1},{0x3C,0,1},{0x3C,1,1},{0xFF,0,0},{0xFF,1,0},{0x0F,0,1},{0x0F,1,1} };
         std::vector<int> golden;
         {
                 int g = 0, prev = 0;
-                for (const Step& st : seq)
+                for (const RegStep& st : seq)
                 {
-                        if (!st.nclr) g = 0;
-                        else if (st.clk && !prev) g = st.d;
+                        if (!st.ctrl) g = 0;
+                        else if (st.clk && !prev) g = st.data;
                         prev = st.clk;
                         golden.push_back(g);
                 }
         }
-        auto runSeq = [&](Part& p) {
-                std::vector<int> qs;
-                for (const Step& st : seq)
+        checkRegister("74273_Octal_D_Flip-Flop_with_Clear", seq, golden);
+}
+
+static void testEnableRegister()
+{
+        tf::section("74377 octal D register (edge master-slave, clock enable)");
+        std::vector<RegStep> seq = { {0x00,0,0},{0xC3,0,0},{0xC3,1,0},{0x00,1,0},{0x00,0,0},{0x55,0,0},{0x55,1,0},{0xFF,0,1},{0xFF,1,1},{0xF0,0,1},{0xF0,1,1},{0x0F,0,0},{0x0F,1,0} };
+        std::vector<int> golden;
+        {
+                int g = 0, prev = 0;
+                for (const RegStep& st : seq)
                 {
-                        int q = 0;
-                        for (int t = 0; t < SETTLE; ++t)
-                        {
-                                std::vector<int> in(10, 0);
-                                for (int k = 0; k < 8; ++k) in[k] = (st.d >> k) & 1;
-                                in[8] = st.clk; in[9] = st.nclr;
-                                std::vector<int> o = toBits(p(toStates(in)));
-                                q = 0; for (int k = 0; k < (int)o.size(); ++k) q |= (o[k] << k);
-                        }
-                        qs.push_back(q);
+                        int en = !st.ctrl;
+                        if (st.clk && !prev && en) g = st.data;
+                        prev = st.clk;
+                        golden.push_back(g);
                 }
-                return qs;
-        };
-        std::vector<int> gotI = runSeq(interp);
-        tf::checkEq(gotI, golden, "74273: interpreted matches edge-triggered golden sequence");
+        }
+        checkRegister("74377_Octal_D_Register_with_Enable", seq, golden);
+}
+
+struct CntStep { int d; int nload; int nclr; int enp; int ent; int clk; };
+
+static void runCounterOnEngine(Part& p, const std::vector<CntStep>& seq, int settle, std::vector<int>& qs, std::vector<int>& rs)
+{
+        for (const CntStep& st : seq)
+        {
+                int q = 0, r = 0;
+                for (int t = 0; t < settle; ++t)
+                {
+                        std::vector<int> in(9, 0);
+                        for (int k = 0; k < 4; ++k) in[k] = (st.d >> k) & 1;
+                        in[4] = st.nload; in[5] = st.nclr; in[6] = st.enp; in[7] = st.ent; in[8] = st.clk;
+                        std::vector<int> o = toBits(p(toStates(in)));
+                        q = 0; for (int k = 0; k < 4; ++k) q |= (o[k] << k);
+                        r = ((int)o.size() > 4) ? o[4] : 0;
+                }
+                qs.push_back(q); rs.push_back(r);
+        }
+}
+
+static void testCounter()
+{
+        tf::section("74163 4-bit synchronous counter (sync clear, load, count, RCO)");
+        const std::string NAME = "74163_4-bit_Synchronous_Binary_Counter";
+        const int SETTLE = 24;
+        int iIn = 0, iOut = 0;
+        Part interp = loadLayoutAsPart("layouts/" + NAME + ".json", iIn, iOut);
+        if (!tf::check(interp != nullptr, "74163: interpreted engine loaded")) return;
+        std::vector<CntStep> seq;
+        seq.push_back({0,1,0,0,0,0}); seq.push_back({0,1,0,0,0,1});
+        seq.push_back({0x9,0,1,0,0,0}); seq.push_back({0x9,0,1,0,0,1});
+        for (int k = 0; k < 10; ++k) { seq.push_back({0,1,1,1,1,0}); seq.push_back({0,1,1,1,1,1}); }
+        seq.push_back({0,1,1,0,1,0}); seq.push_back({0,1,1,0,1,1});
+        std::vector<int> goldenQ, goldenR;
+        {
+                int q = 0, prev = 0;
+                for (const CntStep& st : seq)
+                {
+                        if (st.clk && !prev) { if (!st.nclr) q = 0; else if (!st.nload) q = st.d; else if (st.enp && st.ent) q = (q + 1) & 15; }
+                        prev = st.clk;
+                        goldenQ.push_back(q); goldenR.push_back((st.ent && q == 15) ? 1 : 0);
+                }
+        }
+        std::vector<int> qi, ri; runCounterOnEngine(interp, seq, SETTLE, qi, ri);
+        tf::checkEq(qi, goldenQ, "74163: interpreted count/load/clear sequence");
+        tf::checkEq(ri, goldenR, "74163: interpreted RCO sequence");
         const char* modeName[2] = { "inline", "link" };
         bool linkMode[2] = { false, true };
         for (int m = 0; m < 2; ++m)
         {
                 int nOut = 0;
                 Part nat = buildNative(NAME, nOut, linkMode[m]);
-                if (!tf::check(nat != nullptr, std::string("74273: native ") + modeName[m] + " built")) continue;
-                std::vector<int> gotN = runSeq(nat);
-                tf::checkEq(gotN, golden, std::string("74273: native ") + modeName[m] + " matches golden");
+                if (!tf::check(nat != nullptr, std::string("74163: native ") + modeName[m] + " built")) continue;
+                std::vector<int> qn, rn; runCounterOnEngine(nat, seq, SETTLE, qn, rn);
+                tf::checkEq(qn, goldenQ, std::string("74163: native ") + modeName[m] + " count sequence");
+                tf::checkEq(rn, goldenR, std::string("74163: native ") + modeName[m] + " RCO sequence");
         }
 }
 
@@ -399,6 +482,8 @@ int main()
         testNativeLink();
         testPerInstanceState();
         testEdgeRegister();
+        testEnableRegister();
+        testCounter();
 
 
 
