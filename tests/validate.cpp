@@ -587,6 +587,87 @@ static void testRomMulti()
         int no2 = 0; Part nl = buildNative(NAME, no2, true); if (nl) checkDualRom(nl, nIn, "native link");
 }
 
+static std::vector<std::vector<int> > runSequential(Part& p, const std::vector<std::vector<int> >& inputs, int settle)
+{
+        std::vector<std::vector<int> > outs;
+        for (const std::vector<int>& in : inputs)
+        {
+                std::vector<int> o;
+                for (int t = 0; t < settle; ++t) o = toBits(p(toStates(in)));
+                outs.push_back(o);
+        }
+        return outs;
+}
+
+static bool seqMatches(const std::vector<std::vector<int> >& got, const std::vector<std::vector<int> >& golden)
+{
+        for (std::size_t s = 0; s < golden.size(); ++s)
+                for (std::size_t k = 0; k < golden[s].size(); ++k)
+                        if (s >= got.size() || k >= got[s].size() || got[s][k] != golden[s][k]) return false;
+        return true;
+}
+
+static void checkSequential(const std::string& name, const std::vector<std::vector<int> >& inputs, const std::vector<std::vector<int> >& golden)
+{
+        const int SETTLE = 16;
+        int iIn = 0, iOut = 0;
+        Part interp = loadLayoutAsPart("layouts/" + name + ".json", iIn, iOut);
+        if (!tf::check(interp != nullptr, name + ": interpreted loaded")) return;
+        tf::check(seqMatches(runSequential(interp, inputs, SETTLE), golden), name + ": interpreted sequence matches");
+        const char* modeName[2] = { "inline", "link" };
+        bool linkMode[2] = { false, true };
+        for (int m = 0; m < 2; ++m)
+        {
+                int nOut = 0;
+                Part nat = buildNative(name, nOut, linkMode[m]);
+                if (!tf::check(nat != nullptr, name + ": native " + modeName[m] + " built")) continue;
+                tf::check(seqMatches(runSequential(nat, inputs, SETTLE), golden), name + ": native " + modeName[m] + " sequence matches");
+        }
+}
+
+static void testLearningCircuits()
+{
+        tf::section("2.1d learning circuits: adders (exhaustive, both engines)");
+        testCombinational("Half_Adder", 2, [](const std::vector<int>& v){ return std::vector<int>{ v[0] ^ v[1], v[0] & v[1] }; });
+        testCombinational("Full_Adder", 3, [](const std::vector<int>& v){ int su = v[0] ^ v[1] ^ v[2]; int co = (v[0] & v[1]) | (v[2] & (v[0] ^ v[1])); return std::vector<int>{ su, co }; });
+
+        tf::section("2.1d learning circuits: SR + D latches (sequence)");
+        checkSequential("SR_Latch_NOR", { {1,0},{0,0},{0,1},{0,0},{1,0} }, { {1,0},{1,0},{0,1},{0,1},{1,0} });
+        checkSequential("D_Latch_Gated", { {1,1},{0,0},{0,1},{1,0},{1,1} }, { {1},{1},{0},{0},{1} });
+
+        tf::section("2.1d learning circuits: 4-bit shift register (SIPO)");
+        {
+                std::vector<std::vector<int> > in, gold;
+                int sr[4] = {0,0,0,0}, prev = 0;
+                int din[8] = {1,1,0,0,1,1,1,1};
+                int clk[8] = {0,1,0,1,0,1,0,1};
+                for (int i = 0; i < 8; ++i)
+                {
+                        in.push_back({ din[i], clk[i] });
+                        if (clk[i] && !prev) { for (int q = 3; q > 0; --q) sr[q] = sr[q - 1]; sr[0] = din[i]; }
+                        prev = clk[i];
+                        gold.push_back({ sr[0], sr[1], sr[2], sr[3] });
+                }
+                checkSequential("Shift_Register_4-bit_SIPO", in, gold);
+        }
+
+        tf::section("2.1d learning circuits: traffic-light FSM (Green->Yellow->Red cycle)");
+        {
+                std::vector<std::vector<int> > in, gold;
+                int stt = 0, prev = 0;
+                int clk[9] = {0,0,0,1,0,1,0,1,0};
+                int rst[9] = {0,1,1,1,1,1,1,1,1};
+                for (int i = 0; i < 9; ++i)
+                {
+                        in.push_back({ clk[i], rst[i] });
+                        if (!rst[i]) stt = 0; else if (clk[i] && !prev) stt = (stt == 2) ? 0 : stt + 1;
+                        prev = clk[i];
+                        gold.push_back({ stt == 0 ? 1 : 0, stt == 1 ? 1 : 0, stt == 2 ? 1 : 0 });
+                }
+                checkSequential("Traffic_Light_Controller_FSM", in, gold);
+        }
+}
+
 int main()
 {
         std::printf("%s%sSulla validation suite%s  (interpreted + native engines)\n",
@@ -649,6 +730,7 @@ int main()
         testRamPart();
         testRom();
         testRomMulti();
+        testLearningCircuits();
 
 
 
