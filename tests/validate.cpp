@@ -290,6 +290,59 @@ static void testPerInstanceState()
         }
 }
 
+static void testEdgeRegister()
+{
+        tf::section("74273 octal D register (edge-triggered master-slave, async clear)");
+        const std::string NAME = "74273_Octal_D_Flip-Flop_with_Clear";
+        const int SETTLE = 16;
+        int iIn = 0, iOut = 0;
+        Part interp = loadLayoutAsPart("layouts/" + NAME + ".json", iIn, iOut);
+        if (!tf::check(interp != nullptr, "74273: interpreted engine loaded")) return;
+
+        struct Step { int d; int clk; int nclr; };
+        std::vector<Step> seq = { {0x00,0,1},{0xA5,0,1},{0xA5,1,1},{0x00,1,1},{0x00,0,1},{0x3C,0,1},{0x3C,1,1},{0xFF,0,0},{0xFF,1,0},{0x0F,0,1},{0x0F,1,1} };
+        std::vector<int> golden;
+        {
+                int g = 0, prev = 0;
+                for (const Step& st : seq)
+                {
+                        if (!st.nclr) g = 0;
+                        else if (st.clk && !prev) g = st.d;
+                        prev = st.clk;
+                        golden.push_back(g);
+                }
+        }
+        auto runSeq = [&](Part& p) {
+                std::vector<int> qs;
+                for (const Step& st : seq)
+                {
+                        int q = 0;
+                        for (int t = 0; t < SETTLE; ++t)
+                        {
+                                std::vector<int> in(10, 0);
+                                for (int k = 0; k < 8; ++k) in[k] = (st.d >> k) & 1;
+                                in[8] = st.clk; in[9] = st.nclr;
+                                std::vector<int> o = toBits(p(toStates(in)));
+                                q = 0; for (int k = 0; k < (int)o.size(); ++k) q |= (o[k] << k);
+                        }
+                        qs.push_back(q);
+                }
+                return qs;
+        };
+        std::vector<int> gotI = runSeq(interp);
+        tf::checkEq(gotI, golden, "74273: interpreted matches edge-triggered golden sequence");
+        const char* modeName[2] = { "inline", "link" };
+        bool linkMode[2] = { false, true };
+        for (int m = 0; m < 2; ++m)
+        {
+                int nOut = 0;
+                Part nat = buildNative(NAME, nOut, linkMode[m]);
+                if (!tf::check(nat != nullptr, std::string("74273: native ") + modeName[m] + " built")) continue;
+                std::vector<int> gotN = runSeq(nat);
+                tf::checkEq(gotN, golden, std::string("74273: native ") + modeName[m] + " matches golden");
+        }
+}
+
 int main()
 {
         std::printf("%s%sSulla validation suite%s  (interpreted + native engines)\n",
@@ -345,6 +398,7 @@ int main()
 
         testNativeLink();
         testPerInstanceState();
+        testEdgeRegister();
 
 
 
