@@ -61,6 +61,47 @@ Part makeMemoryPart(bool sync, int addrBits, int dataBits)
         };
 }
 
+Part makeRomPart(const std::vector<uint32_t>& contents, int addrBits, int dataBits)
+{
+        std::shared_ptr<std::vector<uint32_t> > rom = std::make_shared<std::vector<uint32_t> >((std::size_t)1 << addrBits, 0u);
+        for (std::size_t i = 0; i < contents.size() && i < rom->size(); ++i) (*rom)[i] = contents[i];
+        int A = addrBits, W = dataBits;
+        return [rom, A, W](const Input& in) -> std::vector<State> {
+                uint32_t addr = 0;
+                for (int k = 0; k < A; ++k)
+                        if ((int)in.size() > k && in[k] == STATE_HIGH) addr |= (1u << k);
+                uint32_t data = ((std::size_t)addr < rom->size()) ? (*rom)[addr] : 0u;
+                std::vector<State> out((std::size_t)W, STATE_LOW);
+                for (int k = 0; k < W; ++k) out[k] = ((data >> k) & 1u) ? STATE_HIGH : STATE_LOW;
+                return out;
+        };
+}
+
+std::vector<uint32_t> parseHexDump(const std::string& text, int dataBits)
+{
+        const uint32_t MASK = (dataBits >= 32) ? 0xFFFFFFFFu : ((1u << dataBits) - 1u);
+        std::vector<uint32_t> words;
+        std::string tok;
+        for (std::size_t i = 0; i <= text.size(); ++i)
+        {
+                char ch = (i < text.size()) ? text[i] : ' ';
+                bool isHex = (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f') || (ch >= 'A' && ch <= 'F');
+                if (isHex)
+                {
+                        tok.push_back(ch);
+                }
+                else
+                {
+                        if (!tok.empty())
+                        {
+                                words.push_back((uint32_t)(std::stoul(tok, nullptr, 16) & MASK));
+                                tok.clear();
+                        }
+                }
+        }
+        return words;
+}
+
 bool parseArithLabel(const std::string& label, bool& isMul, int& width)
 {
         if (label.rfind("ADD_", 0) == 0) isMul = false;

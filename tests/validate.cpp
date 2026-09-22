@@ -7,6 +7,7 @@
 #include <filesystem>
 
 #include "part.h"
+#include "primitives.h"
 #include "utils.h"
 #include "appstate.h"
 #include "compiler/compiler.h"
@@ -517,6 +518,28 @@ static void testRamPart()
         }
 }
 
+static void testRom()
+{
+        tf::section("ROM primitive (16x8 lookup table, hex-loadable contents)");
+        const std::string NAME = "ROM_16x8_Lookup_Table";
+        int nIn = 0, nOut = 0;
+        Part rom = loadLayoutAsPart("layouts/" + NAME + ".json", nIn, nOut);
+        if (!tf::check(rom != nullptr, "ROM: fixture loaded")) return;
+        bool ok = true;
+        for (int a = 0; a < 16; ++a)
+        {
+                std::vector<int> in(nIn, 0);
+                for (int k = 0; k < 4; ++k) in[k] = (a >> k) & 1;
+                std::vector<int> o = toBits(rom(toStates(in)));
+                int got = 0; for (int b = 0; b < 8; ++b) got |= (o[b] << b);
+                if (got != ((0xA0 + a) & 0xFF)) ok = false;
+        }
+        tf::check(ok, "ROM: all 16 addresses read back their stored word (interpreted)");
+        std::vector<uint32_t> parsed = parseHexDump("A0 A1\n0f FF  12", 8);
+        std::vector<int> pv(parsed.begin(), parsed.end());
+        tf::checkEq(pv, std::vector<int>{ 0xA0, 0xA1, 0x0F, 0xFF, 0x12 }, "ROM: parseHexDump reads whitespace/newline-separated hex bytes");
+}
+
 int main()
 {
         std::printf("%s%sSulla validation suite%s  (interpreted + native engines)\n",
@@ -577,6 +600,7 @@ int main()
         testCounter();
         testCounterAsync();
         testRamPart();
+        testRom();
 
 
 

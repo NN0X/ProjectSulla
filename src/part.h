@@ -26,7 +26,8 @@ enum PartType
         PART_TYPE_OUTPUT,
         PART_TYPE_CUSTOM,
         PART_TYPE_CLOCK,
-        PART_TYPE_DISPLAY
+        PART_TYPE_DISPLAY,
+        PART_TYPE_ROM
 };
 
 typedef std::vector<State> Input;

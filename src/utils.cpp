@@ -29,6 +29,7 @@ typedef struct SerializablePart
         float y;
         int numInputs;
         int numOutputs;
+        std::vector<uint32_t> romData;
 } SPart;
 
 typedef struct SerializableConnectionPin
@@ -256,6 +257,7 @@ int loadLayout(AppState& state, const std::string& filename)
                         }
                 }
                 break;
+                case PART_TYPE_ROM: setPart(state.parts, part.id, makeRomPart(part.romData, part.numInputs, part.numOutputs)); break;
                 default: setPart(state.parts, part.id, getPartFromType(part.type)); break;
                 }
                 state.partTypes[part.id] = part.type;
@@ -357,6 +359,7 @@ Part loadLayoutAsPart(const std::string& filename, int& nInputs, int& nOutputs)
                         }
                 }
                 break;
+                case PART_TYPE_ROM: setPart(subParts, part.id, makeRomPart(part.romData, part.numInputs, part.numOutputs)); break;
                 default: setPart(subParts, part.id, getPartFromType(part.type)); break;
                 }
         }
@@ -519,6 +522,7 @@ std::set<int> importLayout(AppState& state, const std::string& filename, float m
                         }
                 }
                 break;
+                case PART_TYPE_ROM: setPart(state.parts, newID, makeRomPart(part.romData, part.numInputs, part.numOutputs)); break;
                 default: setPart(state.parts, newID, getPartFromType(part.type)); break;
                 }
 

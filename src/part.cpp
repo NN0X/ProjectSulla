@@ -138,6 +138,8 @@ Part getPartFromType(PartType type)
                 return [](std::vector<State>) -> std::vector<State> {
                         return std::vector<State>(1, STATE_UNDEFINED);
                 };
+        case EVAL_ROM:
+                return makeRomPart(std::vector<uint32_t>(), 0, 1);
         case EVAL_SOURCE:
         default:
                 std::cerr << "Error: part type has no interpreter part: " << partTypeName(type) << std::endl;

@@ -9,7 +9,8 @@ enum GateEval
         EVAL_SOURCE,
         EVAL_SINK,
         EVAL_CLOCK,
-        EVAL_CUSTOM
+        EVAL_CUSTOM,
+        EVAL_ROM
 };
 
 struct GateSpec
