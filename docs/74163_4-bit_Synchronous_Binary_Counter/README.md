@@ -9,11 +9,6 @@ enables are high (ENP and ENT), otherwise hold. A ripple-carry chain drives
 
 **Interface:** 9 inputs (D0..D3, nLOAD, nCLR, ENP, ENT, CLK) / 5 outputs (Q0..Q3, RCO).
 
-**Validation:** clocked through clear, load, a full count with 15->0 rollover, RCO assertion and a disabled-hold, checked on interpreted + both native engines. Compiled into `parts/` by `make fixtures`.
-
 ## Reference
 
-The function and pin behaviour summarised above are taken from the Texas Instruments
-datasheet for the 74163 function. TI publishes it in the High-Speed CMOS family as
-**SN74HC163**; the datasheet PDF is copyrighted by TI and is not redistributed here.
-Official document: <https://www.ti.com/lit/ds/symlink/sn74hc163.pdf>.
+Texas Instruments SN74HC163 datasheet: <https://www.ti.com/lit/ds/symlink/sn74hc163.pdf>

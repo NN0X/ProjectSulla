@@ -19,13 +19,6 @@ asynchronous - the same behaviour as a small classic static RAM such as the 7489
 
 **Interface:** 8 inputs (A0, A1, Din0..Din3, WE, CLK) / 4 outputs (Dout0..Dout3).
 
-**Validation:** driven through a write-each-address / read-each-address sequence, a
-write-enable-low no-op (confirming WE gates writes), and an overwrite - checked
-against a golden memory model on interpreted + both native engines.
-
 ## Reference
 
-This is a generic educational SRAM design rather than a replica of one specific chip.
-Background on the static-RAM cell and synchronous-write / asynchronous-read
-organisation: <https://en.wikipedia.org/wiki/Static_random-access_memory>. Real-world
-small SRAMs with the same interface include the 7489 (16x4) and the 2114 (1Kx4).
+Reference: <https://en.wikipedia.org/wiki/Static_random-access_memory>

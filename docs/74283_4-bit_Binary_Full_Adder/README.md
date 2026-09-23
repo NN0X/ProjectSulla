@@ -7,12 +7,6 @@ Adds two 4-bit binary numbers A (A1..A4) and B (B1..B4) with a carry-in C0, prod
 
 **Interface:** 9 inputs (A1..A4, B1..B4, C0) / 5 outputs (S1..S4, C4).
 
-**Validation:** Exhaustively validated: for all 512 input combinations, `{S1..S4,C4}` equals the 5-bit value `A + B + C0` (A1 and B1 are the least-significant bits). It is compiled into `parts/` by `make fixtures` and checked
-in `make test` on both the interpreted and native engines.
-
 ## Reference
 
-The function and pin behaviour summarised above are taken from the Texas Instruments
-datasheet for the 74283 function. TI publishes it in the High-Speed CMOS family as
-**SN74HC283**; the datasheet PDF is copyrighted by TI and is not redistributed here.
-Official document: <https://www.ti.com/lit/ds/symlink/sn74hc283.pdf>.
+Texas Instruments SN74HC283 datasheet: <https://www.ti.com/lit/ds/symlink/sn74hc283.pdf>

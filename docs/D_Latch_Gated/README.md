@@ -4,10 +4,6 @@ A level-sensitive data latch: while the enable EN is high the output Q follows D
 
 **Interface:** 2 inputs (D, EN) / 1 output (Q).
 
-**Validation:** checked over a load/hold/load sequence against a golden model in `make test` on the interpreted
-and both native engines. Compiled into `parts/` by `make fixtures`.
-
 ## Reference
 
-Standard textbook digital-logic circuit (a real-world design, not a specific chip).
-Background: <https://en.wikipedia.org/wiki/Flip-flop_(electronics)#Gated_D_latch>.
+Reference: <https://en.wikipedia.org/wiki/Flip-flop_(electronics)#Gated_D_latch>

@@ -7,12 +7,6 @@ Two 4-to-1 multiplexers sharing two select lines A,B. Each mux d selects one of 
 
 **Interface:** 12 inputs (1C0..1C3, 2C0..2C3, A, B, 1G, 2G) / 2 outputs (1Y, 2Y).
 
-**Validation:** Exhaustively validated over all 4096 input combinations. It is compiled into `parts/` by `make fixtures` and checked
-in `make test` on both the interpreted and native engines.
-
 ## Reference
 
-The function and pin behaviour summarised above are taken from the Texas Instruments
-datasheet for the 74153 function. TI publishes it in the High-Speed CMOS family as
-**SN74HC153**; the datasheet PDF is copyrighted by TI and is not redistributed here.
-Official document: <https://www.ti.com/lit/ds/symlink/sn74hc153.pdf>.
+Texas Instruments SN74HC153 datasheet: <https://www.ti.com/lit/ds/symlink/sn74hc153.pdf>

@@ -4,10 +4,6 @@ The classic set-reset latch: two cross-coupled NOR gates. S=1 sets Q high, R=1 r
 
 **Interface:** 2 inputs (S, R) / 2 outputs (Q, Qn).
 
-**Validation:** checked over a set/hold/reset/hold/set sequence against a golden model in `make test` on the interpreted
-and both native engines. Compiled into `parts/` by `make fixtures`.
-
 ## Reference
 
-Standard textbook digital-logic circuit (a real-world design, not a specific chip).
-Background: <https://en.wikipedia.org/wiki/Flip-flop_(electronics)#SR_NOR_latch>.
+Reference: <https://en.wikipedia.org/wiki/Flip-flop_(electronics)#SR_NOR_latch>

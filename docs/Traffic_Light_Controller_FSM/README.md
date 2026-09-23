@@ -4,10 +4,6 @@ A finite-state machine driving a single traffic light through the cycle Green ->
 
 **Interface:** 2 inputs (CLK, nRST) / 3 outputs (Green, Yellow, Red).
 
-**Validation:** checked by clocking through the full cycle with a reset and checking exactly one lamp is lit per state against a golden model in `make test` on the interpreted
-and both native engines. Compiled into `parts/` by `make fixtures`.
-
 ## Reference
 
-Standard textbook digital-logic circuit (a real-world design, not a specific chip).
-Background: <https://en.wikipedia.org/wiki/Finite-state_machine>.
+Reference: <https://en.wikipedia.org/wiki/Finite-state_machine>

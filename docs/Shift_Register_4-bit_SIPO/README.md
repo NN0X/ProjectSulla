@@ -4,10 +4,6 @@ Four positive-edge master-slave D flip-flops chained: on each clock edge the ser
 
 **Interface:** 2 inputs (Din, CLK) / 4 outputs (Q0..Q3).
 
-**Validation:** checked by shifting a bit pattern through and checking the parallel outputs each clock against a golden model in `make test` on the interpreted
-and both native engines. Compiled into `parts/` by `make fixtures`.
-
 ## Reference
 
-Standard textbook digital-logic circuit (a real-world design, not a specific chip).
-Background: <https://en.wikipedia.org/wiki/Shift_register>.
+Reference: <https://en.wikipedia.org/wiki/Shift_register>
