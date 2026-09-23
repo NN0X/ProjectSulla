@@ -459,6 +459,85 @@ static void testCounter()
         }
 }
 
+struct PcOp { int d; int nload; int nclr; int ce; };
+struct PcStep { int d; int nload; int nclr; int ce; int clk; };
+
+static void runPcOnEngine(Part& p, const std::vector<PcStep>& seq, int settle, std::vector<int>& qs)
+{
+        for (const PcStep& st : seq)
+        {
+                int q = 0;
+                for (int t = 0; t < settle; ++t)
+                {
+                        std::vector<int> in(20, 0);
+                        for (int k = 0; k < 16; ++k) in[k] = (st.d >> k) & 1;
+                        in[16] = st.nload; in[17] = st.nclr; in[18] = st.ce; in[19] = st.clk;
+                        std::vector<int> o = toBits(p(toStates(in)));
+                        q = 0;
+                        for (int k = 0; k < 16; ++k) q |= (o[k] << k);
+                }
+                qs.push_back(q);
+        }
+}
+
+static void testProgramCounter()
+{
+        tf::section("2.1e 6502 register file: 16-bit PC (four 74163 cascaded, load + increment)");
+        const std::string NAME = "PC_16-bit_Program_Counter";
+        const int SETTLE = 40;
+        int iIn = 0, iOut = 0;
+        Part interp = loadLayoutAsPart("layouts/" + NAME + ".json", iIn, iOut);
+        if (!tf::check(interp != nullptr, "PC: interpreted engine loaded")) return;
+        std::vector<PcOp> ops = {
+                { 0, 1, 0, 0 },        // clear -> 0x0000
+                { 0xFFFE, 0, 1, 0 },   // load 0xFFFE
+                { 0, 1, 1, 1 },        // count -> 0xFFFF
+                { 0, 1, 1, 1 },        // count -> 0x0000 (full 16-bit ripple carry)
+                { 0, 1, 1, 1 },        // count -> 0x0001
+                { 0x1234, 0, 1, 0 },   // load 0x1234
+                { 0, 1, 1, 0 },        // hold (CE=0) -> 0x1234
+                { 0, 1, 1, 1 },        // count -> 0x1235
+                { 0x00FF, 0, 1, 0 },   // load 0x00FF
+                { 0, 1, 1, 1 },        // count -> 0x0100 (byte boundary ripple)
+                { 0, 1, 0, 0 }         // clear -> 0x0000
+        };
+        std::vector<PcStep> seq;
+        for (const PcOp& o : ops)
+        {
+                seq.push_back({ o.d, o.nload, o.nclr, o.ce, 0 });
+                seq.push_back({ o.d, o.nload, o.nclr, o.ce, 1 });
+        }
+        std::vector<int> golden;
+        {
+                int q = 0, prev = 0;
+                for (const PcStep& st : seq)
+                {
+                        if (st.clk && !prev)
+                        {
+                                if (!st.nclr) q = 0;
+                                else if (!st.nload) q = st.d;
+                                else if (st.ce) q = (q + 1) & 0xFFFF;
+                        }
+                        prev = st.clk;
+                        golden.push_back(q);
+                }
+        }
+        std::vector<int> qi;
+        runPcOnEngine(interp, seq, SETTLE, qi);
+        tf::checkEq(qi, golden, "PC: interpreted clear/load/count/hold sequence");
+        const char* modeName[2] = { "inline", "link" };
+        bool linkMode[2] = { false, true };
+        for (int m = 0; m < 2; ++m)
+        {
+                int nOut = 0;
+                Part nat = buildNative(NAME, nOut, linkMode[m]);
+                if (!tf::check(nat != nullptr, std::string("PC: native ") + modeName[m] + " built")) continue;
+                std::vector<int> qn;
+                runPcOnEngine(nat, seq, SETTLE, qn);
+                tf::checkEq(qn, golden, std::string("PC: native ") + modeName[m] + " sequence (hierarchical from 74163 x4)");
+        }
+}
+
 static void testCounterAsync()
 {
         tf::section("74161 4-bit synchronous counter (ASYNC clear, load, count, RCO)");
@@ -760,6 +839,7 @@ int main()
         testEnableRegister();
         testCounter();
         testCounterAsync();
+        testProgramCounter();
         testRamPart();
         testRom();
         testRomMulti();
