@@ -482,7 +482,7 @@ static void runPcOnEngine(Part& p, const std::vector<PcStep>& seq, int settle, s
 
 static void testProgramCounter()
 {
-        tf::section("2.1e 6502 register file: 16-bit PC (four 74163 cascaded, load + increment)");
+        tf::section("16-bit program counter (four 74163 cascaded, load + increment)");
         const std::string NAME = "PC_16-bit_Program_Counter";
         const int SETTLE = 40;
         int iIn = 0, iOut = 0;
@@ -738,15 +738,15 @@ static void checkSequential(const std::string& name, const std::vector<std::vect
 
 static void testLearningCircuits()
 {
-        tf::section("2.1d learning circuits: adders (exhaustive, both engines)");
+        tf::section("learning circuits: adders (exhaustive, both engines)");
         testCombinational("Half_Adder", 2, [](const std::vector<int>& v){ return std::vector<int>{ v[0] ^ v[1], v[0] & v[1] }; });
         testCombinational("Full_Adder", 3, [](const std::vector<int>& v){ int su = v[0] ^ v[1] ^ v[2]; int co = (v[0] & v[1]) | (v[2] & (v[0] ^ v[1])); return std::vector<int>{ su, co }; });
 
-        tf::section("2.1d learning circuits: SR + D latches (sequence)");
+        tf::section("learning circuits: SR + D latches (sequence)");
         checkSequential("SR_Latch_NOR", { {1,0},{0,0},{0,1},{0,0},{1,0} }, { {1,0},{1,0},{0,1},{0,1},{1,0} });
         checkSequential("D_Latch_Gated", { {1,1},{0,0},{0,1},{1,0},{1,1} }, { {1},{1},{0},{0},{1} });
 
-        tf::section("2.1d learning circuits: 4-bit shift register (SIPO)");
+        tf::section("learning circuits: 4-bit shift register (SIPO)");
         {
                 std::vector<std::vector<int> > in, gold;
                 int sr[4] = {0,0,0,0}, prev = 0;
@@ -762,7 +762,7 @@ static void testLearningCircuits()
                 checkSequential("Shift_Register_4-bit_SIPO", in, gold);
         }
 
-        tf::section("2.1d learning circuits: traffic-light FSM (Green->Yellow->Red cycle)");
+        tf::section("learning circuits: traffic-light FSM (Green->Yellow->Red cycle)");
         {
                 std::vector<std::vector<int> > in, gold;
                 int stt = 0, prev = 0;
