@@ -831,6 +831,79 @@ static void testAlu8()
         for (int m = 0; m < 2; ++m) if (built[m]) tf::check(okN[m], std::string("8-bit ALU: native ") + modeName[m] + " matches golden (60000 random)");
 }
 
+
+struct PsOp { int fv; int lv; };
+struct PsStep { int fv; int lv; int clk; };
+
+static void runPsOnEngine(Part& p, const std::vector<PsStep>& seq, int settle, std::vector<int>& qs)
+{
+        for (const PsStep& st : seq)
+        {
+                int q = 0;
+                for (int t = 0; t < settle; ++t)
+                {
+                        std::vector<int> in(17, 0);
+                        for (int k = 0; k < 8; ++k) { in[k] = (st.fv >> k) & 1; in[8 + k] = (st.lv >> k) & 1; }
+                        in[16] = st.clk;
+                        std::vector<int> o = toBits(p(toStates(in)));
+                        q = 0;
+                        for (int k = 0; k < 8; ++k) q |= (o[k] << k);
+                }
+                qs.push_back(q);
+        }
+}
+
+static void testPStatusRegister()
+{
+        tf::section("6502 P status register (8-bit, per-bit load enable; 74377 + hold/load muxes)");
+        const std::string NAME = "6502_P_Status_Register";
+        const int SETTLE = 40;
+        int iIn = 0, iOut = 0;
+        Part interp = loadLayoutAsPart("layouts/" + NAME + ".json", iIn, iOut);
+        if (!tf::check(interp != nullptr, "P register: interpreted loaded")) return;
+        std::vector<PsOp> ops = {
+                { 0xA5, 0xFF },   // load all -> 0xA5
+                { 0x50, 0x0F },   // update low nibble only -> 0xA0
+                { 0x30, 0xF0 },   // update high nibble only -> 0x30
+                { 0xFF, 0x00 },   // hold all -> 0x30
+                { 0x01, 0x01 },   // set bit 0 (C) only -> 0x31
+                { 0x00, 0x80 },   // clear bit 7 (N; already 0) -> 0x31
+                { 0x00, 0xFF }    // clear all -> 0x00
+        };
+        std::vector<PsStep> seq;
+        for (const PsOp& o : ops)
+        {
+                seq.push_back({ o.fv, o.lv, 0 });
+                seq.push_back({ o.fv, o.lv, 1 });
+        }
+        std::vector<int> golden;
+        {
+                int q = 0, prev = 0;
+                for (const PsStep& st : seq)
+                {
+                        if (st.clk && !prev)
+                                for (int k = 0; k < 8; ++k)
+                                        if ((st.lv >> k) & 1) { q = (q & ~(1 << k)) | (((st.fv >> k) & 1) << k); }
+                        prev = st.clk;
+                        golden.push_back(q);
+                }
+        }
+        std::vector<int> qi;
+        runPsOnEngine(interp, seq, SETTLE, qi);
+        tf::checkEq(qi, golden, "P register: interpreted per-bit load sequence");
+        const char* modeName[2] = { "inline", "link" };
+        bool linkMode[2] = { false, true };
+        for (int m = 0; m < 2; ++m)
+        {
+                int nOut = 0;
+                Part nat = buildNative(NAME, nOut, linkMode[m]);
+                if (!tf::check(nat != nullptr, std::string("P register: native ") + modeName[m] + " built")) continue;
+                std::vector<int> qn;
+                runPsOnEngine(nat, seq, SETTLE, qn);
+                tf::checkEq(qn, golden, std::string("P register: native ") + modeName[m] + " sequence");
+        }
+}
+
 int main()
 {
         std::printf("%s%sSulla validation suite%s  (interpreted + native engines)\n",
@@ -894,6 +967,7 @@ int main()
         testCounterAsync();
         testProgramCounter();
         testAlu8();
+        testPStatusRegister();
         testRamPart();
         testRom();
         testRomMulti();
