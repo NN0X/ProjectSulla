@@ -16,6 +16,7 @@
 
 #include "../part.h"
 #include "../gates.h"
+#include "../schema.h"
 
 int loadLayout(AppState& state, const std::string& filename);
 
@@ -32,17 +33,13 @@ struct FlatCircuit
         std::map<int, std::vector<uint32_t> > romData;
 };
 
-struct LSCPin { int id; int pin; };
-struct LSConn { LSCPin from; LSCPin to; };
-struct LSPart { int id; PartType type; std::string label; float x; float y; int numInputs; int numOutputs; };
-struct LLayoutData { std::vector<LSPart> parts; std::vector<LSConn> connections; };
 
-static bool readLayout(const std::string& label, LLayoutData& out)
+static bool readLayout(const std::string& label, LayoutData& out)
 {
         std::ifstream file("layouts/" + label + ".json");
         if (!file.is_open()) return false;
         std::string json((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-        if (glz::read<glz::opts{.error_on_unknown_keys = false}>(out, json)) return false;
+        if (glz::read_json(out, json)) return false;
         return true;
 }
 
@@ -170,20 +167,20 @@ static std::vector<PartPin> expandCustom(FlatCircuit& fc, int& idAlloc,
 {
         std::vector<PartPin> outProducers;
 
-        LLayoutData ld;
+        LayoutData ld;
         if (!readLayout(label, ld)) return outProducers;
 
-        std::map<int, const LSPart*> byId;
-        for (const LSPart& p : ld.parts) byId[p.id] = &p;
+        std::map<int, const SPart*> byId;
+        for (const SPart& p : ld.parts) byId[p.id] = &p;
 
         auto posLess = [&](int a, int b) {
-                const LSPart* pa = byId[a];
-                const LSPart* pb = byId[b];
+                const SPart* pa = byId[a];
+                const SPart* pb = byId[b];
                 return sullaPinOrderLess(pa->y, pa->x, a, pb->y, pb->x, b);
         };
 
         std::vector<int> sources, outputs;
-        for (const LSPart& p : ld.parts)
+        for (const SPart& p : ld.parts)
         {
                 if (p.type == PART_TYPE_SOURCE) sources.push_back(p.id);
                 else if (p.type == PART_TYPE_OUTPUT) outputs.push_back(p.id);
@@ -200,10 +197,10 @@ static std::vector<PartPin> expandCustom(FlatCircuit& fc, int& idAlloc,
         }
 
         std::map<PartPin, PartPin> conn;
-        for (const LSConn& c : ld.connections) conn[{c.to.id, c.to.pin}] = {c.from.id, c.from.pin};
+        for (const SConn& c : ld.connections) conn[{c.to.id, c.to.pin}] = {c.from.id, c.from.pin};
 
         std::map<int, int> gateFlat;
-        for (const LSPart& p : ld.parts)
+        for (const SPart& p : ld.parts)
         {
                 if (p.type == PART_TYPE_SOURCE || p.type == PART_TYPE_OUTPUT ||
                     p.type == PART_TYPE_DISPLAY || p.type == PART_TYPE_CUSTOM) continue;
@@ -218,7 +215,7 @@ static std::vector<PartPin> expandCustom(FlatCircuit& fc, int& idAlloc,
         std::set<int> expanding;
         std::function<PartPin(int, int)> resolve = [&](int id, int pin) -> PartPin
         {
-                std::map<int, const LSPart*>::iterator t = byId.find(id);
+                std::map<int, const SPart*>::iterator t = byId.find(id);
                 if (t == byId.end()) return {-1, -1};
 
                 switch (t->second->type)
@@ -268,7 +265,7 @@ static std::vector<PartPin> expandCustom(FlatCircuit& fc, int& idAlloc,
                 }
         };
 
-        for (const LSPart& p : ld.parts)
+        for (const SPart& p : ld.parts)
         {
                 std::map<int, int>::iterator gf = gateFlat.find(p.id);
                 if (gf == gateFlat.end()) continue;
