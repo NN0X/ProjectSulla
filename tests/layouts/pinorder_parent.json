@@ -1,0 +1,92 @@
+{
+  "version": 2,
+  "parts": [
+    {
+      "id": 200,
+      "type": 7,
+      "label": "P0",
+      "x": 0.0,
+      "y": 0.0,
+      "numInputs": 0,
+      "numOutputs": 1
+    },
+    {
+      "id": 201,
+      "type": 7,
+      "label": "P1",
+      "x": 0.0,
+      "y": 60.0,
+      "numInputs": 0,
+      "numOutputs": 1
+    },
+    {
+      "id": 202,
+      "type": 7,
+      "label": "P2",
+      "x": 0.0,
+      "y": 120.0,
+      "numInputs": 0,
+      "numOutputs": 1
+    },
+    {
+      "id": 203,
+      "type": 9,
+      "label": "pinorder_child",
+      "x": 300.0,
+      "y": 40.0,
+      "numInputs": 3,
+      "numOutputs": 1
+    },
+    {
+      "id": 204,
+      "type": 8,
+      "label": "Q0",
+      "x": 600.0,
+      "y": 40.0,
+      "numInputs": 1,
+      "numOutputs": 0
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "id": 200,
+        "pin": 0
+      },
+      "to": {
+        "id": 203,
+        "pin": 0
+      }
+    },
+    {
+      "from": {
+        "id": 201,
+        "pin": 0
+      },
+      "to": {
+        "id": 203,
+        "pin": 1
+      }
+    },
+    {
+      "from": {
+        "id": 202,
+        "pin": 0
+      },
+      "to": {
+        "id": 203,
+        "pin": 2
+      }
+    },
+    {
+      "from": {
+        "id": 203,
+        "pin": 0
+      },
+      "to": {
+        "id": 204,
+        "pin": 0
+      }
+    }
+  ]
+}

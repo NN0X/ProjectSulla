@@ -34,6 +34,15 @@ typedef std::vector<State> Input;
 typedef std::function<std::vector<State>(const Input&)> Part;
 typedef std::pair<int, int> PartPin;
 
+inline bool sullaPinOrderLess(float firstY, float firstX, int firstID, float secondY, float secondX, int secondID)
+{
+        if (firstY < secondY) return true;
+        if (firstY > secondY) return false;
+        if (firstX < secondX) return true;
+        if (firstX > secondX) return false;
+        return firstID < secondID;
+}
+
 void setSourcePart(std::map<int, Part>& parts, int partID);
 void setOutputPart(std::map<int, Part>& parts, int partID);
 void setPart(std::map<int, Part>& parts, int partID, Part part);

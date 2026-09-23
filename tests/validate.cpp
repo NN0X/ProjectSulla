@@ -186,6 +186,38 @@ static void testClock()
         tf::check(gotI == gotN, "clock: interpreted == native");
 }
 
+
+static void testPinOrderConsistency()
+{
+        tf::section("pin-order consistency: hierarchical CUSTOM interp == native(inline) == native(dynamic-link)");
+        {
+                AppState child;
+                loadLayout(child, "layouts/pinorder_child.json");
+                std::string code = transpileToCpp(child, false);
+                compilePartLibrary(code, "pinorder_child", false, true);
+                g_builtModules.push_back("pinorder_child");
+        }
+        int iIn = 0, iOut = 0;
+        Part interp = loadLayoutAsPart("layouts/pinorder_parent.json", iIn, iOut);
+        int inlOut = 0, lnkOut = 0;
+        Part inl = buildNative("pinorder_parent", inlOut, false);
+        Part lnk = buildNative("pinorder_parent", lnkOut, true);
+        if (!tf::check(interp != nullptr && inl != nullptr && lnk != nullptr, "pinorder: all three engines built")) return;
+        int inlFails = 0, lnkFails = 0;
+        for (int m = 0; m < (1 << iIn); ++m)
+        {
+                std::vector<int> in(iIn);
+                for (int k = 0; k < iIn; ++k) in[k] = (m >> k) & 1;
+                std::vector<int> gi = toBits(interp(toStates(in)));
+                std::vector<int> gn = toBits(inl(toStates(in)));
+                std::vector<int> gl = toBits(lnk(toStates(in)));
+                if (gi != gn) inlFails++;
+                if (gi != gl) lnkFails++;
+        }
+        tf::check(inlFails == 0, "pinorder: interpreted == native(inline)", std::to_string(inlFails) + " mismatched");
+        tf::check(lnkFails == 0, "pinorder: interpreted == native(dynamic-link)", std::to_string(lnkFails) + " mismatched");
+}
+
 static void testNativeLink()
 {
         tf::section("native dynamic-link: adder2 via libfull_adder.so");
@@ -722,6 +754,7 @@ int main()
         testClock();
 
         testNativeLink();
+        testPinOrderConsistency();
         testPerInstanceState();
         testEdgeRegister();
         testEnableRegister();

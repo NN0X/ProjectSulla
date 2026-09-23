@@ -42,7 +42,7 @@ static bool readLayout(const std::string& label, LLayoutData& out)
         std::ifstream file("layouts/" + label + ".json");
         if (!file.is_open()) return false;
         std::string json((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-        if (glz::read_json(out, json)) return false;
+        if (glz::read<glz::opts{.error_on_unknown_keys = false}>(out, json)) return false;
         return true;
 }
 
@@ -179,8 +179,7 @@ static std::vector<PartPin> expandCustom(FlatCircuit& fc, int& idAlloc,
         auto posLess = [&](int a, int b) {
                 const LSPart* pa = byId[a];
                 const LSPart* pb = byId[b];
-                if (std::fabs(pa->y - pb->y) > 0.1f) return pa->y < pb->y;
-                return pa->x < pb->x;
+                return sullaPinOrderLess(pa->y, pa->x, a, pb->y, pb->x, b);
         };
 
         std::vector<int> sources, outputs;
@@ -471,9 +470,7 @@ static std::string emitCpp(const FlatCircuit& c, bool bitsliced = false)
                 float ya = pa != c.positions.end() ? pa->second.second : 0.0f;
                 float xb = pb != c.positions.end() ? pb->second.first : 0.0f;
                 float yb = pb != c.positions.end() ? pb->second.second : 0.0f;
-                if (std::fabs(ya - yb) > 0.1f) return ya < yb;
-                if (std::fabs(xa - xb) > 0.1f) return xa < xb;
-                return a < b;
+                return sullaPinOrderLess(ya, xa, a, yb, xb, b);
         };
         std::sort(sources.begin(), sources.end(), pinLess);
         std::sort(outputs.begin(), outputs.end(), pinLess);

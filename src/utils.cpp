@@ -104,8 +104,7 @@ static void loadPinLabelsForCustom(AppState& state, int partID, const std::strin
                 else if (p.type == PART_TYPE_OUTPUT) outs.push_back(&p);
         }
         auto byPos = [](const SPart* a, const SPart* b) {
-                if (std::fabs(a->y - b->y) > 0.1f) return a->y < b->y;
-                return a->x < b->x;
+                return sullaPinOrderLess(a->y, a->x, a->id, b->y, b->x, b->id);
         };
         std::sort(sources.begin(), sources.end(), byPos);
         std::sort(outs.begin(), outs.end(), byPos);
@@ -376,8 +375,7 @@ Part loadLayoutAsPart(const std::string& filename, int& nInputs, int& nOutputs)
                         if(layoutData.parts[i].id == a) { ya = layoutData.parts[i].y; xa = layoutData.parts[i].x; }
                         if(layoutData.parts[i].id == b) { yb = layoutData.parts[i].y; xb = layoutData.parts[i].x; }
                 }
-                if (fabs(ya - yb) > 0.1f) return ya < yb;
-                return xa < xb;
+                return sullaPinOrderLess(ya, xa, a, yb, xb, b);
         };
         std::sort(internalSources.begin(), internalSources.end(), sortPos);
         std::sort(internalOutputs.begin(), internalOutputs.end(), sortPos);
