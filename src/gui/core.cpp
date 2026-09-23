@@ -243,7 +243,11 @@ void tidyLayout(AppState& state)
         for (std::map<int, std::vector<int>>::iterator it = cols.begin(); it != cols.end(); ++it)
         {
                 std::vector<int>& g = it->second;
-                std::sort(g.begin(), g.end(), [&](int a, int b) { return state.positions[a].second < state.positions[b].second; });
+                std::sort(g.begin(), g.end(), [&](int a, int b) {
+                        std::pair<float, float> pa = state.positions[a];
+                        std::pair<float, float> pb = state.positions[b];
+                        return sullaPinOrderLess(pa.second, pa.first, a, pb.second, pb.first, b);
+                });
                 float maxW = 0.0f;
                 for (int id : g)
                 {
