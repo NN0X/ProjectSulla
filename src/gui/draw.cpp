@@ -824,8 +824,9 @@ void drawUI(AppState& state)
                 Vector2 p = state.contextMenu.position;
                 PartType type = state.partTypes[state.contextMenu.targetPartID];
                 bool isOutput = (type == PART_TYPE_OUTPUT);
+                bool isRom = (type == PART_TYPE_ROM);
                 bool canModPins = (type != PART_TYPE_CUSTOM);
-                int numRows = isOutput ? 6 : 4;
+                int numRows = isOutput ? 6 : (isRom ? 3 : 4);
                 DrawRectangle(p.x, p.y, CM_WIDTH, CM_ROW_HEIGHT*numRows, uiBg);
                 DrawRectangleLines(p.x, p.y, CM_WIDTH, CM_ROW_HEIGHT*numRows, uiBorder);
                 if (isOutput)
@@ -843,6 +844,15 @@ void drawUI(AppState& state)
                                         DrawRectangleLines(p.x, p.y + CM_ROW_HEIGHT*i, CM_WIDTH, CM_ROW_HEIGHT, BLUE);
                                 }
                         }
+                }
+                else if (isRom)
+                {
+                        DrawText("Edit Label", p.x + CM_TEXT_OFFSET_X, p.y + CM_TEXT_OFFSET_Y, CM_TEXT_SIZE, textC);
+                        DrawText("Load Hex...", p.x + CM_TEXT_OFFSET_X, p.y + CM_ROW_HEIGHT + CM_TEXT_OFFSET_Y, CM_TEXT_SIZE, textC);
+                        DrawText("Delete Part", p.x + CM_TEXT_OFFSET_X, p.y + CM_ROW_HEIGHT*2 + CM_TEXT_OFFSET_Y, CM_TEXT_SIZE, RED);
+                        for (int i = 0; i < 3; ++i)
+                                if (CheckCollisionPointRec(GetMousePosition(), {p.x, p.y + CM_ROW_HEIGHT*i, CM_WIDTH, CM_ROW_HEIGHT}))
+                                        DrawRectangleLines(p.x, p.y + CM_ROW_HEIGHT*i, CM_WIDTH, CM_ROW_HEIGHT, BLUE);
                 }
                 else
                 {
@@ -891,6 +901,8 @@ void drawUI(AppState& state)
                 DrawText("  Shift+Click: Multi-select", x, y, HELP_TEXT_SIZE, textC);
                 y += HELP_LINE_SPACING;
                 DrawText("  Right Click Part: Options", x, y, HELP_TEXT_SIZE, textC);
+                y += HELP_LINE_SPACING;
+                DrawText("  Right Click ROM: Load Hex File", x, y, HELP_TEXT_SIZE, textC);
                 y += HELP_LINE_SPACING;
                 DrawText("Simulation:", x, y, HELP_HEADER_SIZE, DARKBLUE);
                 y += HELP_SECTION_SPACING;

@@ -255,13 +255,13 @@ bool hasNativeFileDialog()
         return std::system("which zenity > /dev/null 2>&1") == 0 || std::system("which kdialog > /dev/null 2>&1") == 0;
 }
 
-std::string openNativeFileDialog()
+std::string openNativeFileDialog(const std::string& title, const std::string& filterName, const std::string& filterPattern)
 {
         std::string cmd;
         if (std::system("which zenity > /dev/null 2>&1") == 0)
-                cmd = "zenity --file-selection --title='Load Layout' --file-filter='Layouts | *.json' 2>/dev/null";
+                cmd = "zenity --file-selection --title='" + title + "' --file-filter='" + filterName + " | " + filterPattern + "' 2>/dev/null";
         else if (std::system("which kdialog > /dev/null 2>&1") == 0)
-                cmd = "kdialog --getopenfilename . '*.json' 2>/dev/null";
+                cmd = "kdialog --getopenfilename . '" + filterPattern + "' 2>/dev/null";
         else
                 return "";
         FILE* pipe = popen(cmd.c_str(), "r");

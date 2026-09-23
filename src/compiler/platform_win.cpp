@@ -184,17 +184,18 @@ bool hasNativeFileDialog()
         return true;
 }
 
-std::string openNativeFileDialog()
+std::string openNativeFileDialog(const std::string& title, const std::string& filterName, const std::string& filterPattern)
 {
         char filename[MAX_PATH] = "";
+        std::string filter = filterName + '\0' + filterPattern + '\0' + "All Files" + '\0' + "*.*" + '\0';
         OPENFILENAMEA ofn;
         ZeroMemory(&ofn, sizeof(ofn));
         ofn.lStructSize = sizeof(ofn);
         ofn.hwndOwner = nullptr;
-        ofn.lpstrFilter = "Layout Files\0*.json\0All Files\0*.*\0\0";
+        ofn.lpstrFilter = filter.c_str();
         ofn.lpstrFile = filename;
         ofn.nMaxFile = MAX_PATH;
-        ofn.lpstrTitle = "Load Layout";
+        ofn.lpstrTitle = title.c_str();
         ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR;
         if (GetOpenFileNameA(&ofn)) return std::string(filename);
         return "";

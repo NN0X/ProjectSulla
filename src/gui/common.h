@@ -37,6 +37,7 @@ void doCompile(AppState& state, const std::string& modName);
 bool handleDialogs(AppState& state);
 
 void dropPart(AppState& state, int type, Vector2 pos);
+void loadRomHex(AppState& state, int id);
 void deleteParts(AppState& state);
 void runBenchmark(AppState& state);
 void drawBenchmark(AppState& state);

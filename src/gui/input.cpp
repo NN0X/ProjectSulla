@@ -134,7 +134,7 @@ static void triggerLoad(AppState& state)
 {
         if (hasNativeFileDialog())
         {
-                std::string path = openNativeFileDialog();
+                std::string path = openNativeFileDialog("Load Layout", "Layouts", "*.json");
                 if (!path.empty()) loadExternalLayout(state, path);
         }
         else
@@ -143,13 +143,11 @@ static void triggerLoad(AppState& state)
         }
 }
 
-static void triggerLoadRomHex(AppState& state)
+void loadRomHex(AppState& state, int id)
 {
-        if (state.selectedParts.size() != 1) return;
-        int id = *state.selectedParts.begin();
         if (state.partTypes.find(id) == state.partTypes.end() || state.partTypes.at(id) != PART_TYPE_ROM) return;
         if (!hasNativeFileDialog()) return;
-        std::string path = openNativeFileDialog();
+        std::string path = openNativeFileDialog("Load ROM contents", "ROM image (hex/binary)", "*.hex *.bin *.rom *.txt");
         if (path.empty()) return;
         std::ifstream in(path);
         if (!in.is_open()) return;
@@ -195,7 +193,6 @@ void handleInput(AppState& state)
         if (!keyInputBlocked && !ctrlHeld && IsKeyPressed(KEY_V)) { state.visualizeSignals = !state.visualizeSignals; state.simulation = nullptr; }
         if (!keyInputBlocked && IsKeyPressed(KEY_T)) state.showTidyConfirm = true;
         if (!keyInputBlocked && !ctrlHeld && IsKeyPressed(KEY_F)) fitView(state);
-        if (!keyInputBlocked && !ctrlHeld && IsKeyPressed(KEY_R)) triggerLoadRomHex(state);
         if (ctrlHeld && !keyInputBlocked && IsKeyPressed(KEY_Z)) { if (shiftHeld) doRedo(state); else doUndo(state); }
         if (ctrlHeld && !keyInputBlocked && IsKeyPressed(KEY_Y)) doRedo(state);
         if (ctrlHeld && !keyInputBlocked && IsKeyPressed(KEY_C)) copySelection(state);
@@ -418,6 +415,7 @@ void handleInput(AppState& state)
                         int tid = state.contextMenu.targetPartID;
                         PartType type = state.partTypes[tid];
                         bool isOutput = (type == PART_TYPE_OUTPUT);
+                        bool isRom = (type == PART_TYPE_ROM);
 
                         if (isOutput)
                         {
@@ -467,6 +465,36 @@ void handleInput(AppState& state)
                                                 state.outputCounts[tid]--;
                                         }
                                         state.simulation = nullptr;
+                                }
+                                else if (CheckCollisionPointRec(mousePos, rDel))
+                                {
+                                        state.selectedParts.clear();
+                                        state.selectedParts.insert(tid);
+                                        deleteParts(state);
+                                        state.contextMenu.active = false;
+                                }
+                                else
+                                {
+                                        state.contextMenu.active = false;
+                                }
+                        }
+                        else if (isRom)
+                        {
+                                Rectangle rLabel = {p.x, p.y, CM_WIDTH, CM_ROW_HEIGHT};
+                                Rectangle rHex = {p.x, p.y + CM_ROW_HEIGHT, CM_WIDTH, CM_ROW_HEIGHT};
+                                Rectangle rDel = {p.x, p.y + CM_ROW_HEIGHT*2, CM_WIDTH, CM_ROW_HEIGHT};
+                                if (CheckCollisionPointRec(mousePos, rLabel))
+                                {
+                                        state.showRenameDialog = true;
+                                        state.renamePartID = tid;
+                                        std::string current = state.labels[tid];
+                                        snprintf(state.fileNameBuffer, sizeof(state.fileNameBuffer), "%s", current.c_str());
+                                        state.contextMenu.active = false;
+                                }
+                                else if (CheckCollisionPointRec(mousePos, rHex))
+                                {
+                                        loadRomHex(state, tid);
+                                        state.contextMenu.active = false;
                                 }
                                 else if (CheckCollisionPointRec(mousePos, rDel))
                                 {
