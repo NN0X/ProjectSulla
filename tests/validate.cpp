@@ -779,6 +779,58 @@ static void testLearningCircuits()
         }
 }
 
+static void testAlu8()
+{
+        tf::section("74181 x2 8-bit ALU (two 4-bit slices, ripple carry): interpreted, native inline, native link");
+        const std::string NAME = "74181x2_8-bit_ALU";
+        int iIn = 0, iOut = 0;
+        Part interp = loadLayoutAsPart("layouts/" + NAME + ".json", iIn, iOut);
+        if (!tf::check(interp != nullptr, "8-bit ALU: interpreted loaded")) return;
+        const char* modeName[2] = { "inline", "link" };
+        bool linkMode[2] = { false, true };
+        Part nat[2];
+        bool built[2] = { false, false };
+        for (int m = 0; m < 2; ++m)
+        {
+                int nOut = 0;
+                nat[m] = buildNative(NAME, nOut, linkMode[m]);
+                built[m] = tf::check(nat[m] != nullptr, std::string("8-bit ALU: native ") + modeName[m] + " built");
+        }
+        unsigned seed = 2654435761u;
+        bool okI = true, okN[2] = { true, true };
+        for (int t = 0; t < 60000; ++t)
+        {
+                int v[22];
+                for (int k = 0; k < 22; ++k) { seed = seed * 1103515245u + 12345u; v[k] = (seed >> 16) & 1; }
+                int A[8], B[8], Sb[4];
+                for (int i = 0; i < 8; ++i) { A[i] = v[i]; B[i] = v[8 + i]; }
+                for (int i = 0; i < 4; ++i) Sb[i] = v[16 + i];
+                int M = v[20], Cn = v[21], carry = 1 - Cn, F[8];
+                for (int i = 0; i < 8; ++i)
+                {
+                        int P = A[i] | (B[i] & Sb[0]) | ((!B[i]) & Sb[1]);
+                        int G = A[i] & ((B[i] & Sb[3]) | ((!B[i]) & Sb[2]));
+                        int ce = M | carry; F[i] = (P ^ G) ^ ce; carry = G | (P & carry);
+                }
+                int c8 = 1 - carry, ab = 1;
+                for (int i = 0; i < 8; ++i) ab &= F[i];
+                std::vector<int> in(22);
+                for (int k = 0; k < 22; ++k) in[k] = v[k];
+                std::vector<int> oi = toBits(interp(toStates(in)));
+                for (int i = 0; i < 8; ++i) if (oi[i] != F[i]) okI = false;
+                if (oi[8] != c8 || oi[9] != ab) okI = false;
+                for (int m = 0; m < 2; ++m)
+                {
+                        if (!built[m]) continue;
+                        std::vector<int> on = toBits(nat[m](toStates(in)));
+                        for (int i = 0; i < 8; ++i) if (on[i] != F[i]) okN[m] = false;
+                        if (on[8] != c8 || on[9] != ab) okN[m] = false;
+                }
+        }
+        tf::check(okI, "8-bit ALU: interpreted matches golden (60000 random)");
+        for (int m = 0; m < 2; ++m) if (built[m]) tf::check(okN[m], std::string("8-bit ALU: native ") + modeName[m] + " matches golden (60000 random)");
+}
+
 int main()
 {
         std::printf("%s%sSulla validation suite%s  (interpreted + native engines)\n",
@@ -806,6 +858,7 @@ int main()
         testCombinational("74139_Dual_2-to-4_Line_Decoder", 6, [](const std::vector<int>& v){ std::vector<int> r(8); for (int d = 0; d < 2; ++d) { int en = !v[d * 3 + 2]; int sel = v[d * 3] | v[d * 3 + 1] << 1; for (int k = 0; k < 4; ++k) r[d * 4 + k] = (en && sel == k) ? 0 : 1; } return r; });
         testCombinational("74157_Quad_2-to-1_Multiplexer", 10, [](const std::vector<int>& v){ int S = v[8]; int en = !v[9]; std::vector<int> r(4); for (int i = 0; i < 4; ++i) r[i] = en ? (S ? v[4 + i] : v[i]) : 0; return r; });
         testCombinational("74153_Dual_4-to-1_Multiplexer", 12, [](const std::vector<int>& v){ int sel = v[8] | v[9] << 1; std::vector<int> r(2); for (int d = 0; d < 2; ++d) { int en = !v[10 + d]; r[d] = en ? v[d * 4 + sel] : 0; } return r; });
+        testCombinational("74181_4-bit_Arithmetic_Logic_Unit", 14, [](const std::vector<int>& v){ int A[4] = { v[0], v[1], v[2], v[3] }; int B[4] = { v[4], v[5], v[6], v[7] }; int S[4] = { v[8], v[9], v[10], v[11] }; int M = v[12], Cn = v[13], carry = 1 - Cn, F[4]; for (int i = 0; i < 4; ++i) { int P = A[i] | (B[i] & S[0]) | ((!B[i]) & S[1]); int G = A[i] & ((B[i] & S[3]) | ((!B[i]) & S[2])); int ce = M | carry; F[i] = (P ^ G) ^ ce; carry = G | (P & carry); } return std::vector<int>{ F[0], F[1], F[2], F[3], 1 - carry, F[0] & F[1] & F[2] & F[3] }; });
 
         testCombinational("and3",  3, [](const std::vector<int>& v){ return std::vector<int>{ v[0] & v[1] & v[2] }; });
         testCombinational("xor4",  4, [](const std::vector<int>& v){ return std::vector<int>{ v[0] ^ v[1] ^ v[2] ^ v[3] }; });
@@ -840,6 +893,7 @@ int main()
         testCounter();
         testCounterAsync();
         testProgramCounter();
+        testAlu8();
         testRamPart();
         testRom();
         testRomMulti();
