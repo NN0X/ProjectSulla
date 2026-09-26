@@ -1219,7 +1219,10 @@ static void esGoldenStep(EsState& st, const EsOp& op)
         bool isAnd = op.opcode == 0x21;
         bool isEor = op.opcode == 0x41;
         bool isAdc = op.opcode == 0x61;
-        bool isAluOp = isOra || isAnd || isEor || isAdc;
+        bool isCmp = op.opcode == 0xC1;
+        bool isSbc = op.opcode == 0xE1;
+        bool isLogic = isOra || isAnd || isEor;
+        bool isArith = isAdc || isSbc || isCmp;
         int R = st.A;
         int newC = st.C, newV = st.V;
         if (isOra) R = st.A | op.M;
@@ -1233,17 +1236,23 @@ static void esGoldenStep(EsState& st, const EsOp& op)
                 int a7 = (st.A >> 7) & 1, m7 = (op.M >> 7) & 1, r7 = (R >> 7) & 1;
                 newV = ((a7 && m7 && !r7) || (!a7 && !m7 && r7)) ? 1 : 0;
         }
-        if (isAluOp)
+        else if (isSbc || isCmp)
         {
-                st.A = R;
+                int cin = isCmp ? 1 : st.C;
+                int diff = st.A + (op.M ^ 0xFF) + cin;
+                R = diff & 0xFF;
+                newC = (diff >= 256) ? 1 : 0;
+                int a7 = (st.A >> 7) & 1, m7 = (op.M >> 7) & 1, r7 = (R >> 7) & 1;
+                newV = ((a7 && !m7 && !r7) || (!a7 && m7 && r7)) ? 1 : 0;
+        }
+        if (isLogic || isArith)
+        {
                 st.N = (R >> 7) & 1;
                 st.Z = (R == 0) ? 1 : 0;
         }
-        if (isAdc)
-        {
-                st.C = newC;
-                st.V = newV;
-        }
+        if (isLogic || isAdc || isSbc) st.A = R;
+        if (isArith) st.C = newC;
+        if (isAdc || isSbc) st.V = newV;
 }
 
 static void runEseqOnEngine(Part& p, const std::vector<EsOp>& seq, int settleSteps, std::vector<EsState>& perOp)
@@ -1267,13 +1276,10 @@ static void runEseqOnEngine(Part& p, const std::vector<EsOp>& seq, int settleSte
         }
 }
 
-static void runSeqExecuteUnit(const std::string& NAME, const std::string& section)
+static void runSeqExecuteUnit(const std::string& NAME, const std::string& section, const std::vector<EsOp>& seq)
 {
         tf::section(section);
         const int SETTLE = 80;
-        std::vector<EsOp> seq = {
-                { 0x01, 0x0F }, { 0x21, 0xF0 }, { 0x41, 0xFF },
-                { 0x61, 0x01 }, { 0x61, 0x00 }, { 0x61, 0x7F }, { 0x01, 0x00 } };
 
         std::vector<EsState> golden;
         EsState g{ 0, 0, 0, 0, 0 };
@@ -1291,7 +1297,7 @@ static void runSeqExecuteUnit(const std::string& NAME, const std::string& sectio
                 const EsState& a = gotI[i]; const EsState& e = golden[i];
                 if (a.A != e.A || a.N != e.N || a.Z != e.Z || a.C != e.C || a.V != e.V) goldFailsI++;
         }
-        tf::check(goldFailsI == 0, NAME + ": interpreted matches 6502 golden (7-op program)",
+        tf::check(goldFailsI == 0, NAME + ": interpreted matches 6502 golden (" + std::to_string(seq.size()) + "-op program)",
                   std::to_string(goldFailsI) + " mismatched ops");
 
         const char* modeName[2] = { "inline", "link" };
@@ -1321,14 +1327,22 @@ static void runSeqExecuteUnit(const std::string& NAME, const std::string& sectio
 
 static void testAluExecuteSequential()
 {
+        std::vector<EsOp> seq = {
+                { 0x01, 0x0F }, { 0x21, 0xF0 }, { 0x41, 0xFF },
+                { 0x61, 0x01 }, { 0x61, 0x00 }, { 0x61, 0x7F }, { 0x01, 0x00 } };
         runSeqExecuteUnit("6502_ALU_Execute_Sequential",
-                          "6502 sequential ALU execute (clocked A + P flags fed back through execute): interp, native inline, native link");
+                          "6502 sequential ALU execute (clocked A + P flags fed back through execute): interp, native inline, native link",
+                          seq);
 }
 
 static void testAluWriteback()
 {
+        std::vector<EsOp> seq = {
+                { 0x01, 0x3C }, { 0x61, 0x10 }, { 0xC1, 0x4C }, { 0xC1, 0x50 }, { 0xE1, 0x0C },
+                { 0xE1, 0x40 }, { 0x61, 0x50 }, { 0xE1, 0x80 }, { 0xC1, 0xD0 }, { 0x41, 0xFF } };
         runSeqExecuteUnit("6502_ALU_Writeback",
-                          "6502 ALU write-back (accumulator in the register file, written back through the ALU): interp, native inline, native link");
+                          "6502 ALU write-back (register-file accumulator; ORA/AND/EOR/ADC/CMP/SBC with per-op write-enable and flag mask): interp, native inline, native link",
+                          seq);
 }
 
 int main()

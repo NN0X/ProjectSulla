@@ -2,11 +2,12 @@
 
 The clocked accumulator-ALU stage with the accumulator held in the register file rather than
 a standalone register. On each clock it runs one accumulator instruction, writes the result
-back into the register file's A slot, and commits the affected condition flags into the P
-status register. It is the sequential execute stage with the register file as the accumulator,
-so A now lives where the other registers do and its write is gated by decode.
+back into the register file's A slot when the instruction stores a result, and commits the
+affected condition flags into the P status register. It is the sequential execute stage with
+the register file as the accumulator, so A now lives where the other registers do and both the
+write-enable and the flag mask are chosen per instruction.
 
-It covers the logic and add group: ORA, AND, EOR and ADC.
+It covers the full accumulator group for cc = 01: ORA, AND, EOR, ADC, CMP and SBC.
 
 ## Interface
 
@@ -21,31 +22,42 @@ Outputs (12):
 
 ## Behaviour
 
-On each clock edge, for an accumulator-ALU opcode:
+On each clock edge, for an accumulator-group opcode:
 
     ORA:  A = A OR  M
     AND:  A = A AND M
     EOR:  A = A XOR M
-    ADC:  A = A + M + C,   C = carry out
+    ADC:  A = A + M + C,        C = carry out
+    SBC:  A = A - M - (1 - C),  C = 1 on no borrow
+    CMP:  A - M (result discarded), C = 1 on no borrow
 
-The register file's read port supplies the ALU's A operand; the carry input for ADC is the
-current C flag. The result is written back to the A register through the register file's write
-port. The write enable is asserted only for an accumulator-ALU opcode, so any other opcode
-leaves the registers unchanged. N and Z are committed for every operation in the group; C and
-V are committed only by ADC, so ORA, AND and EOR leave the previous C and V untouched.
+The register file's read port supplies the ALU's A operand. The carry input is the current C
+flag for ADC and SBC, and is forced high for CMP so it computes a full A - M regardless of
+carry. Each instruction commits a different set of results:
+
+    op          writes A   updates N,Z   updates C   updates V
+    ORA/AND/EOR    yes         yes           -           -
+    ADC / SBC      yes         yes          yes         yes
+    CMP            no          yes          yes          -
+
+Any opcode outside the group leaves the registers and flags unchanged.
 
 ## Construction
 
-- Register file: A/X/Y/SP, index 0 = A. The read select is fixed to A (this stage reads and
-  writes only the accumulator); the write select is fixed to A; the write enable is the
-  accumulator-ALU decode. Its A read port is both the ALU's A operand and this unit's output.
+- Register file: A/X/Y/SP, index 0 = A. The read and write selects are fixed to A (this stage
+  reads and writes only the accumulator). The write enable is high for the accumulator group
+  except CMP, which updates flags without storing a result. Its A read port is both the ALU's
+  A operand and this unit's output.
 - Execute: the combinational datapath (decoder + 8-bit ALU + flag logic). Its A operand is the
-  register file read port and its carry input is the C flag from the P register.
-- P status register: loaded per bit - N and Z on any operation in the group, C and V only on
-  ADC - so unaffected flags hold. Its C output feeds back to the execute carry input.
+  register file read port; its carry input is the C flag OR-ed with the CMP decode, so CMP sees
+  a carry-in of 1.
+- P status register: loaded per bit - N and Z on any group op, C on the arithmetic ops
+  (ADC/SBC/CMP), V on ADC and SBC only - so unaffected flags hold.
 
-The register file and P outputs feed back into the execute stage that computes their next
-values, so a whole instruction settles and clocks in one step.
+The control terms come from a small opcode decode: the group detect cc = 01 AND (NOT O7 OR O6)
+(which excludes STA/LDA), the subtract detect cc = 01 AND O7 AND O6, split by O5 into CMP and
+SBC, and the ADC detect. The register file and P outputs feed back into the execute stage that
+computes their next values, so a whole instruction settles and clocks in one step.
 
 ## Reference
 
