@@ -1288,6 +1288,46 @@ static void testCompareBit()
         for (int m = 0; m < 2; ++m) if (built[m]) tf::check(okN[m], std::string("compare/BIT: native ") + modeName[m] + " matches 6502 golden");
 }
 
+static void testOperandLength()
+{
+        tf::section("6502 operand-length decode (cc=01 addressing-mode operand bytes): interp, native inline, native link");
+        const std::string NAME = "6502_Operand_Length";
+        int iIn = 0, iOut = 0;
+        Part interp = loadLayoutAsPart("layouts/" + NAME + ".json", iIn, iOut);
+        if (!tf::check(interp != nullptr, "oplen: interpreted loaded")) return;
+        const char* modeName[2] = { "inline", "link" };
+        bool linkMode[2] = { false, true };
+        Part nat[2];
+        bool built[2] = { false, false };
+        for (int m = 0; m < 2; ++m)
+        {
+                int nOut = 0;
+                nat[m] = buildNative(NAME, nOut, linkMode[m]);
+                built[m] = tf::check(nat[m] != nullptr, std::string("oplen: native ") + modeName[m] + " built");
+        }
+        bool okI = true, okN[2] = { true, true };
+        for (int op = 0; op < 256; ++op)
+        {
+                std::vector<int> in(8, 0);
+                for (int k = 0; k < 8; ++k) in[k] = (op >> k) & 1;
+                bool cc01 = ((op & 1) == 1) && (((op >> 1) & 1) == 0);
+                int bbb = (op >> 2) & 7;
+                int ob2 = (((bbb >> 1) & 1) && ((bbb & 1) || ((bbb >> 2) & 1))) ? 1 : 0;
+                int count = cc01 ? (ob2 ? 2 : 1) : 0;
+                int eOB0 = count & 1, eOB1 = (count >> 1) & 1, eCC = cc01 ? 1 : 0;
+                std::vector<int> oi = toBits(interp(toStates(in)));
+                if (oi[0] != eOB0 || oi[1] != eOB1 || oi[2] != eCC) okI = false;
+                for (int m = 0; m < 2; ++m)
+                {
+                        if (!built[m]) continue;
+                        std::vector<int> on = toBits(nat[m](toStates(in)));
+                        if (on[0] != eOB0 || on[1] != eOB1 || on[2] != eCC) okN[m] = false;
+                }
+        }
+        tf::check(okI, "oplen: interpreted matches golden (all 256 opcodes, cc=01 operand length)");
+        for (int m = 0; m < 2; ++m) if (built[m]) tf::check(okN[m], std::string("oplen: native ") + modeName[m] + " matches golden");
+}
+
 static void testBranchCondition()
 {
         tf::section("6502 branch condition (BPL/BMI/BVC/BVS/BCC/BCS/BNE/BEQ taken logic): interp, native inline, native link");
@@ -1915,6 +1955,7 @@ int main()
         testIncDec();
         testCompareBit();
         testBranchCondition();
+        testOperandLength();
         testCycleCounter();
         testFetchUnit();
         testProgramFetch();
