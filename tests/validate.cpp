@@ -1080,6 +1080,39 @@ static void testFlagDecodeEndToEnd()
         tf::checkEq(reads, golden, "flag e2e: each flag instruction updates its own P bit, others held");
 }
 
+static void testTransferDecodeEndToEnd()
+{
+        tf::section("6502 transfer decode end-to-end: opcode -> transfer decoder -> register file");
+        int di = 0, dou = 0;
+        Part dec = loadLayoutAsPart("layouts/6502_Transfer_Decoder.json", di, dou);
+        int ri = 0, ro = 0;
+        Part rf = loadLayoutAsPart("layouts/6502_Register_File.json", ri, ro);
+        if (!tf::check(dec != nullptr && rf != nullptr, "transfer e2e: decoder + register file loaded")) return;
+        struct Xfer { int opcode; int knownSrc; int knownDst; };
+        Xfer xfers[6] = {
+                { 0xAA, 0, 1 }, { 0x8A, 1, 0 }, { 0xA8, 0, 2 },
+                { 0x98, 2, 0 }, { 0xBA, 3, 1 }, { 0x9A, 1, 3 }
+        };
+        int setupv[4] = { 0x11, 0x22, 0x33, 0x44 };
+        bool ok = true;
+        for (int i = 0; i < 6 && ok; ++i)
+        {
+                std::vector<int> ov(8);
+                for (int k = 0; k < 8; ++k) ov[k] = (xfers[i].opcode >> k) & 1;
+                std::vector<int> dd = toBits(dec(toStates(ov)));
+                int rs = dd[0] | (dd[1] << 1);
+                int ws = dd[2] | (dd[3] << 1);
+                int we = dd[4];
+                std::vector<RfOp> ops;
+                for (int r = 0; r < 4; ++r) ops.push_back({ setupv[r], r, 1, r });   // fresh setup
+                ops.push_back({ setupv[rs], ws, we, xfers[i].knownDst });             // move source value to decoded dest, read the known dest
+                std::vector<int> reads;
+                runRfOnEngine(rf, ops, 40, reads);
+                if (reads.back() != setupv[xfers[i].knownSrc]) ok = false;
+        }
+        tf::check(ok, "transfer e2e: each transfer moves the source register to the destination register");
+}
+
 int main()
 {
         std::printf("%s%sSulla validation suite%s  (interpreted + native engines)\n",
@@ -1190,6 +1223,23 @@ int main()
                 return r;
         });
         testFlagDecodeEndToEnd();
+        testCombinational("6502_Transfer_Decoder", 8, [](const std::vector<int>& v){
+                int opc = 0;
+                for (int k = 0; k < 8; ++k) opc |= v[k] << k;
+                int rs = 0, ws = 0, we = 0;
+                switch (opc)
+                {
+                        case 0xAA: rs = 0; ws = 1; we = 1; break;   // TAX  A->X
+                        case 0x8A: rs = 1; ws = 0; we = 1; break;   // TXA  X->A
+                        case 0xA8: rs = 0; ws = 2; we = 1; break;   // TAY  A->Y
+                        case 0x98: rs = 2; ws = 0; we = 1; break;   // TYA  Y->A
+                        case 0xBA: rs = 3; ws = 1; we = 1; break;   // TSX  SP->X
+                        case 0x9A: rs = 1; ws = 3; we = 1; break;   // TXS  X->SP
+                        default: break;
+                }
+                return std::vector<int>{ rs & 1, (rs >> 1) & 1, ws & 1, (ws >> 1) & 1, we };
+        });
+        testTransferDecodeEndToEnd();
         testRamPart();
         testRom();
         testRomMulti();
