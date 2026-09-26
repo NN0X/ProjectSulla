@@ -1262,10 +1262,9 @@ static void runEseqOnEngine(Part& p, const std::vector<EsOp>& seq, int settleSte
         }
 }
 
-static void testAluExecuteSequential()
+static void runSeqExecuteUnit(const std::string& NAME, const std::string& section)
 {
-        tf::section("6502 sequential ALU execute (clocked A + P flags fed back through execute): interp, native inline, native link");
-        const std::string NAME = "6502_ALU_Execute_Sequential";
+        tf::section(section);
         const int SETTLE = 80;
         std::vector<EsOp> seq = {
                 { 0x01, 0x0F }, { 0x21, 0xF0 }, { 0x41, 0xFF },
@@ -1277,7 +1276,7 @@ static void testAluExecuteSequential()
 
         int iIn = 0, iOut = 0;
         Part interp = loadLayoutAsPart("layouts/" + NAME + ".json", iIn, iOut);
-        if (!tf::check(interp != nullptr, "sequential execute: interpreted loaded")) return;
+        if (!tf::check(interp != nullptr, NAME + ": interpreted loaded")) return;
 
         std::vector<EsState> gotI;
         runEseqOnEngine(interp, seq, SETTLE, gotI);
@@ -1287,7 +1286,7 @@ static void testAluExecuteSequential()
                 const EsState& a = gotI[i]; const EsState& e = golden[i];
                 if (a.A != e.A || a.N != e.N || a.Z != e.Z || a.C != e.C || a.V != e.V) goldFailsI++;
         }
-        tf::check(goldFailsI == 0, "sequential execute: interpreted matches 6502 golden (7-op program)",
+        tf::check(goldFailsI == 0, NAME + ": interpreted matches 6502 golden (7-op program)",
                   std::to_string(goldFailsI) + " mismatched ops");
 
         const char* modeName[2] = { "inline", "link" };
@@ -1296,7 +1295,7 @@ static void testAluExecuteSequential()
         {
                 int nOut = 0;
                 Part nat = buildNative(NAME, nOut, linkMode[m]);
-                if (!tf::check(nat != nullptr, std::string("sequential execute: native ") + modeName[m] + " built")) continue;
+                if (!tf::check(nat != nullptr, NAME + ": native " + modeName[m] + " built")) continue;
 
                 std::vector<EsState> gotN;
                 runEseqOnEngine(nat, seq, SETTLE, gotN);
@@ -1308,11 +1307,23 @@ static void testAluExecuteSequential()
                         if (a.A != e.A || a.N != e.N || a.Z != e.Z || a.C != e.C || a.V != e.V) goldFailsN++;
                         if (a.A != b.A || a.N != b.N || a.Z != b.Z || a.C != b.C || a.V != b.V) diffFails++;
                 }
-                tf::check(goldFailsN == 0, std::string("sequential execute: native ") + modeName[m] + " matches 6502 golden",
+                tf::check(goldFailsN == 0, NAME + ": native " + modeName[m] + " matches 6502 golden",
                           std::to_string(goldFailsN) + " mismatched ops");
-                tf::check(diffFails == 0, std::string("sequential execute: interpreted == native ") + modeName[m],
+                tf::check(diffFails == 0, NAME + ": interpreted == native " + std::string(modeName[m]),
                           std::to_string(diffFails) + " divergent ops");
         }
+}
+
+static void testAluExecuteSequential()
+{
+        runSeqExecuteUnit("6502_ALU_Execute_Sequential",
+                          "6502 sequential ALU execute (clocked A + P flags fed back through execute): interp, native inline, native link");
+}
+
+static void testAluWriteback()
+{
+        runSeqExecuteUnit("6502_ALU_Writeback",
+                          "6502 ALU write-back (accumulator in the register file, written back through the ALU): interp, native inline, native link");
 }
 
 int main()
@@ -1457,6 +1468,7 @@ int main()
         testFlagLogicEndToEnd();
         testAluExecute();
         testAluExecuteSequential();
+        testAluWriteback();
         testRamPart();
         testRom();
         testRomMulti();
