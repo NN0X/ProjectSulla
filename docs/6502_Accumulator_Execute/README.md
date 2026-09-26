@@ -17,6 +17,7 @@ Inputs (17):
 - O0..O7 - the opcode
 - M0..M7 - the second operand for the ALU group (unused by the shifts)
 - CLK    - the clock
+- EN     - write enable: the result and flags are committed only on a clock where EN is high
 
 Outputs (12):
 - A0..A7    - the accumulator (register file A read port)
@@ -43,7 +44,7 @@ Which flags each instruction commits, and whether it writes the accumulator:
     CMP                 no        yes   yes          -
     ASL/ROL/LSR/ROR     yes       yes   yes (out)    -
 
-Any opcode outside these groups leaves the registers and flags unchanged.
+Any opcode outside these groups leaves the registers and flags unchanged. EN gates every write, so with EN low a clock changes nothing; the control unit raises EN on the cycle an instruction commits its result.
 
 ## Construction
 

@@ -1841,16 +1841,17 @@ static void esGoldenStep(EsState& st, const EsOp& op)
         if (isAdc || isSbc) st.V = newV;
 }
 
-static void runEseqOnEngine(Part& p, const std::vector<EsOp>& seq, int settleSteps, std::vector<EsState>& perOp)
+static void runEseqOnEngine(Part& p, const std::vector<EsOp>& seq, int settleSteps, std::vector<EsState>& perOp, int nIn)
 {
         std::vector<State> out;
         for (size_t i = 0; i < seq.size(); ++i)
         {
                 for (int clk = 0; clk < 2; ++clk)
                 {
-                        std::vector<int> in(17, 0);
+                        std::vector<int> in(nIn, 0);
                         for (int k = 0; k < 8; ++k) { in[k] = (seq[i].opcode >> k) & 1; in[8 + k] = (seq[i].M >> k) & 1; }
                         in[16] = clk;
+                        if (nIn > 17) in[17] = 1;
                         std::vector<State> sin = toStates(in);
                         for (int t = 0; t < settleSteps; ++t) out = p(sin);
                 }
@@ -1862,7 +1863,7 @@ static void runEseqOnEngine(Part& p, const std::vector<EsOp>& seq, int settleSte
         }
 }
 
-static void runSeqExecuteUnit(const std::string& NAME, const std::string& section, const std::vector<EsOp>& seq)
+static void runSeqExecuteUnit(const std::string& NAME, const std::string& section, const std::vector<EsOp>& seq, int nIn)
 {
         tf::section(section);
         const int SETTLE = 80;
@@ -1876,7 +1877,7 @@ static void runSeqExecuteUnit(const std::string& NAME, const std::string& sectio
         if (!tf::check(interp != nullptr, NAME + ": interpreted loaded")) return;
 
         std::vector<EsState> gotI;
-        runEseqOnEngine(interp, seq, SETTLE, gotI);
+        runEseqOnEngine(interp, seq, SETTLE, gotI, nIn);
         int goldFailsI = 0;
         for (size_t i = 0; i < seq.size(); ++i)
         {
@@ -1895,7 +1896,7 @@ static void runSeqExecuteUnit(const std::string& NAME, const std::string& sectio
                 if (!tf::check(nat != nullptr, NAME + ": native " + modeName[m] + " built")) continue;
 
                 std::vector<EsState> gotN;
-                runEseqOnEngine(nat, seq, SETTLE, gotN);
+                runEseqOnEngine(nat, seq, SETTLE, gotN, nIn);
 
                 int goldFailsN = 0, diffFails = 0;
                 for (size_t i = 0; i < seq.size(); ++i)
@@ -1918,7 +1919,7 @@ static void testAluExecuteSequential()
                 { 0x61, 0x01 }, { 0x61, 0x00 }, { 0x61, 0x7F }, { 0x01, 0x00 } };
         runSeqExecuteUnit("6502_ALU_Execute_Sequential",
                           "6502 sequential ALU execute (clocked A + P flags fed back through execute): interp, native inline, native link",
-                          seq);
+                          seq, 17);
 }
 
 static void testAluWriteback()
@@ -1928,7 +1929,7 @@ static void testAluWriteback()
                 { 0xE1, 0x40 }, { 0x61, 0x50 }, { 0xE1, 0x80 }, { 0xC1, 0xD0 }, { 0x41, 0xFF } };
         runSeqExecuteUnit("6502_ALU_Writeback",
                           "6502 ALU write-back (register-file accumulator; ORA/AND/EOR/ADC/CMP/SBC with per-op write-enable and flag mask): interp, native inline, native link",
-                          seq);
+                          seq, 17);
 }
 
 static void testAccumulatorExecute()
@@ -1937,8 +1938,60 @@ static void testAccumulatorExecute()
                 { 0x01, 0x81 }, { 0x0A, 0x00 }, { 0x2A, 0x00 }, { 0x4A, 0x00 }, { 0x6A, 0x00 },
                 { 0x61, 0x01 }, { 0x0A, 0x00 }, { 0x6A, 0x00 }, { 0xC1, 0x82 }, { 0x4A, 0x00 } };
         runSeqExecuteUnit("6502_Accumulator_Execute",
-                          "6502 accumulator datapath (ALU group + shifts ASL/ROL/LSR/ROR A, muxed by opcode, into the register file): interp, native inline, native link",
-                          seq);
+                          "6502 accumulator datapath (ALU group + shifts, EN-gated write-back): interp, native inline, native link",
+                          seq, 18);
+
+        tf::section("6502 accumulator write-enable gate (EN=0 holds state)");
+        const std::string NAME = "6502_Accumulator_Execute";
+        const int SETTLE = 80;
+        struct AStep { int opcode; int M; int en; };
+        std::vector<AStep> gseq = {
+                { 0x01, 0x55, 1 }, { 0x61, 0x10, 0 }, { 0x61, 0x10, 0 }, { 0x61, 0x10, 1 }, { 0x0A, 0x00, 0 } };
+        std::vector<int> gA;
+        int A = 0;
+        for (size_t i = 0; i < gseq.size(); ++i)
+        {
+                if (gseq[i].en)
+                {
+                        EsState st{ A, 0, 0, 0, 0 };
+                        EsOp op{ gseq[i].opcode, gseq[i].M };
+                        esGoldenStep(st, op);
+                        A = st.A;
+                }
+                gA.push_back(A);
+        }
+        int iIn = 0, iOut = 0;
+        Part interp = loadLayoutAsPart("layouts/" + NAME + ".json", iIn, iOut);
+        if (!tf::check(interp != nullptr, "accEN: interpreted loaded")) return;
+        const char* modeName[2] = { "inline", "link" };
+        bool linkMode[2] = { false, true };
+        bool okI = true, okN[2] = { true, true };
+        Part eng[3];
+        eng[0] = interp;
+        bool have[3] = { true, false, false };
+        for (int m = 0; m < 2; ++m) { int n = 0; eng[m + 1] = buildNative(NAME, n, linkMode[m]); have[m + 1] = (eng[m + 1] != nullptr); }
+        for (int e = 0; e < 3; ++e)
+        {
+                if (!have[e]) continue;
+                int A2 = 0;
+                std::vector<State> out;
+                for (size_t i = 0; i < gseq.size(); ++i)
+                {
+                        for (int clk = 0; clk < 2; ++clk)
+                        {
+                                std::vector<int> in(18, 0);
+                                for (int k = 0; k < 8; ++k) { in[k] = (gseq[i].opcode >> k) & 1; in[8 + k] = (gseq[i].M >> k) & 1; }
+                                in[16] = clk; in[17] = gseq[i].en;
+                                std::vector<State> si = toStates(in);
+                                for (int t = 0; t < SETTLE; ++t) out = eng[e](si);
+                        }
+                        std::vector<int> b = toBits(out);
+                        A2 = 0; for (int k = 0; k < 8; ++k) A2 |= b[k] << k;
+                        if (A2 != gA[i]) { if (e == 0) okI = false; else okN[e - 1] = false; }
+                }
+        }
+        tf::check(okI, "accEN: interpreted holds A when EN=0, writes when EN=1");
+        for (int m = 0; m < 2; ++m) if (have[m + 1]) tf::check(okN[m], std::string("accEN: native ") + modeName[m] + " matches EN-gated golden");
 }
 
 int main()
