@@ -31,11 +31,14 @@ is combinational and independent of the clock:
 - Write select: one half of a 74139 2-to-4 decoder turns WS into four active-low
   selects; each is OR-ed with the inverted write enable to drive that register's
   active-low load enable, so a register loads only when it is selected and WE is high.
-- Read port: four 74153 dual 4-to-1 multiplexers form an 8-bit 4-to-1 selector, choosing
-  the addressed register's byte onto RD (each 74153 covers two bit positions).
+- Read port: a small decoder turns RS into four one-hot read enables, one per register. Each
+  register's eight output bits pass through tri-state buffers - enabled by that register's read
+  enable - onto eight shared buses, one per bit position, which form RD. With exactly one read
+  enable high, only that register drives the buses; the others are high-impedance, so RD carries
+  the addressed register's byte.
 
-The read port is a multiplexer that routes one register's outputs to RD; an alternative
-realization gates each register onto a shared bus so the selected one drives it directly.
+This is the faithful shared-bus read port: each register gates its outputs onto the read bus and
+the selected one drives it, rather than a multiplexer routing one register's outputs across.
 
 ## Reference
 
