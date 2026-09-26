@@ -1783,14 +1783,12 @@ struct EsState { int A; int N; int Z; int C; int V; };
 
 static void esGoldenStep(EsState& st, const EsOp& op)
 {
-        bool isAslA = op.opcode == 0x0A;
-        bool isRolA = op.opcode == 0x2A;
-        bool isLsrA = op.opcode == 0x4A;
-        bool isRorA = op.opcode == 0x6A;
-        if (isAslA || isRolA || isLsrA || isRorA)
+        int cc = op.opcode & 3;
+        int aaa = (op.opcode >> 5) & 7;
+        if (cc == 2 && aaa <= 3)
         {
-                int dir = (isLsrA || isRorA) ? 1 : 0;
-                int rot = (isRolA || isRorA) ? 1 : 0;
+                int dir = (aaa >= 2) ? 1 : 0;
+                int rot = (aaa & 1);
                 int inbit = rot ? st.C : 0;
                 int R, Cout;
                 if (dir == 0) { R = ((st.A << 1) | inbit) & 0xFF; Cout = (st.A >> 7) & 1; }
@@ -1801,12 +1799,12 @@ static void esGoldenStep(EsState& st, const EsOp& op)
                 st.C = Cout;
                 return;
         }
-        bool isOra = op.opcode == 0x01;
-        bool isAnd = op.opcode == 0x21;
-        bool isEor = op.opcode == 0x41;
-        bool isAdc = op.opcode == 0x61;
-        bool isCmp = op.opcode == 0xC1;
-        bool isSbc = op.opcode == 0xE1;
+        bool isOra = (cc == 1 && aaa == 0);
+        bool isAnd = (cc == 1 && aaa == 1);
+        bool isEor = (cc == 1 && aaa == 2);
+        bool isAdc = (cc == 1 && aaa == 3);
+        bool isCmp = (cc == 1 && aaa == 6);
+        bool isSbc = (cc == 1 && aaa == 7);
         bool isLogic = isOra || isAnd || isEor;
         bool isArith = isAdc || isSbc || isCmp;
         int R = st.A;
@@ -1994,6 +1992,93 @@ static void testAccumulatorExecute()
         for (int m = 0; m < 2; ++m) if (have[m + 1]) tf::check(okN[m], std::string("accEN: native ") + modeName[m] + " matches EN-gated golden");
 }
 
+static void runCpuOnEngine(Part& p, const std::vector<SqStep>& seq, int settleSteps,
+                           std::vector<int>& pc, std::vector<int>& a, std::vector<int>& n, std::vector<int>& z,
+                           std::vector<int>& cc, std::vector<int>& v, std::vector<int>& ir, std::vector<int>& t,
+                           std::vector<int>& f, std::vector<int>& d)
+{
+        std::vector<State> out;
+        for (size_t i = 0; i < seq.size(); i++)
+        {
+                for (int clk = 0; clk < 2; clk++)
+                {
+                        std::vector<int> in(10, 0);
+                        for (int k = 0; k < 8; k++) in[k] = (seq[i].db >> k) & 1;
+                        in[8] = seq[i].rst; in[9] = clk;
+                        std::vector<State> si = toStates(in);
+                        for (int tt = 0; tt < settleSteps; tt++) out = p(si);
+                }
+                std::vector<int> b = toBits(out);
+                int pcv = 0; for (int k = 0; k < 16; k++) pcv |= b[k] << k;
+                int av = 0; for (int k = 0; k < 8; k++) av |= b[16 + k] << k;
+                int irv = 0; for (int k = 0; k < 8; k++) irv |= b[28 + k] << k;
+                pc.push_back(pcv); a.push_back(av); n.push_back(b[24]); z.push_back(b[25]); cc.push_back(b[26]); v.push_back(b[27]);
+                ir.push_back(irv); t.push_back(b[36] | (b[37] << 1) | (b[38] << 2)); f.push_back(b[39]); d.push_back(b[40]);
+        }
+}
+
+static void testCpuCore()
+{
+        tf::section("6502 CPU core (sequencer drives EN-gated accumulator; immediate program executes end to end): interp, native inline, native link");
+        const std::string NAME = "6502_CPU_Core";
+        const int SETTLE = 140;
+        std::vector<SqStep> seq = {
+                { 0x00, 1 }, { 0x00, 1 },
+                { 0x09, 0 }, { 0x55, 0 },
+                { 0x69, 0 }, { 0x10, 0 },
+                { 0x0A, 0 }, { 0x00, 0 },
+                { 0x29, 0 }, { 0x0F, 0 },
+                { 0x49, 0 }, { 0xFF, 0 },
+                { 0x69, 0 }, { 0x0B, 0 },
+                { 0x6A, 0 }, { 0x00, 0 } };
+
+        std::vector<int> gPC, gA, gN, gZ, gC, gV, gIR, gT, gF, gD;
+        int cs = 0, ir = 0, pc = 0;
+        EsState acc{ 0, 0, 0, 0, 0 };
+        for (size_t i = 0; i < seq.size(); i++)
+        {
+                int dc = seqDoneComb(cs, ir);
+                int fd = (cs == 0) ? 1 : 0;
+                if (dc) { EsOp op{ ir, seq[i].db }; esGoldenStep(acc, op); }
+                int ncs = seq[i].rst ? 0 : (dc ? 0 : ((cs + 1) & 7));
+                int nir = fd ? seq[i].db : ir;
+                int npc = seq[i].rst ? 0 : (fd ? ((pc + 1) & 0xFFFF) : pc);
+                cs = ncs; ir = nir; pc = npc;
+                gPC.push_back(pc); gA.push_back(acc.A); gN.push_back(acc.N); gZ.push_back(acc.Z); gC.push_back(acc.C); gV.push_back(acc.V);
+                gIR.push_back(ir); gT.push_back(cs); gF.push_back(cs == 0 ? 1 : 0); gD.push_back(seqDoneComb(cs, ir));
+        }
+
+        int iIn = 0, iOut = 0;
+        Part interp = loadLayoutAsPart("layouts/" + NAME + ".json", iIn, iOut);
+        if (!tf::check(interp != nullptr, "cpu: interpreted loaded")) return;
+        std::vector<int> iPC, iA, iN, iZ, iC, iV, iIR, iT, iF, iD;
+        runCpuOnEngine(interp, seq, SETTLE, iPC, iA, iN, iZ, iC, iV, iIR, iT, iF, iD);
+        int gi = 0;
+        for (size_t i = 0; i < seq.size(); i++)
+                if (iPC[i] != gPC[i] || iA[i] != gA[i] || iN[i] != gN[i] || iZ[i] != gZ[i] || iC[i] != gC[i] || iV[i] != gV[i] || iIR[i] != gIR[i] || iT[i] != gT[i] || iF[i] != gF[i] || iD[i] != gD[i]) gi++;
+        tf::check(gi == 0, "cpu: interpreted runs the program (A, flags, PC, IR, timing all match golden)");
+
+        const char* modeName[2] = { "inline", "link" };
+        bool linkMode[2] = { false, true };
+        for (int m = 0; m < 2; ++m)
+        {
+                int nOut = 0;
+                Part nat = buildNative(NAME, nOut, linkMode[m]);
+                if (!tf::check(nat != nullptr, std::string("cpu: native ") + modeName[m] + " built")) continue;
+                std::vector<int> nPC, nA, nN, nZ, nC, nV, nIR, nT, nF, nD;
+                runCpuOnEngine(nat, seq, SETTLE, nPC, nA, nN, nZ, nC, nV, nIR, nT, nF, nD);
+                int gn = 0, df = 0;
+                for (size_t i = 0; i < seq.size(); i++)
+                {
+                        if (nPC[i] != gPC[i] || nA[i] != gA[i] || nN[i] != gN[i] || nZ[i] != gZ[i] || nC[i] != gC[i] || nV[i] != gV[i] || nIR[i] != gIR[i] || nT[i] != gT[i] || nF[i] != gF[i] || nD[i] != gD[i]) gn++;
+                        if (nPC[i] != iPC[i] || nA[i] != iA[i] || nN[i] != iN[i] || nZ[i] != iZ[i] || nC[i] != iC[i] || nV[i] != iV[i] || nIR[i] != iIR[i] || nT[i] != iT[i] || nF[i] != iF[i] || nD[i] != iD[i]) df++;
+                }
+                tf::check(gn == 0, std::string("cpu: native ") + modeName[m] + " runs the program (matches golden)");
+                tf::check(df == 0, std::string("cpu: interpreted == native ") + modeName[m]);
+        }
+}
+
+
 int main()
 {
         std::printf("%s%sSulla validation suite%s  (interpreted + native engines)\n",
@@ -2144,6 +2229,7 @@ int main()
         testFetchUnit();
         testProgramFetch();
         testSequencer();
+        testCpuCore();
         testAluExecute();
         testAluExecuteSequential();
         testAluWriteback();
