@@ -141,13 +141,23 @@ void saveLayout(const std::map<int, PartType>& partTypes,
 int loadLayout(AppState& state, const std::string& filename)
 {
         std::ifstream file(filename);
-        if (!file.is_open()) return 0;
+        if (!file.is_open())
+        {
+                state.errorMessage = "Could not open layout file: " + filename;
+                state.showError = true;
+                return 0;
+        }
 
         std::string json((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
         file.close();
 
         LayoutData layoutData{};
-        if (glz::read_json(layoutData, json)) return 0;
+        if (glz::read_json(layoutData, json))
+        {
+                state.errorMessage = "Could not load layout (file is not valid): " + filename;
+                state.showError = true;
+                return 0;
+        }
         migrateLayout(layoutData, filename);
 
         state.parts.clear();
@@ -408,13 +418,23 @@ std::set<int> importLayout(AppState& state, const std::string& filename, float m
 {
         std::set<int> newIDs;
         std::ifstream file(filename);
-        if (!file.is_open()) return newIDs;
+        if (!file.is_open())
+        {
+                state.errorMessage = "Could not open layout file: " + filename;
+                state.showError = true;
+                return newIDs;
+        }
 
         std::string json((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
         file.close();
 
         LayoutData layoutData{};
-        if (glz::read_json(layoutData, json)) return newIDs;
+        if (glz::read_json(layoutData, json))
+        {
+                state.errorMessage = "Could not import layout (file is not valid): " + filename;
+                state.showError = true;
+                return newIDs;
+        }
         migrateLayout(layoutData, filename);
 
         int nextID = state.parts.empty() ? 100 : state.parts.rbegin()->first + 1;
