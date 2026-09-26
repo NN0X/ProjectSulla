@@ -1472,6 +1472,80 @@ static void testFetchUnit()
         }
 }
 
+static void runProgFetchOnEngine(Part& p, const std::vector<FuStep>& seq, int settleSteps,
+                                 std::vector<int>& pcOut, std::vector<int>& irOut, std::vector<int>& tOut, std::vector<int>& fOut)
+{
+        std::vector<State> out;
+        for (size_t i = 0; i < seq.size(); ++i)
+        {
+                for (int clk = 0; clk < 2; ++clk)
+                {
+                        std::vector<int> in(11, 0);
+                        for (int k = 0; k < 8; ++k) in[k] = (seq[i].db >> k) & 1;
+                        in[8] = seq[i].rst; in[9] = seq[i].done; in[10] = clk;
+                        std::vector<State> sin = toStates(in);
+                        for (int t = 0; t < settleSteps; ++t) out = p(sin);
+                }
+                std::vector<int> b = toBits(out);
+                int pc = 0; for (int k = 0; k < 16; ++k) pc |= b[k] << k;
+                int ir = 0; for (int k = 0; k < 8; ++k) ir |= b[16 + k] << k;
+                pcOut.push_back(pc); irOut.push_back(ir);
+                tOut.push_back(b[24] | (b[25] << 1) | (b[26] << 2));
+                fOut.push_back(b[27]);
+        }
+}
+
+static void testProgramFetch()
+{
+        tf::section("6502 program fetch (fetch unit + program counter walking memory): interp, native inline, native link");
+        const std::string NAME = "6502_Program_Fetch";
+        const int SETTLE = 100;
+        std::vector<FuStep> seq = {
+                { 0xA9, 1, 0 }, { 0xB8, 0, 0 }, { 0x11, 0, 0 }, { 0x22, 0, 1 }, { 0xC0, 0, 0 },
+                { 0x33, 0, 1 }, { 0xD0, 0, 0 }, { 0x44, 0, 0 }, { 0x55, 0, 0 }, { 0x66, 0, 1 },
+                { 0xE0, 0, 0 }, { 0x77, 1, 0 }, { 0x99, 0, 0 } };
+
+        std::vector<int> gPC, gIR, gT, gF;
+        int cs = 0, ir = 0, pc = 0;
+        for (size_t i = 0; i < seq.size(); ++i)
+        {
+                int fd = (cs == 0) ? 1 : 0;
+                int ncs = (seq[i].rst || seq[i].done) ? 0 : ((cs + 1) & 7);
+                int nir = fd ? seq[i].db : ir;
+                int npc = seq[i].rst ? 0 : (fd ? ((pc + 1) & 0xFFFF) : pc);
+                cs = ncs; ir = nir; pc = npc;
+                gPC.push_back(pc); gIR.push_back(ir); gT.push_back(cs); gF.push_back(cs == 0 ? 1 : 0);
+        }
+
+        int iIn = 0, iOut = 0;
+        Part interp = loadLayoutAsPart("layouts/" + NAME + ".json", iIn, iOut);
+        if (!tf::check(interp != nullptr, "progfetch: interpreted loaded")) return;
+        std::vector<int> iPC, iIR, iT, iF;
+        runProgFetchOnEngine(interp, seq, SETTLE, iPC, iIR, iT, iF);
+        int gi = 0;
+        for (size_t i = 0; i < seq.size(); ++i) if (iPC[i] != gPC[i] || iIR[i] != gIR[i] || iT[i] != gT[i] || iF[i] != gF[i]) gi++;
+        tf::check(gi == 0, "progfetch: interpreted matches golden (PC increments per fetch, clears on reset)");
+
+        const char* modeName[2] = { "inline", "link" };
+        bool linkMode[2] = { false, true };
+        for (int m = 0; m < 2; ++m)
+        {
+                int nOut = 0;
+                Part nat = buildNative(NAME, nOut, linkMode[m]);
+                if (!tf::check(nat != nullptr, std::string("progfetch: native ") + modeName[m] + " built")) continue;
+                std::vector<int> nPC, nIR, nT, nF;
+                runProgFetchOnEngine(nat, seq, SETTLE, nPC, nIR, nT, nF);
+                int gn = 0, df = 0;
+                for (size_t i = 0; i < seq.size(); ++i)
+                {
+                        if (nPC[i] != gPC[i] || nIR[i] != gIR[i] || nT[i] != gT[i] || nF[i] != gF[i]) gn++;
+                        if (nPC[i] != iPC[i] || nIR[i] != iIR[i] || nT[i] != iT[i] || nF[i] != iF[i]) df++;
+                }
+                tf::check(gn == 0, std::string("progfetch: native ") + modeName[m] + " matches golden");
+                tf::check(df == 0, std::string("progfetch: interpreted == native ") + modeName[m]);
+        }
+}
+
 static void testAluExecute()
 {
         tf::section("6502 ALU execute datapath (opcode + A + M -> new A + N/Z/C/V): interp, native inline, native link");
@@ -1843,6 +1917,7 @@ int main()
         testBranchCondition();
         testCycleCounter();
         testFetchUnit();
+        testProgramFetch();
         testAluExecute();
         testAluExecuteSequential();
         testAluWriteback();
