@@ -1205,6 +1205,116 @@ static void testAluExecute()
         for (int m = 0; m < 2; ++m) if (built[m]) tf::check(okN[m], std::string("ALU execute: native ") + modeName[m] + " matches 6502 semantics");
 }
 
+struct EsOp { int opcode; int M; };
+struct EsState { int A; int N; int Z; int C; int V; };
+
+static void esGoldenStep(EsState& st, const EsOp& op)
+{
+        bool isOra = op.opcode == 0x01;
+        bool isAnd = op.opcode == 0x21;
+        bool isEor = op.opcode == 0x41;
+        bool isAdc = op.opcode == 0x61;
+        bool isAluOp = isOra || isAnd || isEor || isAdc;
+        int R = st.A;
+        int newC = st.C, newV = st.V;
+        if (isOra) R = st.A | op.M;
+        else if (isAnd) R = st.A & op.M;
+        else if (isEor) R = st.A ^ op.M;
+        else if (isAdc)
+        {
+                int sum = st.A + op.M + st.C;
+                R = sum & 0xFF;
+                newC = (sum >= 256) ? 1 : 0;
+                int a7 = (st.A >> 7) & 1, m7 = (op.M >> 7) & 1, r7 = (R >> 7) & 1;
+                newV = ((a7 && m7 && !r7) || (!a7 && !m7 && r7)) ? 1 : 0;
+        }
+        if (isAluOp)
+        {
+                st.A = R;
+                st.N = (R >> 7) & 1;
+                st.Z = (R == 0) ? 1 : 0;
+        }
+        if (isAdc)
+        {
+                st.C = newC;
+                st.V = newV;
+        }
+}
+
+static void runEseqOnEngine(Part& p, const std::vector<EsOp>& seq, int settleSteps, std::vector<EsState>& perOp)
+{
+        std::vector<State> out;
+        for (size_t i = 0; i < seq.size(); ++i)
+        {
+                for (int clk = 0; clk < 2; ++clk)
+                {
+                        std::vector<int> in(17, 0);
+                        for (int k = 0; k < 8; ++k) { in[k] = (seq[i].opcode >> k) & 1; in[8 + k] = (seq[i].M >> k) & 1; }
+                        in[16] = clk;
+                        std::vector<State> sin = toStates(in);
+                        for (int t = 0; t < settleSteps; ++t) out = p(sin);
+                }
+                std::vector<int> b = toBits(out);
+                EsState s{ 0, 0, 0, 0, 0 };
+                for (int k = 0; k < 8; ++k) s.A |= b[k] << k;
+                s.N = b[8]; s.Z = b[9]; s.C = b[10]; s.V = b[11];
+                perOp.push_back(s);
+        }
+}
+
+static void testAluExecuteSequential()
+{
+        tf::section("6502 sequential ALU execute (clocked A + P flags fed back through execute): interp, native inline, native link");
+        const std::string NAME = "6502_ALU_Execute_Sequential";
+        const int SETTLE = 80;
+        std::vector<EsOp> seq = {
+                { 0x01, 0x0F }, { 0x21, 0xF0 }, { 0x41, 0xFF },
+                { 0x61, 0x01 }, { 0x61, 0x00 }, { 0x61, 0x7F }, { 0x01, 0x00 } };
+
+        std::vector<EsState> golden;
+        EsState g{ 0, 0, 0, 0, 0 };
+        for (size_t i = 0; i < seq.size(); ++i) { esGoldenStep(g, seq[i]); golden.push_back(g); }
+
+        int iIn = 0, iOut = 0;
+        Part interp = loadLayoutAsPart("layouts/" + NAME + ".json", iIn, iOut);
+        if (!tf::check(interp != nullptr, "sequential execute: interpreted loaded")) return;
+
+        std::vector<EsState> gotI;
+        runEseqOnEngine(interp, seq, SETTLE, gotI);
+        int goldFailsI = 0;
+        for (size_t i = 0; i < seq.size(); ++i)
+        {
+                const EsState& a = gotI[i]; const EsState& e = golden[i];
+                if (a.A != e.A || a.N != e.N || a.Z != e.Z || a.C != e.C || a.V != e.V) goldFailsI++;
+        }
+        tf::check(goldFailsI == 0, "sequential execute: interpreted matches 6502 golden (7-op program)",
+                  std::to_string(goldFailsI) + " mismatched ops");
+
+        const char* modeName[2] = { "inline", "link" };
+        bool linkMode[2] = { false, true };
+        for (int m = 0; m < 2; ++m)
+        {
+                int nOut = 0;
+                Part nat = buildNative(NAME, nOut, linkMode[m]);
+                if (!tf::check(nat != nullptr, std::string("sequential execute: native ") + modeName[m] + " built")) continue;
+
+                std::vector<EsState> gotN;
+                runEseqOnEngine(nat, seq, SETTLE, gotN);
+
+                int goldFailsN = 0, diffFails = 0;
+                for (size_t i = 0; i < seq.size(); ++i)
+                {
+                        const EsState& e = golden[i]; const EsState& a = gotN[i]; const EsState& b = gotI[i];
+                        if (a.A != e.A || a.N != e.N || a.Z != e.Z || a.C != e.C || a.V != e.V) goldFailsN++;
+                        if (a.A != b.A || a.N != b.N || a.Z != b.Z || a.C != b.C || a.V != b.V) diffFails++;
+                }
+                tf::check(goldFailsN == 0, std::string("sequential execute: native ") + modeName[m] + " matches 6502 golden",
+                          std::to_string(goldFailsN) + " mismatched ops");
+                tf::check(diffFails == 0, std::string("sequential execute: interpreted == native ") + modeName[m],
+                          std::to_string(diffFails) + " divergent ops");
+        }
+}
+
 int main()
 {
         std::printf("%s%sSulla validation suite%s  (interpreted + native engines)\n",
@@ -1346,6 +1456,7 @@ int main()
         });
         testFlagLogicEndToEnd();
         testAluExecute();
+        testAluExecuteSequential();
         testRamPart();
         testRom();
         testRomMulti();

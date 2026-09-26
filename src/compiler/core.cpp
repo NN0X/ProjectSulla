@@ -213,6 +213,7 @@ static std::vector<PartPin> expandCustom(FlatCircuit& fc, int& idAlloc,
 
         std::map<int, std::vector<PartPin>> customOut;
         std::set<int> expanding;
+        std::map<PartPin, PartPin> feedbackBuf;
         std::function<PartPin(int, int)> resolve = [&](int id, int pin) -> PartPin
         {
                 std::map<int, const SPart*>::iterator t = byId.find(id);
@@ -231,30 +232,53 @@ static std::vector<PartPin> expandCustom(FlatCircuit& fc, int& idAlloc,
                         return {-1, -1};
                 case PART_TYPE_CUSTOM:
                 {
-                        if (!customOut.count(id) && !expanding.count(id))
+                        if (customOut.count(id))
                         {
-                                expanding.insert(id);
-                                int inC = t->second->numInputs;
-                                int outC = t->second->numOutputs > 0 ? t->second->numOutputs : 1;
-                                std::string clabel = t->second->label;
-                                std::vector<PartPin> childIn(inC, PartPin{-1, -1});
-                                for (int q = 0; q < inC; ++q)
-                                {
-                                        std::map<PartPin, PartPin>::iterator ci = conn.find({id, q});
-                                        if (ci != conn.end()) childIn[q] = resolve(ci->second.first, ci->second.second);
-                                }
-                                CustomMode m = decideCustom(clabel, linkMode);
-                                if (m == CUSTOM_LINK || m == CUSTOM_STATIC)
-                                {
-                                        int nid = idAlloc++;
-                                        customOut[id] = linkCustom(fc, nid, clabel, inC, outC, childIn);
-                                        if (m == CUSTOM_STATIC) fc.staticNodes.insert(nid);
-                                }
-                                else
-                                        customOut[id] = expandCustom(fc, idAlloc, clabel, childIn, linkMode);
-                                expanding.erase(id);
+                                std::vector<PartPin>& o = customOut[id];
+                                return pin < (int)o.size() ? o[pin] : PartPin{-1, -1};
                         }
+                        if (expanding.count(id))
+                        {
+                                PartPin key{id, pin};
+                                std::map<PartPin, PartPin>::iterator fb = feedbackBuf.find(key);
+                                if (fb != feedbackBuf.end()) return fb->second;
+                                int bid = idAlloc++;
+                                fc.partTypes[bid] = PART_TYPE_OR;
+                                fc.inputCounts[bid] = 1;
+                                fc.outputCounts[bid] = 1;
+                                PartPin buf{bid, 0};
+                                feedbackBuf[key] = buf;
+                                return buf;
+                        }
+
+                        expanding.insert(id);
+                        int inC = t->second->numInputs;
+                        int outC = t->second->numOutputs > 0 ? t->second->numOutputs : 1;
+                        std::string clabel = t->second->label;
+                        std::vector<PartPin> childIn(inC, PartPin{-1, -1});
+                        for (int q = 0; q < inC; ++q)
+                        {
+                                std::map<PartPin, PartPin>::iterator ci = conn.find({id, q});
+                                if (ci != conn.end()) childIn[q] = resolve(ci->second.first, ci->second.second);
+                        }
+                        CustomMode m = decideCustom(clabel, linkMode);
+                        if (m == CUSTOM_LINK || m == CUSTOM_STATIC)
+                        {
+                                int nid = idAlloc++;
+                                customOut[id] = linkCustom(fc, nid, clabel, inC, outC, childIn);
+                                if (m == CUSTOM_STATIC) fc.staticNodes.insert(nid);
+                        }
+                        else
+                                customOut[id] = expandCustom(fc, idAlloc, clabel, childIn, linkMode);
+                        expanding.erase(id);
+
                         std::vector<PartPin>& o = customOut[id];
+                        for (int p = 0; p < (int)o.size(); ++p)
+                        {
+                                std::map<PartPin, PartPin>::iterator fb = feedbackBuf.find(PartPin{id, p});
+                                if (fb != feedbackBuf.end() && o[p].first != -1)
+                                        fc.connections[{fb->second.first, 0}] = o[p];
+                        }
                         return pin < (int)o.size() ? o[pin] : PartPin{-1, -1};
                 }
                 default:
@@ -308,35 +332,60 @@ static FlatCircuit flattenState(const AppState& state, bool linkMode)
 
         std::map<int, std::vector<PartPin>> customOut;
         std::set<int> expanding;
+        std::map<PartPin, PartPin> feedbackBuf;
         std::function<PartPin(int, int)> resolve = [&](int id, int pin) -> PartPin
         {
                 std::map<int, PartType>::const_iterator t = state.partTypes.find(id);
                 if (t == state.partTypes.end()) return {-1, -1};
                 if (t->second != PART_TYPE_CUSTOM) return {id, pin};
 
-                if (!customOut.count(id) && !expanding.count(id))
+                if (customOut.count(id))
                 {
-                        expanding.insert(id);
-                        int inC = state.inputCounts.count(id) ? state.inputCounts.at(id) : 0;
-                        int outC = state.outputCounts.count(id) ? state.outputCounts.at(id) : 0;
-                        std::string label = state.labels.count(id) ? state.labels.at(id) : "";
-                        std::vector<PartPin> childIn(inC, PartPin{-1, -1});
-                        for (int q = 0; q < inC; ++q)
-                        {
-                                std::map<PartPin, PartPin>::const_iterator ci = state.connections.find({id, q});
-                                if (ci != state.connections.end()) childIn[q] = resolve(ci->second.first, ci->second.second);
-                        }
-                        CustomMode m = decideCustom(label, linkMode);
-                        if (m == CUSTOM_LINK || m == CUSTOM_STATIC)
-                        {
-                                customOut[id] = linkCustom(fc, id, label, inC, outC, childIn);
-                                if (m == CUSTOM_STATIC) fc.staticNodes.insert(id);
-                        }
-                        else
-                                customOut[id] = expandCustom(fc, idAlloc, label, childIn, linkMode);
-                        expanding.erase(id);
+                        std::vector<PartPin>& o = customOut[id];
+                        return pin < (int)o.size() ? o[pin] : PartPin{-1, -1};
                 }
+
+                if (expanding.count(id))
+                {
+                        PartPin key{id, pin};
+                        std::map<PartPin, PartPin>::iterator fb = feedbackBuf.find(key);
+                        if (fb != feedbackBuf.end()) return fb->second;
+                        int bid = idAlloc++;
+                        fc.partTypes[bid] = PART_TYPE_OR;
+                        fc.inputCounts[bid] = 1;
+                        fc.outputCounts[bid] = 1;
+                        PartPin buf{bid, 0};
+                        feedbackBuf[key] = buf;
+                        return buf;
+                }
+
+                expanding.insert(id);
+                int inC = state.inputCounts.count(id) ? state.inputCounts.at(id) : 0;
+                int outC = state.outputCounts.count(id) ? state.outputCounts.at(id) : 0;
+                std::string label = state.labels.count(id) ? state.labels.at(id) : "";
+                std::vector<PartPin> childIn(inC, PartPin{-1, -1});
+                for (int q = 0; q < inC; ++q)
+                {
+                        std::map<PartPin, PartPin>::const_iterator ci = state.connections.find({id, q});
+                        if (ci != state.connections.end()) childIn[q] = resolve(ci->second.first, ci->second.second);
+                }
+                CustomMode m = decideCustom(label, linkMode);
+                if (m == CUSTOM_LINK || m == CUSTOM_STATIC)
+                {
+                        customOut[id] = linkCustom(fc, id, label, inC, outC, childIn);
+                        if (m == CUSTOM_STATIC) fc.staticNodes.insert(id);
+                }
+                else
+                        customOut[id] = expandCustom(fc, idAlloc, label, childIn, linkMode);
+                expanding.erase(id);
+
                 std::vector<PartPin>& o = customOut[id];
+                for (int p = 0; p < (int)o.size(); ++p)
+                {
+                        std::map<PartPin, PartPin>::iterator fb = feedbackBuf.find(PartPin{id, p});
+                        if (fb != feedbackBuf.end() && o[p].first != -1)
+                                fc.connections[{fb->second.first, 0}] = o[p];
+                }
                 return pin < (int)o.size() ? o[pin] : PartPin{-1, -1};
         };
 
