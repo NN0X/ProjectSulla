@@ -1628,6 +1628,94 @@ static void testProgramFetch()
         }
 }
 
+struct SqStep { int db; int rst; };
+
+static int seqDoneComb(int cs, int ir)
+{
+        int lc01[8] = { 5, 2, 1, 3, 4, 3, 3, 3 };
+        bool cc01 = ((ir & 1) == 1) && (((ir >> 1) & 1) == 0);
+        int bbb = (ir >> 2) & 7;
+        int lastCycle = cc01 ? lc01[bbb] : 1;
+        return (cs == lastCycle) ? 1 : 0;
+}
+
+static void runSequencerOnEngine(Part& p, const std::vector<SqStep>& seq, int settleSteps,
+                                 std::vector<int>& pcO, std::vector<int>& irO, std::vector<int>& tO, std::vector<int>& fO, std::vector<int>& dO)
+{
+        std::vector<State> out;
+        for (size_t i = 0; i < seq.size(); ++i)
+        {
+                for (int clk = 0; clk < 2; ++clk)
+                {
+                        std::vector<int> in(10, 0);
+                        for (int k = 0; k < 8; ++k) in[k] = (seq[i].db >> k) & 1;
+                        in[8] = seq[i].rst; in[9] = clk;
+                        std::vector<State> sin = toStates(in);
+                        for (int t = 0; t < settleSteps; ++t) out = p(sin);
+                }
+                std::vector<int> b = toBits(out);
+                int pc = 0; for (int k = 0; k < 16; ++k) pc |= b[k] << k;
+                int ir = 0; for (int k = 0; k < 8; ++k) ir |= b[16 + k] << k;
+                pcO.push_back(pc); irO.push_back(ir);
+                tO.push_back(b[24] | (b[25] << 1) | (b[26] << 2));
+                fO.push_back(b[27]); dO.push_back(b[28]);
+        }
+}
+
+static void testSequencer()
+{
+        tf::section("6502 self-timed sequencer (fetch/execute loop, IR -> DONE decode -> cycle counter): interp, native inline, native link");
+        const std::string NAME = "6502_Sequencer";
+        const int SETTLE = 120;
+        std::vector<SqStep> seq;
+        seq.push_back({ 0x00, 1 }); seq.push_back({ 0x00, 1 });
+        for (int i = 0; i < 6; i++) seq.push_back({ 0xA9, 0 });
+        for (int i = 0; i < 8; i++) seq.push_back({ 0xAD, 0 });
+        for (int i = 0; i < 4; i++) seq.push_back({ 0x0A, 0 });
+        for (int i = 0; i < 12; i++) seq.push_back({ 0xA1, 0 });
+
+        std::vector<int> gPC, gIR, gT, gF, gD;
+        int cs = 0, ir = 0, pc = 0;
+        for (size_t i = 0; i < seq.size(); i++)
+        {
+                int dc = seqDoneComb(cs, ir);
+                int fd = (cs == 0) ? 1 : 0;
+                int ncs = seq[i].rst ? 0 : (dc ? 0 : ((cs + 1) & 7));
+                int nir = fd ? seq[i].db : ir;
+                int npc = seq[i].rst ? 0 : (fd ? ((pc + 1) & 0xFFFF) : pc);
+                cs = ncs; ir = nir; pc = npc;
+                gPC.push_back(pc); gIR.push_back(ir); gT.push_back(cs); gF.push_back(cs == 0 ? 1 : 0); gD.push_back(seqDoneComb(cs, ir));
+        }
+
+        int iIn = 0, iOut = 0;
+        Part interp = loadLayoutAsPart("layouts/" + NAME + ".json", iIn, iOut);
+        if (!tf::check(interp != nullptr, "seq: interpreted loaded")) return;
+        std::vector<int> iPC, iIR, iT, iF, iD;
+        runSequencerOnEngine(interp, seq, SETTLE, iPC, iIR, iT, iF, iD);
+        int gi = 0;
+        for (size_t i = 0; i < seq.size(); i++) if (iPC[i] != gPC[i] || iIR[i] != gIR[i] || iT[i] != gT[i] || iF[i] != gF[i] || iD[i] != gD[i]) gi++;
+        tf::check(gi == 0, "seq: interpreted self-times against golden (each opcode runs its decoded length)");
+
+        const char* modeName[2] = { "inline", "link" };
+        bool linkMode[2] = { false, true };
+        for (int m = 0; m < 2; ++m)
+        {
+                int nOut = 0;
+                Part nat = buildNative(NAME, nOut, linkMode[m]);
+                if (!tf::check(nat != nullptr, std::string("seq: native ") + modeName[m] + " built")) continue;
+                std::vector<int> nPC, nIR, nT, nF, nD;
+                runSequencerOnEngine(nat, seq, SETTLE, nPC, nIR, nT, nF, nD);
+                int gn = 0, df = 0;
+                for (size_t i = 0; i < seq.size(); i++)
+                {
+                        if (nPC[i] != gPC[i] || nIR[i] != gIR[i] || nT[i] != gT[i] || nF[i] != gF[i] || nD[i] != gD[i]) gn++;
+                        if (nPC[i] != iPC[i] || nIR[i] != iIR[i] || nT[i] != iT[i] || nF[i] != iF[i] || nD[i] != iD[i]) df++;
+                }
+                tf::check(gn == 0, std::string("seq: native ") + modeName[m] + " self-times against golden");
+                tf::check(df == 0, std::string("seq: interpreted == native ") + modeName[m]);
+        }
+}
+
 static void testAluExecute()
 {
         tf::section("6502 ALU execute datapath (opcode + A + M -> new A + N/Z/C/V): interp, native inline, native link");
@@ -2002,6 +2090,7 @@ int main()
         testCycleCounter();
         testFetchUnit();
         testProgramFetch();
+        testSequencer();
         testAluExecute();
         testAluExecuteSequential();
         testAluWriteback();
