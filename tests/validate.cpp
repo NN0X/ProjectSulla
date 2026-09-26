@@ -1193,6 +1193,47 @@ static void testShifter()
         for (int m = 0; m < 2; ++m) if (built[m]) tf::check(okN[m], std::string("shifter: native ") + modeName[m] + " matches golden");
 }
 
+static void testIncDec()
+{
+        tf::section("6502 increment/decrement (INC/DEC/INX/DEX/INY/DEY core): interp, native inline, native link");
+        const std::string NAME = "6502_IncDec";
+        int iIn = 0, iOut = 0;
+        Part interp = loadLayoutAsPart("layouts/" + NAME + ".json", iIn, iOut);
+        if (!tf::check(interp != nullptr, "incdec: interpreted loaded")) return;
+        const char* modeName[2] = { "inline", "link" };
+        bool linkMode[2] = { false, true };
+        Part nat[2];
+        bool built[2] = { false, false };
+        for (int m = 0; m < 2; ++m)
+        {
+                int nOut = 0;
+                nat[m] = buildNative(NAME, nOut, linkMode[m]);
+                built[m] = tf::check(nat[m] != nullptr, std::string("incdec: native ") + modeName[m] + " built");
+        }
+        bool okI = true, okN[2] = { true, true };
+        for (int D = 0; D < 256; ++D)
+        for (int dec = 0; dec < 2; ++dec)
+        {
+                std::vector<int> in(9, 0);
+                for (int k = 0; k < 8; ++k) in[k] = (D >> k) & 1;
+                in[8] = dec;
+                int R = dec ? ((D + 0xFF) & 0xFF) : ((D + 1) & 0xFF);
+                int eN = (R >> 7) & 1, eZ = (R == 0) ? 1 : 0;
+                std::vector<int> oi = toBits(interp(toStates(in)));
+                int ro = 0; for (int k = 0; k < 8; ++k) ro |= oi[k] << k;
+                if (ro != R || oi[8] != eN || oi[9] != eZ) okI = false;
+                for (int m = 0; m < 2; ++m)
+                {
+                        if (!built[m]) continue;
+                        std::vector<int> on = toBits(nat[m](toStates(in)));
+                        int rn = 0; for (int k = 0; k < 8; ++k) rn |= on[k] << k;
+                        if (rn != R || on[8] != eN || on[9] != eZ) okN[m] = false;
+                }
+        }
+        tf::check(okI, "incdec: interpreted matches golden (512 exhaustive: inc + dec, N/Z)");
+        for (int m = 0; m < 2; ++m) if (built[m]) tf::check(okN[m], std::string("incdec: native ") + modeName[m] + " matches golden");
+}
+
 static void testCompareBit()
 {
         tf::section("6502 compare + BIT flags (CPX/CPY subtract, BIT test): interp, native inline, native link");
@@ -1613,6 +1654,7 @@ int main()
         });
         testFlagLogicEndToEnd();
         testShifter();
+        testIncDec();
         testCompareBit();
         testAluExecute();
         testAluExecuteSequential();
