@@ -1288,6 +1288,49 @@ static void testCompareBit()
         for (int m = 0; m < 2; ++m) if (built[m]) tf::check(okN[m], std::string("compare/BIT: native ") + modeName[m] + " matches 6502 golden");
 }
 
+static void testBranchCondition()
+{
+        tf::section("6502 branch condition (BPL/BMI/BVC/BVS/BCC/BCS/BNE/BEQ taken logic): interp, native inline, native link");
+        const std::string NAME = "6502_Branch_Condition";
+        int iIn = 0, iOut = 0;
+        Part interp = loadLayoutAsPart("layouts/" + NAME + ".json", iIn, iOut);
+        if (!tf::check(interp != nullptr, "branch: interpreted loaded")) return;
+        const char* modeName[2] = { "inline", "link" };
+        bool linkMode[2] = { false, true };
+        Part nat[2];
+        bool built[2] = { false, false };
+        for (int m = 0; m < 2; ++m)
+        {
+                int nOut = 0;
+                nat[m] = buildNative(NAME, nOut, linkMode[m]);
+                built[m] = tf::check(nat[m] != nullptr, std::string("branch: native ") + modeName[m] + " built");
+        }
+        bool okI = true, okN[2] = { true, true };
+        for (int opcode = 0; opcode < 256; ++opcode)
+        for (int fl = 0; fl < 16; ++fl)
+        {
+                int N = fl & 1, Z = (fl >> 1) & 1, Cc = (fl >> 2) & 1, V = (fl >> 3) & 1;
+                std::vector<int> in(12, 0);
+                for (int k = 0; k < 8; ++k) in[k] = (opcode >> k) & 1;
+                in[8] = N; in[9] = Z; in[10] = Cc; in[11] = V;
+                bool isBranch = (opcode & 0x1F) == 0x10;
+                int sel = (opcode >> 6) & 3;
+                int flag = (sel == 0) ? N : (sel == 1) ? V : (sel == 2) ? Cc : Z;
+                int want = (flag == ((opcode >> 5) & 1)) ? 1 : 0;
+                int eT = (isBranch && want) ? 1 : 0;
+                std::vector<int> oi = toBits(interp(toStates(in)));
+                if (oi[0] != eT) okI = false;
+                for (int m = 0; m < 2; ++m)
+                {
+                        if (!built[m]) continue;
+                        std::vector<int> on = toBits(nat[m](toStates(in)));
+                        if (on[0] != eT) okN[m] = false;
+                }
+        }
+        tf::check(okI, "branch: interpreted matches 6502 golden (all 256 opcodes x 16 flag states)");
+        for (int m = 0; m < 2; ++m) if (built[m]) tf::check(okN[m], std::string("branch: native ") + modeName[m] + " matches 6502 golden");
+}
+
 static void testAluExecute()
 {
         tf::section("6502 ALU execute datapath (opcode + A + M -> new A + N/Z/C/V): interp, native inline, native link");
@@ -1656,6 +1699,7 @@ int main()
         testShifter();
         testIncDec();
         testCompareBit();
+        testBranchCondition();
         testAluExecute();
         testAluExecuteSequential();
         testAluWriteback();
