@@ -2632,6 +2632,109 @@ static void testOperandSequence()
         }
 }
 
+struct SoInstr { int op; int areg; int mval; int cin; };
+struct SoRec { int t; int done; int aout; int n; int z; int c; int v; int ai; int bi; };
+
+static void runSeqOperandOnEngine(Part& p, const std::vector<SoInstr>& prog, int settleSteps, std::vector<SoRec>& recs)
+{
+        std::vector<State> out;
+        for (size_t i = 0; i < prog.size(); ++i)
+        for (int cyc = 0; cyc < 4; ++cyc)
+        {
+                int rst = (i == 0 && cyc == 0) ? 1 : 0;
+                for (int clk = 0; clk < 2; ++clk)
+                {
+                        std::vector<int> in(27, 0);
+                        in[0] = rst;
+                        for (int k = 0; k < 8; ++k) { in[1 + k] = (prog[i].areg >> k) & 1; in[9 + k] = (prog[i].mval >> k) & 1; in[17 + k] = (prog[i].op >> k) & 1; }
+                        in[25] = prog[i].cin; in[26] = clk;
+                        std::vector<State> sin = toStates(in);
+                        for (int t = 0; t < settleSteps; ++t) out = p(sin);
+                }
+                std::vector<int> b = toBits(out);
+                SoRec r; r.aout = 0; r.ai = 0; r.bi = 0;
+                for (int k = 0; k < 8; ++k) { r.aout |= b[k] << k; r.ai |= b[16 + k] << k; r.bi |= b[24 + k] << k; }
+                r.n = b[8]; r.z = b[9]; r.c = b[10]; r.v = b[11];
+                r.t = b[12] | (b[13] << 1) | (b[14] << 2); r.done = b[15];
+                recs.push_back(r);
+        }
+}
+
+static void testSequencedOperand()
+{
+        tf::section("6502 self-timed operand execution (cycle counter drives AI/BI load then compute, ending on DONE): interp, native inline, native link");
+        const std::string NAME = "6502_Sequenced_Operand";
+        const int SETTLE = 90;
+        std::vector<SoInstr> prog = {
+                { 0x01, 0x3C, 0x0F, 0 }, { 0x61, 0x40, 0x30, 1 }, { 0x21, 0xF0, 0x3C, 0 },
+                { 0xE1, 0x80, 0x40, 0 }, { 0x41, 0xAA, 0xFF, 0 } };
+
+        std::vector<SoRec> golden;
+        for (size_t i = 0; i < prog.size(); ++i)
+        {
+                int cc = prog[i].op & 3, aaa = (prog[i].op >> 5) & 7;
+                int A = prog[i].areg, M = prog[i].mval, Cin = prog[i].cin, res = 0, eC = 0, eV = 0;
+                bool isAdc = (cc == 1 && aaa == 3), isSub = (cc == 1 && (aaa == 6 || aaa == 7));
+                if (aaa == 0) res = A | M;
+                else if (aaa == 1) res = A & M;
+                else if (aaa == 2) res = A ^ M;
+                else if (isAdc) { int sum = A + M + Cin; res = sum & 0xFF; eC = (sum >= 256) ? 1 : 0;
+                        int a7 = (A >> 7) & 1, m7 = (M >> 7) & 1, r7 = (res >> 7) & 1;
+                        eV = ((a7 && m7 && !r7) || (!a7 && !m7 && r7)) ? 1 : 0; }
+                else { int diff = A + (M ^ 0xFF) + Cin; res = diff & 0xFF; eC = (diff >= 256) ? 1 : 0;
+                        int a7 = (A >> 7) & 1, m7 = (M >> 7) & 1, r7 = (res >> 7) & 1;
+                        eV = ((a7 && !m7 && !r7) || (!a7 && m7 && r7)) ? 1 : 0; }
+                for (int cyc = 0; cyc < 4; ++cyc)
+                {
+                        SoRec g; g.t = cyc; g.done = (cyc == 3) ? 1 : 0;
+                        g.aout = res; g.n = (res >> 7) & 1; g.z = (res == 0) ? 1 : 0;
+                        g.c = (isAdc || isSub) ? eC : -1; g.v = (isAdc || isSub) ? eV : -1; g.ai = A; g.bi = M;
+                        golden.push_back(g);
+                }
+        }
+
+        int iIn = 0, iOut = 0;
+        Part interp = loadLayoutAsPart("layouts/" + NAME + ".json", iIn, iOut);
+        if (!tf::check(interp != nullptr, "seqop: interpreted loaded")) return;
+        std::vector<SoRec> iR;
+        runSeqOperandOnEngine(interp, prog, SETTLE, iR);
+        int gi = 0;
+        for (size_t i = 0; i < iR.size(); ++i)
+        {
+                if (iR[i].t != golden[i].t || iR[i].done != golden[i].done) gi++;
+                if (golden[i].done)
+                {
+                        if (iR[i].aout != golden[i].aout || iR[i].n != golden[i].n || iR[i].z != golden[i].z || iR[i].ai != golden[i].ai || iR[i].bi != golden[i].bi) gi++;
+                        if (golden[i].c >= 0 && (iR[i].c != golden[i].c || iR[i].v != golden[i].v)) gi++;
+                }
+        }
+        tf::check(gi == 0, "seqop: interpreted self-times each op (T-states walk, AI/BI loaded, result committed at DONE)");
+
+        const char* modeName[2] = { "inline", "link" };
+        bool linkMode[2] = { false, true };
+        for (int m = 0; m < 2; ++m)
+        {
+                int nOut = 0;
+                Part nat = buildNative(NAME, nOut, linkMode[m]);
+                if (!tf::check(nat != nullptr, std::string("seqop: native ") + modeName[m] + " built")) continue;
+                std::vector<SoRec> nR;
+                runSeqOperandOnEngine(nat, prog, SETTLE, nR);
+                int gn = 0, df = 0;
+                for (size_t i = 0; i < nR.size(); ++i)
+                {
+                        if (nR[i].t != golden[i].t || nR[i].done != golden[i].done) gn++;
+                        if (golden[i].done)
+                        {
+                                if (nR[i].aout != golden[i].aout || nR[i].n != golden[i].n || nR[i].z != golden[i].z || nR[i].ai != golden[i].ai || nR[i].bi != golden[i].bi) gn++;
+                                if (golden[i].c >= 0 && (nR[i].c != golden[i].c || nR[i].v != golden[i].v)) gn++;
+                        }
+                        if (nR[i].t != iR[i].t || nR[i].done != iR[i].done || nR[i].aout != iR[i].aout || nR[i].n != iR[i].n || nR[i].z != iR[i].z || nR[i].c != iR[i].c || nR[i].v != iR[i].v || nR[i].ai != iR[i].ai || nR[i].bi != iR[i].bi) df++;
+                }
+                tf::check(gn == 0, std::string("seqop: native ") + modeName[m] + " self-times each op");
+                tf::check(df == 0, std::string("seqop: interpreted == native ") + modeName[m]);
+        }
+}
+
 int main()
 {
         std::printf("%s%sSulla validation suite%s  (interpreted + native engines)\n",
@@ -2793,6 +2896,7 @@ int main()
         testAluSbOperand();
         testAluInputs();
         testOperandSequence();
+        testSequencedOperand();
         testRamPart();
         testRom();
         testRomMulti();
