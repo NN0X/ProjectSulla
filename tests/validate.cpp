@@ -1113,6 +1113,41 @@ static void testTransferDecodeEndToEnd()
         tf::check(ok, "transfer e2e: each transfer moves the source register to the destination register");
 }
 
+static void testFlagLogicEndToEnd()
+{
+        tf::section("6502 flag logic end-to-end: real ALU addition result -> N/Z/C/V");
+        int fi = 0, fo = 0;
+        Part fl = loadLayoutAsPart("layouts/6502_ALU_Flag_Logic.json", fi, fo);
+        int ai = 0, ao = 0;
+        Part alu = loadLayoutAsPart("layouts/74181x2_8-bit_ALU.json", ai, ao);
+        if (!tf::check(fl != nullptr && alu != nullptr, "flag logic e2e: flag logic + ALU loaded")) return;
+        int A[8] = { 0x50, 0x50, 0xD0, 0x00, 0x80, 0x3F, 0xFF, 0x01 };
+        int B[8] = { 0x50, 0xD0, 0xD0, 0x00, 0x80, 0x01, 0x01, 0x02 };
+        bool ok = true;
+        for (int i = 0; i < 8 && ok; ++i)
+        {
+                int a = A[i], b = B[i];
+                std::vector<int> in(22, 0);
+                for (int k = 0; k < 8; ++k) { in[k] = (a >> k) & 1; in[8 + k] = (b >> k) & 1; }
+                in[16] = 1; in[17] = 0; in[18] = 0; in[19] = 1; in[20] = 0; in[21] = 1;   // ADD: S=1001, M=0, Cn=1
+                std::vector<int> fbits = toBits(alu(toStates(in)));
+                int R = 0;
+                for (int k = 0; k < 8; ++k) R |= fbits[k] << k;
+                int Cout = 1 - fbits[8];
+                std::vector<int> fin(12, 0);
+                for (int k = 0; k < 8; ++k) fin[k] = fbits[k];
+                fin[8] = (a >> 7) & 1; fin[9] = (b >> 7) & 1; fin[10] = Cout; fin[11] = 0;
+                std::vector<int> flags = toBits(fl(toStates(fin)));
+                int N = flags[0], Z = flags[1], Cf = flags[2], V = flags[3];
+                int sum = a + b, eR = sum & 0xFF;
+                int eN = (eR >> 7) & 1, eZ = (eR == 0) ? 1 : 0, eC = (sum >= 256) ? 1 : 0;
+                int a7 = (a >> 7) & 1, b7 = (b >> 7) & 1, r7 = (eR >> 7) & 1;
+                int eV = ((a7 && b7 && !r7) || (!a7 && !b7 && r7)) ? 1 : 0;
+                if (R != eR || N != eN || Z != eZ || Cf != eC || V != eV) ok = false;
+        }
+        tf::check(ok, "flag logic e2e: N/Z/C/V from real ALU sums match the 6502 flag semantics");
+}
+
 int main()
 {
         std::printf("%s%sSulla validation suite%s  (interpreted + native engines)\n",
@@ -1240,6 +1275,19 @@ int main()
                 return std::vector<int>{ rs & 1, (rs >> 1) & 1, ws & 1, (ws >> 1) & 1, we };
         });
         testTransferDecodeEndToEnd();
+        testCombinational("6502_ALU_Flag_Logic", 12, [](const std::vector<int>& v){
+                int R = 0;
+                for (int k = 0; k < 8; ++k) R |= v[k] << k;
+                int A7 = v[8], B7 = v[9], Cout = v[10], isSub = v[11], R7 = v[7];
+                int N = R7;
+                int Z = (R == 0) ? 1 : 0;
+                int Cf = Cout;
+                int Vadd = ((A7 && B7 && !R7) || (!A7 && !B7 && R7)) ? 1 : 0;
+                int Vsub = ((A7 && !B7 && !R7) || (!A7 && B7 && R7)) ? 1 : 0;
+                int V = isSub ? Vsub : Vadd;
+                return std::vector<int>{ N, Z, Cf, V };
+        });
+        testFlagLogicEndToEnd();
         testRamPart();
         testRom();
         testRomMulti();
