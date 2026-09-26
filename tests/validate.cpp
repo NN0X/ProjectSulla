@@ -2314,6 +2314,112 @@ static void testSbBus()
         }
 }
 
+struct AsStep { int op; int ain; int wd; int ws; int we; int rs; int din; int src; int cin; };
+struct AsOut { int aout; int n; int z; int c; int v; };
+
+static void runAluSbOnEngine(Part& p, const std::vector<AsStep>& seq, int settleSteps, std::vector<AsOut>& outs)
+{
+        std::vector<State> out;
+        for (size_t i = 0; i < seq.size(); ++i)
+        {
+                for (int clk = 0; clk < 2; ++clk)
+                {
+                        std::vector<int> in(41, 0);
+                        for (int k = 0; k < 8; ++k) { in[k] = (seq[i].op >> k) & 1; in[8 + k] = (seq[i].ain >> k) & 1; in[16 + k] = (seq[i].wd >> k) & 1; }
+                        in[24] = seq[i].ws & 1; in[25] = (seq[i].ws >> 1) & 1; in[26] = seq[i].we;
+                        in[27] = seq[i].rs & 1; in[28] = (seq[i].rs >> 1) & 1;
+                        for (int k = 0; k < 8; ++k) in[29 + k] = (seq[i].din >> k) & 1;
+                        in[37] = seq[i].src & 1; in[38] = (seq[i].src >> 1) & 1; in[39] = seq[i].cin; in[40] = clk;
+                        std::vector<State> sin = toStates(in);
+                        for (int t = 0; t < settleSteps; ++t) out = p(sin);
+                }
+                std::vector<int> b = toBits(out);
+                AsOut o; o.aout = 0; for (int k = 0; k < 8; ++k) o.aout |= b[k] << k;
+                o.n = b[8]; o.z = b[9]; o.c = b[10]; o.v = b[11];
+                outs.push_back(o);
+        }
+}
+
+static void testAluSbOperand()
+{
+        tf::section("6502 ALU operand over SB bus (ALU's M operand sourced from a register or memory on the shared bus): interp, native inline, native link");
+        const std::string NAME = "6502_ALU_SB_Operand";
+        const int SETTLE = 90;
+        int ops[6] = { 0x01, 0x21, 0x41, 0x61, 0xC1, 0xE1 };
+        int aaa[6] = { 0, 1, 2, 3, 6, 7 };
+        int Av[6] = { 0x3C, 0xF0, 0xAA, 0x40, 0x50, 0x80 };
+        int Mv[6] = { 0x0F, 0x3C, 0xFF, 0x30, 0x50, 0x40 };
+        int Cv[6] = { 0, 0, 0, 1, 1, 0 };
+
+        std::vector<AsStep> seq;
+        for (int i = 0; i < 6; ++i)
+        {
+                seq.push_back({ 0xEA, 0, Mv[i], 0, 1, 0, 0, 0, 0 });
+                seq.push_back({ ops[i], Av[i], 0, 0, 0, 0, 0, 0, Cv[i] });
+                seq.push_back({ ops[i], Av[i], 0, 0, 0, 0, Mv[i], 1, Cv[i] });
+        }
+
+        std::vector<AsOut> golden;
+        for (int i = 0; i < 6; ++i)
+        {
+                golden.push_back({ 0, 0, 0, 0, 0 });
+                for (int rep = 0; rep < 2; ++rep)
+                {
+                        int A = Av[i], M = Mv[i], Cin = Cv[i], res = 0, eC = 0, eV = 0;
+                        bool isAdc = (aaa[i] == 3), isSub = (aaa[i] == 6 || aaa[i] == 7);
+                        if (aaa[i] == 0) res = A | M;
+                        else if (aaa[i] == 1) res = A & M;
+                        else if (aaa[i] == 2) res = A ^ M;
+                        else if (isAdc) { int sum = A + M + Cin; res = sum & 0xFF; eC = (sum >= 256) ? 1 : 0;
+                                int a7 = (A >> 7) & 1, m7 = (M >> 7) & 1, r7 = (res >> 7) & 1;
+                                eV = ((a7 && m7 && !r7) || (!a7 && !m7 && r7)) ? 1 : 0; }
+                        else { int diff = A + (M ^ 0xFF) + Cin; res = diff & 0xFF; eC = (diff >= 256) ? 1 : 0;
+                                int a7 = (A >> 7) & 1, m7 = (M >> 7) & 1, r7 = (res >> 7) & 1;
+                                eV = ((a7 && !m7 && !r7) || (!a7 && m7 && r7)) ? 1 : 0; }
+                        AsOut g; g.aout = res; g.n = (res >> 7) & 1; g.z = (res == 0) ? 1 : 0;
+                        g.c = (isAdc || isSub) ? eC : -1; g.v = (isAdc || isSub) ? eV : -1;
+                        golden.push_back(g);
+                }
+        }
+
+        int iIn = 0, iOut = 0;
+        Part interp = loadLayoutAsPart("layouts/" + NAME + ".json", iIn, iOut);
+        if (!tf::check(interp != nullptr, "alusb: interpreted loaded")) return;
+        std::vector<AsOut> iO;
+        runAluSbOnEngine(interp, seq, SETTLE, iO);
+        int gi = 0;
+        for (size_t i = 0; i < seq.size(); ++i)
+        {
+                if (seq[i].we) continue;
+                const AsOut& a = iO[i]; const AsOut& g = golden[i];
+                if (a.aout != g.aout || a.n != g.n || a.z != g.z) gi++;
+                if (g.c >= 0 && (a.c != g.c || a.v != g.v)) gi++;
+        }
+        tf::check(gi == 0, "alusb: interpreted matches ALU golden with operand from register and from memory");
+
+        const char* modeName[2] = { "inline", "link" };
+        bool linkMode[2] = { false, true };
+        for (int m = 0; m < 2; ++m)
+        {
+                int nOut = 0;
+                Part nat = buildNative(NAME, nOut, linkMode[m]);
+                if (!tf::check(nat != nullptr, std::string("alusb: native ") + modeName[m] + " built")) continue;
+                std::vector<AsOut> nO;
+                runAluSbOnEngine(nat, seq, SETTLE, nO);
+                int gn = 0, df = 0;
+                for (size_t i = 0; i < seq.size(); ++i)
+                {
+                        if (seq[i].we) continue;
+                        const AsOut& a = nO[i]; const AsOut& g = golden[i]; const AsOut& b = iO[i];
+                        if (a.aout != g.aout || a.n != g.n || a.z != g.z) gn++;
+                        if (g.c >= 0 && (a.c != g.c || a.v != g.v)) gn++;
+                        if (a.aout != b.aout || a.n != b.n || a.z != b.z || a.c != b.c || a.v != b.v) df++;
+                }
+                tf::check(gn == 0, std::string("alusb: native ") + modeName[m] + " matches ALU golden");
+                tf::check(df == 0, std::string("alusb: interpreted == native ") + modeName[m]);
+        }
+}
+
 int main()
 {
         std::printf("%s%sSulla validation suite%s  (interpreted + native engines)\n",
@@ -2472,6 +2578,7 @@ int main()
         testAccumulatorExecute();
         testRegisterOps();
         testSbBus();
+        testAluSbOperand();
         testRamPart();
         testRom();
         testRomMulti();
