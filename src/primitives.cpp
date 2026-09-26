@@ -131,3 +131,28 @@ Part makeArithPart(bool isMul, int width)
                 return out;
         };
 }
+
+Part makeTristatePart()
+{
+        return [](std::vector<State> input) -> std::vector<State>
+        {
+                State data = input.size() > 0 ? input[0] : STATE_UNDEFINED;
+                State enable = input.size() > 1 ? input[1] : STATE_LOW;
+                return { enable == STATE_HIGH ? data : STATE_HIGHZ };
+        };
+}
+
+Part makeBusPart()
+{
+        return [](std::vector<State> input) -> std::vector<State>
+        {
+                bool anyHigh = false;
+                bool anyLow = false;
+                for (size_t i = 0; i < input.size(); ++i)
+                {
+                        if (input[i] == STATE_HIGH) anyHigh = true;
+                        else if (input[i] == STATE_LOW) anyLow = true;
+                }
+                return { (anyHigh && !anyLow) ? STATE_HIGH : STATE_LOW };
+        };
+}

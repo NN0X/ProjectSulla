@@ -1148,6 +1148,85 @@ static void testFlagLogicEndToEnd()
         tf::check(ok, "flag logic e2e: N/Z/C/V from real ALU sums match the 6502 flag semantics");
 }
 
+static void testTristateBus()
+{
+        tf::section("tri-state bus (3 buffers on one bus: float / single / agree / conflict): interp, native inline, native link");
+        const std::string NAME = "TriState_Bus";
+        int iIn = 0, iOut = 0;
+        Part interp = loadLayoutAsPart("layouts/" + NAME + ".json", iIn, iOut);
+        if (!tf::check(interp != nullptr, "tristate: interpreted loaded")) return;
+        const char* modeName[2] = { "inline", "link" };
+        bool linkMode[2] = { false, true };
+        Part nat[2];
+        bool built[2] = { false, false };
+        for (int m = 0; m < 2; ++m)
+        {
+                int nOut = 0;
+                nat[m] = buildNative(NAME, nOut, linkMode[m]);
+                built[m] = tf::check(nat[m] != nullptr, std::string("tristate: native ") + modeName[m] + " built");
+        }
+        bool okI = true, okN[2] = { true, true };
+        int floatSeen = 0, oneSeen = 0, agreeSeen = 0, conflictSeen = 0;
+        for (int combo = 0; combo < 64; ++combo)
+        {
+                int d0 = combo & 1, d1 = (combo >> 1) & 1, d2 = (combo >> 2) & 1;
+                int e0 = (combo >> 3) & 1, e1 = (combo >> 4) & 1, e2 = (combo >> 5) & 1;
+                std::vector<int> in = { d0, d1, d2, e0, e1, e2 };
+                int anyHigh = ((d0 && e0) || (d1 && e1) || (d2 && e2)) ? 1 : 0;
+                int anyLow = ((!d0 && e0) || (!d1 && e1) || (!d2 && e2)) ? 1 : 0;
+                int expected = (anyHigh && !anyLow) ? 1 : 0;
+                int drivers = e0 + e1 + e2;
+                if (drivers == 0) floatSeen++;
+                else if (drivers == 1) oneSeen++;
+                else if (anyHigh && anyLow) conflictSeen++;
+                else agreeSeen++;
+                std::vector<int> oi = toBits(interp(toStates(in)));
+                if (oi[0] != expected) okI = false;
+                for (int m = 0; m < 2; ++m)
+                {
+                        if (!built[m]) continue;
+                        std::vector<int> on = toBits(nat[m](toStates(in)));
+                        if (on[0] != expected) okN[m] = false;
+                }
+        }
+        tf::check(okI, "tristate: interpreted matches golden (all 64 combos)");
+        for (int m = 0; m < 2; ++m) if (built[m]) tf::check(okN[m], std::string("tristate: native ") + modeName[m] + " matches golden");
+        tf::check(floatSeen > 0 && oneSeen > 0 && agreeSeen > 0 && conflictSeen > 0, "tristate: sweep exercises float, single-driver, agreeing and conflicting buses");
+
+        AppState bs;
+        loadLayout(bs, "layouts/" + NAME + ".json");
+        std::string bcode = transpileToCppBitsliced(bs);
+        bool bitOk = false;
+        if (compileSharedLibrary(bcode, "tristate_bits"))
+        {
+                void* h = dlopen("./parts/libtristate_bits.so", RTLD_LAZY | RTLD_LOCAL);
+                typedef void (*BF)(const uint64_t*, uint64_t*);
+                BF bf = h ? (BF)dlsym(h, "executeTickBatch") : nullptr;
+                if (bf)
+                {
+                        uint64_t in[6] = { 0, 0, 0, 0, 0, 0 };
+                        uint64_t out[1] = { 0 };
+                        for (int c = 0; c < 64; c++)
+                        {
+                                int v[6] = { c & 1, (c >> 1) & 1, (c >> 2) & 1, (c >> 3) & 1, (c >> 4) & 1, (c >> 5) & 1 };
+                                for (int i = 0; i < 6; i++) if (v[i]) in[i] |= (1ULL << c);
+                        }
+                        for (int t = 0; t < 4; t++) bf(in, out);
+                        bitOk = true;
+                        for (int c = 0; c < 64; c++)
+                        {
+                                int d0 = c & 1, d1 = (c >> 1) & 1, d2 = (c >> 2) & 1, e0 = (c >> 3) & 1, e1 = (c >> 4) & 1, e2 = (c >> 5) & 1;
+                                int ah = ((d0 && e0) || (d1 && e1) || (d2 && e2)) ? 1 : 0;
+                                int al = (((!d0) && e0) || ((!d1) && e1) || ((!d2) && e2)) ? 1 : 0;
+                                int exp = (ah && !al) ? 1 : 0;
+                                if ((int)((out[0] >> c) & 1ULL) != exp) bitOk = false;
+                        }
+                }
+                if (h) dlclose(h);
+        }
+        tf::check(bitOk, "tristate: bitsliced SIMD matches golden on all 64 combos including conflicts");
+}
+
 static void testShifter()
 {
         tf::section("6502 single-bit shifter (ASL/LSR/ROL/ROR core): interp, native inline, native link");
@@ -2228,6 +2307,7 @@ int main()
         });
         testFlagLogicEndToEnd();
         testShifter();
+        testTristateBus();
         testIncDec();
         testCompareBit();
         testBranchCondition();

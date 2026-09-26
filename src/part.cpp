@@ -140,6 +140,10 @@ Part getPartFromType(PartType type)
                 };
         case EVAL_ROM:
                 return makeRomPart(std::vector<uint32_t>(), 0, 1);
+        case EVAL_TRISTATE:
+                return makeTristatePart();
+        case EVAL_BUS:
+                return makeBusPart();
         case EVAL_SOURCE:
         default:
                 std::cerr << "Error: part type has no interpreter part: " << partTypeName(type) << std::endl;

@@ -14,6 +14,8 @@ static const GateSpec GATES[] = {
         { "CLOCK",   EVAL_CLOCK,   0,  false, true,   0 },
         { "DISPLAY", EVAL_SINK,    0,  false, false, -1 },
         { "ROM",     EVAL_ROM,     0,  false, false, -1 },
+        { "TRISTATE", EVAL_TRISTATE, 0, false, false, 2 },
+        { "BUS",     EVAL_BUS,     0,  false, false, -1 },
 };
 
 const GateSpec& gateSpec(PartType type) { return GATES[type]; }

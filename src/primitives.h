@@ -20,4 +20,7 @@ bool parseArithLabel(const std::string& label, bool& isMul, int& width);
 
 Part makeArithPart(bool isMul, int width);
 
+Part makeTristatePart();
+Part makeBusPart();
+
 #endif

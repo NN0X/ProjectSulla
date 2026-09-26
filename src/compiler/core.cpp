@@ -439,6 +439,7 @@ static std::string emitCpp(const FlatCircuit& c, bool bitsliced = false)
                         if (it->second == PART_TYPE_CUSTOM) return "";
         const char* T = bitsliced ? "uint64_t" : "uint8_t";
         const char* NEG = bitsliced ? "~" : "!";
+        const char* ONE = bitsliced ? "(~(uint64_t)0)" : "1";
 
         bool hasDynamic = false, hasStatic = false;
         for (std::map<int, PartType>::const_iterator it = c.partTypes.begin(); it != c.partTypes.end(); ++it)
@@ -638,6 +639,38 @@ static std::string emitCpp(const FlatCircuit& c, bool bitsliced = false)
                                 for (int p = 1; p < inC; ++p) code << "        t_" << u << " " << g.foldOp << "= " << inVars[p] << ";\n";
                                 code << "        n_" << u << "_out_0 = " << (g.invert ? NEG : "") << "t_" << u << ";\n";
                         }
+                }
+                else if (g.eval == EVAL_TRISTATE)
+                {
+                        code << "        n_" << u << "_out_0 = " << inVars[0] << " & " << inVars[1] << ";\n";
+                }
+                else if (g.eval == EVAL_BUS)
+                {
+                        code << "        " << T << " ah_" << u << " = 0;\n";
+                        code << "        " << T << " al_" << u << " = 0;\n";
+                        for (int p = 0; p < inC; ++p)
+                        {
+                                std::string dataVar = inVars[p];
+                                std::string enVar = ONE;
+                                std::map<PartPin, PartPin>::const_iterator bc = c.connections.find({u, p});
+                                if (bc != c.connections.end())
+                                {
+                                        int sid = bc->second.first;
+                                        std::map<int, PartType>::const_iterator st = c.partTypes.find(sid);
+                                        if (st != c.partTypes.end() && st->second == PART_TYPE_TRISTATE)
+                                        {
+                                                std::map<PartPin, PartPin>::const_iterator dc = c.connections.find({sid, 0});
+                                                std::map<PartPin, PartPin>::const_iterator ec = c.connections.find({sid, 1});
+                                                if (dc != c.connections.end())
+                                                        dataVar = (backEdge.count({sid, 0}) ? "p_" : "n_") + std::to_string(dc->second.first) + "_out_" + std::to_string(dc->second.second);
+                                                if (ec != c.connections.end())
+                                                        enVar = (backEdge.count({sid, 1}) ? "p_" : "n_") + std::to_string(ec->second.first) + "_out_" + std::to_string(ec->second.second);
+                                        }
+                                }
+                                code << "        ah_" << u << " |= " << dataVar << " & " << enVar << ";\n";
+                                code << "        al_" << u << " |= (" << NEG << dataVar << ") & " << enVar << ";\n";
+                        }
+                        code << "        n_" << u << "_out_0 = ah_" << u << " & (" << NEG << "al_" << u << ");\n";
                 }
                 else if (type == PART_TYPE_CLOCK)
                 {

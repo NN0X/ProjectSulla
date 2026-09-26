@@ -10,7 +10,8 @@ enum State
 {
         STATE_LOW,
         STATE_HIGH,
-        STATE_UNDEFINED
+        STATE_UNDEFINED,
+        STATE_HIGHZ
 };
 
 enum PartType
@@ -27,7 +28,9 @@ enum PartType
         PART_TYPE_CUSTOM,
         PART_TYPE_CLOCK,
         PART_TYPE_DISPLAY,
-        PART_TYPE_ROM
+        PART_TYPE_ROM,
+        PART_TYPE_TRISTATE,
+        PART_TYPE_BUS
 };
 
 typedef std::vector<State> Input;
