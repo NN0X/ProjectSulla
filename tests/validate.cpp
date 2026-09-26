@@ -2166,6 +2166,84 @@ static void testCpuCore()
 }
 
 
+struct RoStep { int op; int m; int rsx; };
+
+static void runRegOpsOnEngine(Part& p, const std::vector<RoStep>& seq, int settleSteps, std::vector<int>& rdOut)
+{
+        std::vector<State> out;
+        for (size_t i = 0; i < seq.size(); ++i)
+        {
+                for (int clk = 0; clk < 2; ++clk)
+                {
+                        std::vector<int> in(19, 0);
+                        for (int k = 0; k < 8; ++k) { in[k] = (seq[i].op >> k) & 1; in[8 + k] = (seq[i].m >> k) & 1; }
+                        in[16] = seq[i].rsx & 1; in[17] = (seq[i].rsx >> 1) & 1; in[18] = clk;
+                        std::vector<State> sin = toStates(in);
+                        for (int t = 0; t < settleSteps; ++t) out = p(sin);
+                }
+                std::vector<int> b = toBits(out);
+                int rd = 0; for (int k = 0; k < 8; ++k) rd |= b[k] << k;
+                rdOut.push_back(rd);
+        }
+}
+
+static void testRegisterOps()
+{
+        tf::section("6502 register ops (immediate loads to A/X/Y + transfers via the tri-state register file): interp, native inline, native link");
+        const std::string NAME = "6502_Register_Ops";
+        const int SETTLE = 80;
+        std::vector<RoStep> seq = {
+                { 0xA2, 0x05, 0 }, { 0xEA, 0x00, 1 }, { 0xA0, 0x09, 0 }, { 0xEA, 0x00, 2 },
+                { 0x98, 0x00, 0 }, { 0xEA, 0x00, 0 }, { 0xAA, 0x00, 0 }, { 0xEA, 0x00, 1 },
+                { 0xA9, 0x3C, 0 }, { 0xEA, 0x00, 0 }, { 0x8A, 0x00, 0 }, { 0xEA, 0x00, 0 } };
+
+        int tRS[256], tWS[256];
+        bool tIs[256];
+        for (int i = 0; i < 256; i++) { tRS[i] = 0; tWS[i] = 0; tIs[i] = false; }
+        int tops[6][3] = { { 0xAA, 0, 1 }, { 0x8A, 1, 0 }, { 0xA8, 0, 2 }, { 0x98, 2, 0 }, { 0xBA, 3, 1 }, { 0x9A, 1, 3 } };
+        for (int i = 0; i < 6; i++) { tRS[tops[i][0]] = tops[i][1]; tWS[tops[i][0]] = tops[i][2]; tIs[tops[i][0]] = true; }
+        int reg[4] = { 0, 0, 0, 0 };
+        std::vector<int> gRD;
+        for (size_t i = 0; i < seq.size(); ++i)
+        {
+                int cc = seq[i].op & 3, aaa = (seq[i].op >> 5) & 7;
+                bool isLoad = (aaa == 5);
+                int loadWS = (cc == 2) ? 1 : ((cc == 0) ? 2 : 0);
+                bool isTransfer = tIs[seq[i].op];
+                int RS = isTransfer ? tRS[seq[i].op] : seq[i].rsx;
+                int RDb = reg[RS];
+                int WD = isLoad ? seq[i].m : RDb;
+                int WS = isLoad ? loadWS : tWS[seq[i].op];
+                bool WE = isLoad || isTransfer;
+                if (WE) reg[WS] = WD & 0xFF;
+                gRD.push_back(reg[RS]);
+        }
+
+        int iIn = 0, iOut = 0;
+        Part interp = loadLayoutAsPart("layouts/" + NAME + ".json", iIn, iOut);
+        if (!tf::check(interp != nullptr, "regops: interpreted loaded")) return;
+        std::vector<int> iRD;
+        runRegOpsOnEngine(interp, seq, SETTLE, iRD);
+        int gi = 0;
+        for (size_t i = 0; i < seq.size(); ++i) if (iRD[i] != gRD[i]) gi++;
+        tf::check(gi == 0, "regops: interpreted matches golden (loads to A/X/Y, transfers, read-back)");
+
+        const char* modeName[2] = { "inline", "link" };
+        bool linkMode[2] = { false, true };
+        for (int m = 0; m < 2; ++m)
+        {
+                int nOut = 0;
+                Part nat = buildNative(NAME, nOut, linkMode[m]);
+                if (!tf::check(nat != nullptr, std::string("regops: native ") + modeName[m] + " built")) continue;
+                std::vector<int> nRD;
+                runRegOpsOnEngine(nat, seq, SETTLE, nRD);
+                int gn = 0, df = 0;
+                for (size_t i = 0; i < seq.size(); ++i) { if (nRD[i] != gRD[i]) gn++; if (nRD[i] != iRD[i]) df++; }
+                tf::check(gn == 0, std::string("regops: native ") + modeName[m] + " matches golden");
+                tf::check(df == 0, std::string("regops: interpreted == native ") + modeName[m]);
+        }
+}
+
 int main()
 {
         std::printf("%s%sSulla validation suite%s  (interpreted + native engines)\n",
@@ -2322,6 +2400,7 @@ int main()
         testAluExecuteSequential();
         testAluWriteback();
         testAccumulatorExecute();
+        testRegisterOps();
         testRamPart();
         testRom();
         testRomMulti();
