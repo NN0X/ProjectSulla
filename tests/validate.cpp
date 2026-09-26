@@ -1193,6 +1193,60 @@ static void testShifter()
         for (int m = 0; m < 2; ++m) if (built[m]) tf::check(okN[m], std::string("shifter: native ") + modeName[m] + " matches golden");
 }
 
+static void testCompareBit()
+{
+        tf::section("6502 compare + BIT flags (CPX/CPY subtract, BIT test): interp, native inline, native link");
+        const std::string NAME = "6502_Compare_BIT";
+        int iIn = 0, iOut = 0;
+        Part interp = loadLayoutAsPart("layouts/" + NAME + ".json", iIn, iOut);
+        if (!tf::check(interp != nullptr, "compare/BIT: interpreted loaded")) return;
+        const char* modeName[2] = { "inline", "link" };
+        bool linkMode[2] = { false, true };
+        Part nat[2];
+        bool built[2] = { false, false };
+        for (int m = 0; m < 2; ++m)
+        {
+                int nOut = 0;
+                nat[m] = buildNative(NAME, nOut, linkMode[m]);
+                built[m] = tf::check(nat[m] != nullptr, std::string("compare/BIT: native ") + modeName[m] + " built");
+        }
+        int opcodes[4] = { 0xE0, 0xC0, 0x24, 0xEA };   // CPX CPY BIT NOP(pass-through)
+        unsigned seed = 271828u;
+        bool okI = true, okN[2] = { true, true };
+        for (int t = 0; t < 4000; ++t)
+        {
+                seed = seed * 1103515245u + 12345u; int opcode = opcodes[(seed >> 16) & 3];
+                seed = seed * 1103515245u + 12345u; int R = (seed >> 16) & 0xFF;
+                seed = seed * 1103515245u + 12345u; int M = (seed >> 16) & 0xFF;
+                seed = seed * 1103515245u + 12345u; int fl = (seed >> 16) & 0xF;
+                int Nin = fl & 1, Zin = (fl >> 1) & 1, Cin = (fl >> 2) & 1, Vin = (fl >> 3) & 1;
+                std::vector<int> in(28, 0);
+                for (int k = 0; k < 8; ++k) { in[k] = (opcode >> k) & 1; in[8 + k] = (R >> k) & 1; in[16 + k] = (M >> k) & 1; }
+                in[24] = Nin; in[25] = Zin; in[26] = Cin; in[27] = Vin;
+                bool cc00 = ((opcode & 1) == 0) && (((opcode >> 1) & 1) == 0);
+                bool isCompare = cc00 && ((opcode >> 7) & 1) && ((opcode >> 6) & 1);
+                bool isBit = cc00 && !((opcode >> 7) & 1) && !((opcode >> 6) & 1) && ((opcode >> 5) & 1);
+                int diff = R + (M ^ 0xFF) + 1;
+                int Fsub = diff & 0xFF, Csub = (diff >= 256) ? 1 : 0;
+                int Nsub = (Fsub >> 7) & 1, Zsub = (Fsub == 0) ? 1 : 0;
+                int Zbit = ((R & M) == 0) ? 1 : 0, M7 = (M >> 7) & 1, M6 = (M >> 6) & 1;
+                int eN = isCompare ? Nsub : (isBit ? M7 : Nin);
+                int eZ = isCompare ? Zsub : (isBit ? Zbit : Zin);
+                int eC = isCompare ? Csub : Cin;
+                int eV = isBit ? M6 : Vin;
+                std::vector<int> oi = toBits(interp(toStates(in)));
+                if (oi[0] != eN || oi[1] != eZ || oi[2] != eC || oi[3] != eV) okI = false;
+                for (int m = 0; m < 2; ++m)
+                {
+                        if (!built[m]) continue;
+                        std::vector<int> on = toBits(nat[m](toStates(in)));
+                        if (on[0] != eN || on[1] != eZ || on[2] != eC || on[3] != eV) okN[m] = false;
+                }
+        }
+        tf::check(okI, "compare/BIT: interpreted matches 6502 golden (CPX/CPY/BIT + pass-through, 4000 random)");
+        for (int m = 0; m < 2; ++m) if (built[m]) tf::check(okN[m], std::string("compare/BIT: native ") + modeName[m] + " matches 6502 golden");
+}
+
 static void testAluExecute()
 {
         tf::section("6502 ALU execute datapath (opcode + A + M -> new A + N/Z/C/V): interp, native inline, native link");
@@ -1559,6 +1613,7 @@ int main()
         });
         testFlagLogicEndToEnd();
         testShifter();
+        testCompareBit();
         testAluExecute();
         testAluExecuteSequential();
         testAluWriteback();
