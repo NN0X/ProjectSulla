@@ -2244,6 +2244,76 @@ static void testRegisterOps()
         }
 }
 
+struct SbStep { int wd; int ws; int we; int rs; int din; int ain; int src; };
+
+static void runSbBusOnEngine(Part& p, const std::vector<SbStep>& seq, int settleSteps, std::vector<int>& sbOut)
+{
+        std::vector<State> out;
+        for (size_t i = 0; i < seq.size(); ++i)
+        {
+                for (int clk = 0; clk < 2; ++clk)
+                {
+                        std::vector<int> in(32, 0);
+                        for (int k = 0; k < 8; ++k) in[k] = (seq[i].wd >> k) & 1;
+                        in[8] = seq[i].ws & 1; in[9] = (seq[i].ws >> 1) & 1; in[10] = seq[i].we;
+                        in[11] = seq[i].rs & 1; in[12] = (seq[i].rs >> 1) & 1;
+                        for (int k = 0; k < 8; ++k) in[13 + k] = (seq[i].din >> k) & 1;
+                        for (int k = 0; k < 8; ++k) in[21 + k] = (seq[i].ain >> k) & 1;
+                        in[29] = seq[i].src & 1; in[30] = (seq[i].src >> 1) & 1; in[31] = clk;
+                        std::vector<State> sin = toStates(in);
+                        for (int t = 0; t < settleSteps; ++t) out = p(sin);
+                }
+                std::vector<int> b = toBits(out);
+                int sb = 0; for (int k = 0; k < 8; ++k) sb |= b[k] << k;
+                sbOut.push_back(sb);
+        }
+}
+
+static void testSbBus()
+{
+        tf::section("6502 internal SB bus (register / memory / ALU sources gated onto one shared bus): interp, native inline, native link");
+        const std::string NAME = "6502_SB_Bus";
+        const int SETTLE = 80;
+        std::vector<SbStep> seq = {
+                { 0x11, 0, 1, 0, 0, 0, 0 }, { 0x22, 1, 1, 0, 0, 0, 0 }, { 0x33, 2, 1, 0, 0, 0, 0 }, { 0x44, 3, 1, 0, 0, 0, 0 },
+                { 0, 0, 0, 0, 0x00, 0x00, 0 }, { 0, 0, 0, 1, 0x00, 0x00, 0 }, { 0, 0, 0, 2, 0x00, 0x00, 0 }, { 0, 0, 0, 3, 0x00, 0x00, 0 },
+                { 0, 0, 0, 0, 0x5A, 0xC3, 1 }, { 0, 0, 0, 0, 0x5A, 0xC3, 2 }, { 0, 0, 0, 0, 0x5A, 0xC3, 3 },
+                { 0, 0, 0, 1, 0xFF, 0x0F, 1 }, { 0, 0, 0, 1, 0xFF, 0x0F, 0 } };
+
+        int reg[4] = { 0, 0, 0, 0 };
+        std::vector<int> gSB;
+        for (size_t i = 0; i < seq.size(); ++i)
+        {
+                if (seq[i].we) reg[seq[i].ws] = seq[i].wd & 0xFF;
+                int sb = (seq[i].src == 0) ? reg[seq[i].rs] : (seq[i].src == 1) ? seq[i].din : (seq[i].src == 2) ? seq[i].ain : 0;
+                gSB.push_back(sb & 0xFF);
+        }
+
+        int iIn = 0, iOut = 0;
+        Part interp = loadLayoutAsPart("layouts/" + NAME + ".json", iIn, iOut);
+        if (!tf::check(interp != nullptr, "sbbus: interpreted loaded")) return;
+        std::vector<int> iSB;
+        runSbBusOnEngine(interp, seq, SETTLE, iSB);
+        int gi = 0;
+        for (size_t i = 0; i < seq.size(); ++i) if (iSB[i] != gSB[i]) gi++;
+        tf::check(gi == 0, "sbbus: interpreted matches golden (register / memory / ALU / float sources on the shared bus)");
+
+        const char* modeName[2] = { "inline", "link" };
+        bool linkMode[2] = { false, true };
+        for (int m = 0; m < 2; ++m)
+        {
+                int nOut = 0;
+                Part nat = buildNative(NAME, nOut, linkMode[m]);
+                if (!tf::check(nat != nullptr, std::string("sbbus: native ") + modeName[m] + " built")) continue;
+                std::vector<int> nSB;
+                runSbBusOnEngine(nat, seq, SETTLE, nSB);
+                int gn = 0, df = 0;
+                for (size_t i = 0; i < seq.size(); ++i) { if (nSB[i] != gSB[i]) gn++; if (nSB[i] != iSB[i]) df++; }
+                tf::check(gn == 0, std::string("sbbus: native ") + modeName[m] + " matches golden");
+                tf::check(df == 0, std::string("sbbus: interpreted == native ") + modeName[m]);
+        }
+}
+
 int main()
 {
         std::printf("%s%sSulla validation suite%s  (interpreted + native engines)\n",
@@ -2401,6 +2471,7 @@ int main()
         testAluWriteback();
         testAccumulatorExecute();
         testRegisterOps();
+        testSbBus();
         testRamPart();
         testRom();
         testRomMulti();
