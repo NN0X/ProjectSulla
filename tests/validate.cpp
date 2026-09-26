@@ -2420,6 +2420,115 @@ static void testAluSbOperand()
         }
 }
 
+struct AiStep { int sbin; int ldai; int ldbi; int op; int cin; };
+struct AiOut { int aout; int n; int z; int c; int v; int ai; int bi; };
+
+static void runAluInputsOnEngine(Part& p, const std::vector<AiStep>& seq, int settleSteps, std::vector<AiOut>& outs)
+{
+        std::vector<State> out;
+        for (size_t i = 0; i < seq.size(); ++i)
+        {
+                for (int clk = 0; clk < 2; ++clk)
+                {
+                        std::vector<int> in(20, 0);
+                        for (int k = 0; k < 8; ++k) in[k] = (seq[i].sbin >> k) & 1;
+                        in[8] = seq[i].ldai; in[9] = seq[i].ldbi;
+                        for (int k = 0; k < 8; ++k) in[10 + k] = (seq[i].op >> k) & 1;
+                        in[18] = seq[i].cin; in[19] = clk;
+                        std::vector<State> sin = toStates(in);
+                        for (int t = 0; t < settleSteps; ++t) out = p(sin);
+                }
+                std::vector<int> b = toBits(out);
+                AiOut o; o.aout = 0; o.ai = 0; o.bi = 0;
+                for (int k = 0; k < 8; ++k) { o.aout |= b[k] << k; o.ai |= b[12 + k] << k; o.bi |= b[20 + k] << k; }
+                o.n = b[8]; o.z = b[9]; o.c = b[10]; o.v = b[11];
+                outs.push_back(o);
+        }
+}
+
+static void testAluInputs()
+{
+        tf::section("6502 ALU input latches (AI/BI hold operands loaded from the bus over cycles; ALU computes AI op BI): interp, native inline, native link");
+        const std::string NAME = "6502_ALU_Inputs";
+        const int SETTLE = 80;
+        int ops[6] = { 0x01, 0x21, 0x41, 0x61, 0xC1, 0xE1 };
+        int aaa[6] = { 0, 1, 2, 3, 6, 7 };
+        int Av[6] = { 0x3C, 0xF0, 0xAA, 0x40, 0x50, 0x80 };
+        int Bv[6] = { 0x0F, 0x3C, 0xFF, 0x30, 0x50, 0x40 };
+        int Cv[6] = { 0, 0, 0, 1, 1, 0 };
+
+        std::vector<AiStep> seq;
+        for (int i = 0; i < 6; ++i)
+        {
+                seq.push_back({ Av[i], 1, 0, 0xEA, 0 });
+                seq.push_back({ Bv[i], 0, 1, 0xEA, 0 });
+                seq.push_back({ 0, 0, 0, ops[i], Cv[i] });
+        }
+
+        std::vector<AiOut> golden;
+        int aiHold = 0, biHold = 0;
+        for (int i = 0; i < 6; ++i)
+        {
+                aiHold = Av[i];
+                AiOut ga; ga.aout = 0; ga.n = 0; ga.z = 0; ga.c = -1; ga.v = -1; ga.ai = aiHold; ga.bi = biHold; golden.push_back(ga);
+                biHold = Bv[i];
+                AiOut gb; gb.aout = 0; gb.n = 0; gb.z = 0; gb.c = -1; gb.v = -1; gb.ai = aiHold; gb.bi = biHold; golden.push_back(gb);
+                int A = aiHold, M = biHold, Cin = Cv[i], res = 0, eC = 0, eV = 0;
+                bool isAdc = (aaa[i] == 3), isSub = (aaa[i] == 6 || aaa[i] == 7);
+                if (aaa[i] == 0) res = A | M;
+                else if (aaa[i] == 1) res = A & M;
+                else if (aaa[i] == 2) res = A ^ M;
+                else if (isAdc) { int sum = A + M + Cin; res = sum & 0xFF; eC = (sum >= 256) ? 1 : 0;
+                        int a7 = (A >> 7) & 1, m7 = (M >> 7) & 1, r7 = (res >> 7) & 1;
+                        eV = ((a7 && m7 && !r7) || (!a7 && !m7 && r7)) ? 1 : 0; }
+                else { int diff = A + (M ^ 0xFF) + Cin; res = diff & 0xFF; eC = (diff >= 256) ? 1 : 0;
+                        int a7 = (A >> 7) & 1, m7 = (M >> 7) & 1, r7 = (res >> 7) & 1;
+                        eV = ((a7 && !m7 && !r7) || (!a7 && m7 && r7)) ? 1 : 0; }
+                AiOut gc; gc.aout = res; gc.n = (res >> 7) & 1; gc.z = (res == 0) ? 1 : 0;
+                gc.c = (isAdc || isSub) ? eC : -1; gc.v = (isAdc || isSub) ? eV : -1; gc.ai = aiHold; gc.bi = biHold;
+                golden.push_back(gc);
+        }
+
+        int iIn = 0, iOut = 0;
+        Part interp = loadLayoutAsPart("layouts/" + NAME + ".json", iIn, iOut);
+        if (!tf::check(interp != nullptr, "aluin: interpreted loaded")) return;
+        std::vector<AiOut> iO;
+        runAluInputsOnEngine(interp, seq, SETTLE, iO);
+        int gi = 0;
+        for (size_t i = 0; i < seq.size(); ++i)
+        {
+                const AiOut& a = iO[i]; const AiOut& g = golden[i];
+                if (a.ai != g.ai || a.bi != g.bi) gi++;
+                if ((i % 3) == 2)
+                {
+                        if (a.aout != g.aout || a.n != g.n || a.z != g.z) gi++;
+                        if (g.c >= 0 && (a.c != g.c || a.v != g.v)) gi++;
+                }
+        }
+        tf::check(gi == 0, "aluin: interpreted matches golden (latches hold operands, ALU computes AI op BI)");
+
+        const char* modeName[2] = { "inline", "link" };
+        bool linkMode[2] = { false, true };
+        for (int m = 0; m < 2; ++m)
+        {
+                int nOut = 0;
+                Part nat = buildNative(NAME, nOut, linkMode[m]);
+                if (!tf::check(nat != nullptr, std::string("aluin: native ") + modeName[m] + " built")) continue;
+                std::vector<AiOut> nO;
+                runAluInputsOnEngine(nat, seq, SETTLE, nO);
+                int gn = 0, df = 0;
+                for (size_t i = 0; i < seq.size(); ++i)
+                {
+                        const AiOut& a = nO[i]; const AiOut& g = golden[i]; const AiOut& b = iO[i];
+                        if (a.ai != g.ai || a.bi != g.bi) gn++;
+                        if ((i % 3) == 2) { if (a.aout != g.aout || a.n != g.n || a.z != g.z) gn++; if (g.c >= 0 && (a.c != g.c || a.v != g.v)) gn++; }
+                        if (a.aout != b.aout || a.n != b.n || a.z != b.z || a.c != b.c || a.v != b.v || a.ai != b.ai || a.bi != b.bi) df++;
+                }
+                tf::check(gn == 0, std::string("aluin: native ") + modeName[m] + " matches golden");
+                tf::check(df == 0, std::string("aluin: interpreted == native ") + modeName[m]);
+        }
+}
+
 int main()
 {
         std::printf("%s%sSulla validation suite%s  (interpreted + native engines)\n",
@@ -2579,6 +2688,7 @@ int main()
         testRegisterOps();
         testSbBus();
         testAluSbOperand();
+        testAluInputs();
         testRamPart();
         testRom();
         testRomMulti();
