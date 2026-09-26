@@ -1,0 +1,1223 @@
+{
+   "version": 3,
+   "parts": [
+      {
+         "id": 100,
+         "type": 7,
+         "label": "D0",
+         "x": 20.5,
+         "y": 20,
+         "numInputs": 0,
+         "numOutputs": 1,
+         "romData": []
+      },
+      {
+         "id": 101,
+         "type": 7,
+         "label": "D1",
+         "x": 20.5,
+         "y": 84,
+         "numInputs": 0,
+         "numOutputs": 1,
+         "romData": []
+      },
+      {
+         "id": 102,
+         "type": 7,
+         "label": "D2",
+         "x": 20.5,
+         "y": 148,
+         "numInputs": 0,
+         "numOutputs": 1,
+         "romData": []
+      },
+      {
+         "id": 103,
+         "type": 7,
+         "label": "D3",
+         "x": 20.5,
+         "y": 212,
+         "numInputs": 0,
+         "numOutputs": 1,
+         "romData": []
+      },
+      {
+         "id": 104,
+         "type": 7,
+         "label": "D4",
+         "x": 20.5,
+         "y": 276,
+         "numInputs": 0,
+         "numOutputs": 1,
+         "romData": []
+      },
+      {
+         "id": 105,
+         "type": 7,
+         "label": "D5",
+         "x": 20.5,
+         "y": 340,
+         "numInputs": 0,
+         "numOutputs": 1,
+         "romData": []
+      },
+      {
+         "id": 106,
+         "type": 7,
+         "label": "D6",
+         "x": 20.5,
+         "y": 404,
+         "numInputs": 0,
+         "numOutputs": 1,
+         "romData": []
+      },
+      {
+         "id": 107,
+         "type": 7,
+         "label": "D7",
+         "x": 20.5,
+         "y": 468,
+         "numInputs": 0,
+         "numOutputs": 1,
+         "romData": []
+      },
+      {
+         "id": 108,
+         "type": 7,
+         "label": "Cin",
+         "x": 20.5,
+         "y": 532,
+         "numInputs": 0,
+         "numOutputs": 1,
+         "romData": []
+      },
+      {
+         "id": 109,
+         "type": 7,
+         "label": "DIR",
+         "x": 20.5,
+         "y": 596,
+         "numInputs": 0,
+         "numOutputs": 1,
+         "romData": []
+      },
+      {
+         "id": 110,
+         "type": 7,
+         "label": "ROT",
+         "x": 20.5,
+         "y": 660,
+         "numInputs": 0,
+         "numOutputs": 1,
+         "romData": []
+      },
+      {
+         "id": 111,
+         "type": 2,
+         "label": "nDIR",
+         "x": 128.5,
+         "y": 20,
+         "numInputs": 1,
+         "numOutputs": 1,
+         "romData": []
+      },
+      {
+         "id": 112,
+         "type": 0,
+         "label": "inbit",
+         "x": 128.5,
+         "y": 169,
+         "numInputs": 2,
+         "numOutputs": 1,
+         "romData": []
+      },
+      {
+         "id": 113,
+         "type": 0,
+         "label": "R0_l",
+         "x": 242,
+         "y": 27,
+         "numInputs": 2,
+         "numOutputs": 1,
+         "romData": []
+      },
+      {
+         "id": 114,
+         "type": 0,
+         "label": "R0_r",
+         "x": 128.5,
+         "y": 91,
+         "numInputs": 2,
+         "numOutputs": 1,
+         "romData": []
+      },
+      {
+         "id": 115,
+         "type": 1,
+         "label": "R0",
+         "x": 349.5,
+         "y": 27,
+         "numInputs": 2,
+         "numOutputs": 1,
+         "romData": []
+      },
+      {
+         "id": 116,
+         "type": 0,
+         "label": "R1_l",
+         "x": 242,
+         "y": 105,
+         "numInputs": 2,
+         "numOutputs": 1,
+         "romData": []
+      },
+      {
+         "id": 117,
+         "type": 0,
+         "label": "R1_r",
+         "x": 128.5,
+         "y": 247,
+         "numInputs": 2,
+         "numOutputs": 1,
+         "romData": []
+      },
+      {
+         "id": 118,
+         "type": 1,
+         "label": "R1",
+         "x": 349.5,
+         "y": 105,
+         "numInputs": 2,
+         "numOutputs": 1,
+         "romData": []
+      },
+      {
+         "id": 119,
+         "type": 0,
+         "label": "R2_l",
+         "x": 242,
+         "y": 183,
+         "numInputs": 2,
+         "numOutputs": 1,
+         "romData": []
+      },
+      {
+         "id": 120,
+         "type": 0,
+         "label": "R2_r",
+         "x": 128.5,
+         "y": 325,
+         "numInputs": 2,
+         "numOutputs": 1,
+         "romData": []
+      },
+      {
+         "id": 121,
+         "type": 1,
+         "label": "R2",
+         "x": 349.5,
+         "y": 183,
+         "numInputs": 2,
+         "numOutputs": 1,
+         "romData": []
+      },
+      {
+         "id": 122,
+         "type": 0,
+         "label": "R3_l",
+         "x": 242,
+         "y": 261,
+         "numInputs": 2,
+         "numOutputs": 1,
+         "romData": []
+      },
+      {
+         "id": 123,
+         "type": 0,
+         "label": "R3_r",
+         "x": 128.5,
+         "y": 403,
+         "numInputs": 2,
+         "numOutputs": 1,
+         "romData": []
+      },
+      {
+         "id": 124,
+         "type": 1,
+         "label": "R3",
+         "x": 349.5,
+         "y": 261,
+         "numInputs": 2,
+         "numOutputs": 1,
+         "romData": []
+      },
+      {
+         "id": 125,
+         "type": 0,
+         "label": "R4_l",
+         "x": 242,
+         "y": 339,
+         "numInputs": 2,
+         "numOutputs": 1,
+         "romData": []
+      },
+      {
+         "id": 126,
+         "type": 0,
+         "label": "R4_r",
+         "x": 128.5,
+         "y": 481,
+         "numInputs": 2,
+         "numOutputs": 1,
+         "romData": []
+      },
+      {
+         "id": 127,
+         "type": 1,
+         "label": "R4",
+         "x": 349.5,
+         "y": 339,
+         "numInputs": 2,
+         "numOutputs": 1,
+         "romData": []
+      },
+      {
+         "id": 128,
+         "type": 0,
+         "label": "R5_l",
+         "x": 242,
+         "y": 417,
+         "numInputs": 2,
+         "numOutputs": 1,
+         "romData": []
+      },
+      {
+         "id": 129,
+         "type": 0,
+         "label": "R5_r",
+         "x": 128.5,
+         "y": 559,
+         "numInputs": 2,
+         "numOutputs": 1,
+         "romData": []
+      },
+      {
+         "id": 130,
+         "type": 1,
+         "label": "R5",
+         "x": 349.5,
+         "y": 417,
+         "numInputs": 2,
+         "numOutputs": 1,
+         "romData": []
+      },
+      {
+         "id": 131,
+         "type": 0,
+         "label": "R6_l",
+         "x": 242,
+         "y": 495,
+         "numInputs": 2,
+         "numOutputs": 1,
+         "romData": []
+      },
+      {
+         "id": 132,
+         "type": 0,
+         "label": "R6_r",
+         "x": 128.5,
+         "y": 637,
+         "numInputs": 2,
+         "numOutputs": 1,
+         "romData": []
+      },
+      {
+         "id": 133,
+         "type": 1,
+         "label": "R6",
+         "x": 349.5,
+         "y": 495,
+         "numInputs": 2,
+         "numOutputs": 1,
+         "romData": []
+      },
+      {
+         "id": 134,
+         "type": 0,
+         "label": "R7_l",
+         "x": 242,
+         "y": 573,
+         "numInputs": 2,
+         "numOutputs": 1,
+         "romData": []
+      },
+      {
+         "id": 135,
+         "type": 0,
+         "label": "R7_r",
+         "x": 242,
+         "y": 651,
+         "numInputs": 2,
+         "numOutputs": 1,
+         "romData": []
+      },
+      {
+         "id": 136,
+         "type": 1,
+         "label": "R7",
+         "x": 349.5,
+         "y": 573,
+         "numInputs": 2,
+         "numOutputs": 1,
+         "romData": []
+      },
+      {
+         "id": 137,
+         "type": 0,
+         "label": "Cout_l",
+         "x": 242,
+         "y": 729,
+         "numInputs": 2,
+         "numOutputs": 1,
+         "romData": []
+      },
+      {
+         "id": 138,
+         "type": 0,
+         "label": "Cout_r",
+         "x": 128.5,
+         "y": 715,
+         "numInputs": 2,
+         "numOutputs": 1,
+         "romData": []
+      },
+      {
+         "id": 139,
+         "type": 1,
+         "label": "Cout",
+         "x": 349.5,
+         "y": 651,
+         "numInputs": 2,
+         "numOutputs": 1,
+         "romData": []
+      },
+      {
+         "id": 140,
+         "type": 8,
+         "label": "R0",
+         "x": 452.5,
+         "y": 20,
+         "numInputs": 1,
+         "numOutputs": 0,
+         "romData": []
+      },
+      {
+         "id": 141,
+         "type": 8,
+         "label": "R1",
+         "x": 452.5,
+         "y": 84,
+         "numInputs": 1,
+         "numOutputs": 0,
+         "romData": []
+      },
+      {
+         "id": 142,
+         "type": 8,
+         "label": "R2",
+         "x": 452.5,
+         "y": 148,
+         "numInputs": 1,
+         "numOutputs": 0,
+         "romData": []
+      },
+      {
+         "id": 143,
+         "type": 8,
+         "label": "R3",
+         "x": 452.5,
+         "y": 212,
+         "numInputs": 1,
+         "numOutputs": 0,
+         "romData": []
+      },
+      {
+         "id": 144,
+         "type": 8,
+         "label": "R4",
+         "x": 452.5,
+         "y": 276,
+         "numInputs": 1,
+         "numOutputs": 0,
+         "romData": []
+      },
+      {
+         "id": 145,
+         "type": 8,
+         "label": "R5",
+         "x": 452.5,
+         "y": 340,
+         "numInputs": 1,
+         "numOutputs": 0,
+         "romData": []
+      },
+      {
+         "id": 146,
+         "type": 8,
+         "label": "R6",
+         "x": 452.5,
+         "y": 404,
+         "numInputs": 1,
+         "numOutputs": 0,
+         "romData": []
+      },
+      {
+         "id": 147,
+         "type": 8,
+         "label": "R7",
+         "x": 452.5,
+         "y": 468,
+         "numInputs": 1,
+         "numOutputs": 0,
+         "romData": []
+      },
+      {
+         "id": 148,
+         "type": 8,
+         "label": "Cout",
+         "x": 452.5,
+         "y": 532,
+         "numInputs": 1,
+         "numOutputs": 0,
+         "romData": []
+      }
+   ],
+   "connections": [
+      {
+         "from": {
+            "id": 109,
+            "pin": 0
+         },
+         "to": {
+            "id": 111,
+            "pin": 0
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 110,
+            "pin": 0
+         },
+         "to": {
+            "id": 112,
+            "pin": 0
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 108,
+            "pin": 0
+         },
+         "to": {
+            "id": 112,
+            "pin": 1
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 111,
+            "pin": 0
+         },
+         "to": {
+            "id": 113,
+            "pin": 0
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 112,
+            "pin": 0
+         },
+         "to": {
+            "id": 113,
+            "pin": 1
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 109,
+            "pin": 0
+         },
+         "to": {
+            "id": 114,
+            "pin": 0
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 101,
+            "pin": 0
+         },
+         "to": {
+            "id": 114,
+            "pin": 1
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 113,
+            "pin": 0
+         },
+         "to": {
+            "id": 115,
+            "pin": 0
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 114,
+            "pin": 0
+         },
+         "to": {
+            "id": 115,
+            "pin": 1
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 111,
+            "pin": 0
+         },
+         "to": {
+            "id": 116,
+            "pin": 0
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 100,
+            "pin": 0
+         },
+         "to": {
+            "id": 116,
+            "pin": 1
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 109,
+            "pin": 0
+         },
+         "to": {
+            "id": 117,
+            "pin": 0
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 102,
+            "pin": 0
+         },
+         "to": {
+            "id": 117,
+            "pin": 1
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 116,
+            "pin": 0
+         },
+         "to": {
+            "id": 118,
+            "pin": 0
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 117,
+            "pin": 0
+         },
+         "to": {
+            "id": 118,
+            "pin": 1
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 111,
+            "pin": 0
+         },
+         "to": {
+            "id": 119,
+            "pin": 0
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 101,
+            "pin": 0
+         },
+         "to": {
+            "id": 119,
+            "pin": 1
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 109,
+            "pin": 0
+         },
+         "to": {
+            "id": 120,
+            "pin": 0
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 103,
+            "pin": 0
+         },
+         "to": {
+            "id": 120,
+            "pin": 1
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 119,
+            "pin": 0
+         },
+         "to": {
+            "id": 121,
+            "pin": 0
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 120,
+            "pin": 0
+         },
+         "to": {
+            "id": 121,
+            "pin": 1
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 111,
+            "pin": 0
+         },
+         "to": {
+            "id": 122,
+            "pin": 0
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 102,
+            "pin": 0
+         },
+         "to": {
+            "id": 122,
+            "pin": 1
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 109,
+            "pin": 0
+         },
+         "to": {
+            "id": 123,
+            "pin": 0
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 104,
+            "pin": 0
+         },
+         "to": {
+            "id": 123,
+            "pin": 1
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 122,
+            "pin": 0
+         },
+         "to": {
+            "id": 124,
+            "pin": 0
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 123,
+            "pin": 0
+         },
+         "to": {
+            "id": 124,
+            "pin": 1
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 111,
+            "pin": 0
+         },
+         "to": {
+            "id": 125,
+            "pin": 0
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 103,
+            "pin": 0
+         },
+         "to": {
+            "id": 125,
+            "pin": 1
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 109,
+            "pin": 0
+         },
+         "to": {
+            "id": 126,
+            "pin": 0
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 105,
+            "pin": 0
+         },
+         "to": {
+            "id": 126,
+            "pin": 1
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 125,
+            "pin": 0
+         },
+         "to": {
+            "id": 127,
+            "pin": 0
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 126,
+            "pin": 0
+         },
+         "to": {
+            "id": 127,
+            "pin": 1
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 111,
+            "pin": 0
+         },
+         "to": {
+            "id": 128,
+            "pin": 0
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 104,
+            "pin": 0
+         },
+         "to": {
+            "id": 128,
+            "pin": 1
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 109,
+            "pin": 0
+         },
+         "to": {
+            "id": 129,
+            "pin": 0
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 106,
+            "pin": 0
+         },
+         "to": {
+            "id": 129,
+            "pin": 1
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 128,
+            "pin": 0
+         },
+         "to": {
+            "id": 130,
+            "pin": 0
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 129,
+            "pin": 0
+         },
+         "to": {
+            "id": 130,
+            "pin": 1
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 111,
+            "pin": 0
+         },
+         "to": {
+            "id": 131,
+            "pin": 0
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 105,
+            "pin": 0
+         },
+         "to": {
+            "id": 131,
+            "pin": 1
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 109,
+            "pin": 0
+         },
+         "to": {
+            "id": 132,
+            "pin": 0
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 107,
+            "pin": 0
+         },
+         "to": {
+            "id": 132,
+            "pin": 1
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 131,
+            "pin": 0
+         },
+         "to": {
+            "id": 133,
+            "pin": 0
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 132,
+            "pin": 0
+         },
+         "to": {
+            "id": 133,
+            "pin": 1
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 111,
+            "pin": 0
+         },
+         "to": {
+            "id": 134,
+            "pin": 0
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 106,
+            "pin": 0
+         },
+         "to": {
+            "id": 134,
+            "pin": 1
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 109,
+            "pin": 0
+         },
+         "to": {
+            "id": 135,
+            "pin": 0
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 112,
+            "pin": 0
+         },
+         "to": {
+            "id": 135,
+            "pin": 1
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 134,
+            "pin": 0
+         },
+         "to": {
+            "id": 136,
+            "pin": 0
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 135,
+            "pin": 0
+         },
+         "to": {
+            "id": 136,
+            "pin": 1
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 111,
+            "pin": 0
+         },
+         "to": {
+            "id": 137,
+            "pin": 0
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 107,
+            "pin": 0
+         },
+         "to": {
+            "id": 137,
+            "pin": 1
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 109,
+            "pin": 0
+         },
+         "to": {
+            "id": 138,
+            "pin": 0
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 100,
+            "pin": 0
+         },
+         "to": {
+            "id": 138,
+            "pin": 1
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 137,
+            "pin": 0
+         },
+         "to": {
+            "id": 139,
+            "pin": 0
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 138,
+            "pin": 0
+         },
+         "to": {
+            "id": 139,
+            "pin": 1
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 115,
+            "pin": 0
+         },
+         "to": {
+            "id": 140,
+            "pin": 0
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 118,
+            "pin": 0
+         },
+         "to": {
+            "id": 141,
+            "pin": 0
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 121,
+            "pin": 0
+         },
+         "to": {
+            "id": 142,
+            "pin": 0
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 124,
+            "pin": 0
+         },
+         "to": {
+            "id": 143,
+            "pin": 0
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 127,
+            "pin": 0
+         },
+         "to": {
+            "id": 144,
+            "pin": 0
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 130,
+            "pin": 0
+         },
+         "to": {
+            "id": 145,
+            "pin": 0
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 133,
+            "pin": 0
+         },
+         "to": {
+            "id": 146,
+            "pin": 0
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 136,
+            "pin": 0
+         },
+         "to": {
+            "id": 147,
+            "pin": 0
+         },
+         "waypoints": []
+      },
+      {
+         "from": {
+            "id": 139,
+            "pin": 0
+         },
+         "to": {
+            "id": 148,
+            "pin": 0
+         },
+         "waypoints": []
+      }
+   ]
+}

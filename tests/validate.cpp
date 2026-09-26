@@ -1148,6 +1148,51 @@ static void testFlagLogicEndToEnd()
         tf::check(ok, "flag logic e2e: N/Z/C/V from real ALU sums match the 6502 flag semantics");
 }
 
+static void testShifter()
+{
+        tf::section("6502 single-bit shifter (ASL/LSR/ROL/ROR core): interp, native inline, native link");
+        const std::string NAME = "6502_Shifter";
+        int iIn = 0, iOut = 0;
+        Part interp = loadLayoutAsPart("layouts/" + NAME + ".json", iIn, iOut);
+        if (!tf::check(interp != nullptr, "shifter: interpreted loaded")) return;
+        const char* modeName[2] = { "inline", "link" };
+        bool linkMode[2] = { false, true };
+        Part nat[2];
+        bool built[2] = { false, false };
+        for (int m = 0; m < 2; ++m)
+        {
+                int nOut = 0;
+                nat[m] = buildNative(NAME, nOut, linkMode[m]);
+                built[m] = tf::check(nat[m] != nullptr, std::string("shifter: native ") + modeName[m] + " built");
+        }
+        bool okI = true, okN[2] = { true, true };
+        for (int D = 0; D < 256; ++D)
+        for (int cin = 0; cin < 2; ++cin)
+        for (int dir = 0; dir < 2; ++dir)
+        for (int rot = 0; rot < 2; ++rot)
+        {
+                std::vector<int> in(11, 0);
+                for (int k = 0; k < 8; ++k) in[k] = (D >> k) & 1;
+                in[8] = cin; in[9] = dir; in[10] = rot;
+                int inbit = rot ? cin : 0;
+                int R, Cout;
+                if (dir == 0) { R = ((D << 1) | inbit) & 0xFF; Cout = (D >> 7) & 1; }
+                else { R = (D >> 1) | (inbit << 7); Cout = D & 1; }
+                std::vector<int> oi = toBits(interp(toStates(in)));
+                int ro = 0; for (int k = 0; k < 8; ++k) ro |= oi[k] << k;
+                if (ro != R || oi[8] != Cout) okI = false;
+                for (int m = 0; m < 2; ++m)
+                {
+                        if (!built[m]) continue;
+                        std::vector<int> on = toBits(nat[m](toStates(in)));
+                        int rn = 0; for (int k = 0; k < 8; ++k) rn |= on[k] << k;
+                        if (rn != R || on[8] != Cout) okN[m] = false;
+                }
+        }
+        tf::check(okI, "shifter: interpreted matches golden (2048 exhaustive: left/right x shift/rotate)");
+        for (int m = 0; m < 2; ++m) if (built[m]) tf::check(okN[m], std::string("shifter: native ") + modeName[m] + " matches golden");
+}
+
 static void testAluExecute()
 {
         tf::section("6502 ALU execute datapath (opcode + A + M -> new A + N/Z/C/V): interp, native inline, native link");
@@ -1485,6 +1530,7 @@ int main()
                 return std::vector<int>{ N, Z, Cf, V };
         });
         testFlagLogicEndToEnd();
+        testShifter();
         testAluExecute();
         testAluExecuteSequential();
         testAluWriteback();
