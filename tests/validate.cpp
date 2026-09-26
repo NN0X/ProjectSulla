@@ -1019,6 +1019,67 @@ static void testAluDecodeEndToEnd()
         tf::check(ok, "decode e2e: decoded control drives the ALU to the 6502 operation result");
 }
 
+static void testFlagDecodeEndToEnd()
+{
+        tf::section("6502 flag decode end-to-end: opcode -> flag decoder -> P status register");
+        int di = 0, dou = 0;
+        Part dec = loadLayoutAsPart("layouts/6502_Flag_Op_Decoder.json", di, dou);
+        int pi = 0, po = 0;
+        Part preg = loadLayoutAsPart("layouts/6502_P_Status_Register.json", pi, po);
+        if (!tf::check(dec != nullptr && preg != nullptr, "flag e2e: decoder + P register loaded")) return;
+        const int SETTLE = 40;
+        struct Fl { int F; int L; };
+        std::vector<Fl> steps;
+        steps.push_back({ 0x00, 0xFF });                 // setup: clear all flags
+        int flagOps[] = { 0x38, 0xF8, 0x78, 0x18, 0xD8, 0x58 };   // SEC SED SEI CLC CLD CLI
+        for (int oc : flagOps)
+        {
+                std::vector<int> ov(8);
+                for (int k = 0; k < 8; ++k) ov[k] = (oc >> k) & 1;
+                std::vector<int> dd = toBits(dec(toStates(ov)));
+                int F = 0, L = 0;
+                for (int k = 0; k < 8; ++k) { F |= dd[k] << k; L |= dd[8 + k] << k; }
+                steps.push_back({ F, L });
+        }
+        steps.push_back({ 0x40, 0xFF });                 // setup: set V (bit 6)
+        {
+                std::vector<int> ov(8);
+                for (int k = 0; k < 8; ++k) ov[k] = (0xB8 >> k) & 1;   // CLV
+                std::vector<int> dd = toBits(dec(toStates(ov)));
+                int F = 0, L = 0;
+                for (int k = 0; k < 8; ++k) { F |= dd[k] << k; L |= dd[8 + k] << k; }
+                steps.push_back({ F, L });
+        }
+        std::vector<int> golden;
+        {
+                int P = 0;
+                for (const Fl& st : steps)
+                {
+                        for (int k = 0; k < 8; ++k) if ((st.L >> k) & 1) P = (P & ~(1 << k)) | (((st.F >> k) & 1) << k);
+                        golden.push_back(P);
+                }
+        }
+        std::vector<int> reads;
+        for (const Fl& st : steps)
+        {
+                int P = 0;
+                for (int clk = 0; clk < 2; ++clk)
+                {
+                        for (int t = 0; t < SETTLE; ++t)
+                        {
+                                std::vector<int> in(17, 0);
+                                for (int k = 0; k < 8; ++k) { in[k] = (st.F >> k) & 1; in[8 + k] = (st.L >> k) & 1; }
+                                in[16] = clk;
+                                std::vector<int> o = toBits(preg(toStates(in)));
+                                P = 0;
+                                for (int k = 0; k < 8; ++k) P |= o[k] << k;
+                        }
+                }
+                reads.push_back(P);
+        }
+        tf::checkEq(reads, golden, "flag e2e: each flag instruction updates its own P bit, others held");
+}
+
 int main()
 {
         std::printf("%s%sSulla validation suite%s  (interpreted + native engines)\n",
@@ -1104,6 +1165,31 @@ int main()
                 return std::vector<int>{ S0, S1, S2, S3, M, ISALU };
         });
         testAluDecodeEndToEnd();
+        testCombinational("6502_Flag_Op_Decoder", 8, [](const std::vector<int>& v){
+                int cc = v[0] | (v[1] << 1);
+                int bbb = v[2] | (v[3] << 1) | (v[4] << 2);
+                int aaa = v[5] | (v[6] << 1) | (v[7] << 2);
+                int F[8] = { 0 }, L[8] = { 0 };
+                if (cc == 0 && bbb == 6)
+                {
+                        switch (aaa)
+                        {
+                                case 0: L[0] = 1; F[0] = 0; break;
+                                case 1: L[0] = 1; F[0] = 1; break;
+                                case 2: L[2] = 1; F[2] = 0; break;
+                                case 3: L[2] = 1; F[2] = 1; break;
+                                case 5: L[6] = 1; F[6] = 0; break;
+                                case 6: L[3] = 1; F[3] = 0; break;
+                                case 7: L[3] = 1; F[3] = 1; break;
+                                default: break;
+                        }
+                }
+                std::vector<int> r;
+                for (int k = 0; k < 8; ++k) r.push_back(F[k]);
+                for (int k = 0; k < 8; ++k) r.push_back(L[k]);
+                return r;
+        });
+        testFlagDecodeEndToEnd();
         testRamPart();
         testRom();
         testRomMulti();
