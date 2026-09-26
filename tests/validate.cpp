@@ -1328,6 +1328,48 @@ static void testOperandLength()
         for (int m = 0; m < 2; ++m) if (built[m]) tf::check(okN[m], std::string("oplen: native ") + modeName[m] + " matches golden");
 }
 
+static void testDoneDecode()
+{
+        tf::section("6502 DONE decode (instruction last-cycle detect from opcode + T-state): interp, native inline, native link");
+        const std::string NAME = "6502_Done_Decode";
+        int iIn = 0, iOut = 0;
+        Part interp = loadLayoutAsPart("layouts/" + NAME + ".json", iIn, iOut);
+        if (!tf::check(interp != nullptr, "done: interpreted loaded")) return;
+        const char* modeName[2] = { "inline", "link" };
+        bool linkMode[2] = { false, true };
+        Part nat[2];
+        bool built[2] = { false, false };
+        for (int m = 0; m < 2; ++m)
+        {
+                int nOut = 0;
+                nat[m] = buildNative(NAME, nOut, linkMode[m]);
+                built[m] = tf::check(nat[m] != nullptr, std::string("done: native ") + modeName[m] + " built");
+        }
+        int lc01[8] = { 5, 2, 1, 3, 4, 3, 3, 3 };
+        bool okI = true, okN[2] = { true, true };
+        for (int op = 0; op < 256; ++op)
+        for (int Tv = 0; Tv < 8; ++Tv)
+        {
+                std::vector<int> in(11, 0);
+                for (int k = 0; k < 8; ++k) in[k] = (op >> k) & 1;
+                in[8] = Tv & 1; in[9] = (Tv >> 1) & 1; in[10] = (Tv >> 2) & 1;
+                bool cc01 = ((op & 1) == 1) && (((op >> 1) & 1) == 0);
+                int bbb = (op >> 2) & 7;
+                int lastCycle = cc01 ? lc01[bbb] : 1;
+                int eD = (Tv == lastCycle) ? 1 : 0;
+                std::vector<int> oi = toBits(interp(toStates(in)));
+                if (oi[0] != eD) okI = false;
+                for (int m = 0; m < 2; ++m)
+                {
+                        if (!built[m]) continue;
+                        std::vector<int> on = toBits(nat[m](toStates(in)));
+                        if (on[0] != eD) okN[m] = false;
+                }
+        }
+        tf::check(okI, "done: interpreted matches golden (all 256 opcodes x 8 T-states)");
+        for (int m = 0; m < 2; ++m) if (built[m]) tf::check(okN[m], std::string("done: native ") + modeName[m] + " matches golden");
+}
+
 static void testBranchCondition()
 {
         tf::section("6502 branch condition (BPL/BMI/BVC/BVS/BCC/BCS/BNE/BEQ taken logic): interp, native inline, native link");
@@ -1956,6 +1998,7 @@ int main()
         testCompareBit();
         testBranchCondition();
         testOperandLength();
+        testDoneDecode();
         testCycleCounter();
         testFetchUnit();
         testProgramFetch();
