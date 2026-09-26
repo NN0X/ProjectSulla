@@ -54,8 +54,10 @@ Any opcode outside these groups leaves the registers and flags unchanged. EN gat
 - ALU execute: the cc = 01 datapath (decoder + 8-bit ALU + flag logic).
 - Shifter: the single-place shift/rotate unit; its direction and fill come from opcode bits
   O6 and O5, its data from the A read port, its carry-in from the C flag.
-- Result mux: a shift-group detect (cc = 10 with the top aaa bit clear) selects the shifter's
-  byte and flags over the ALU's; a small zero-detect NORs the shifted byte for its Z.
+- Result bus: the ALU output, the shifter output and the load operand each gate onto a shared
+  8-bit write-back bus through tri-state buffers, enabled by the ALU-write, shift and load decodes
+  so exactly one source drives it; the flags are selected by the same decodes, with a zero-detect
+  NOR-ing the shifted byte for its Z.
 - P status register: the write-enable and per-flag load masks are formed from the ALU-group and
   shift-group decodes - N and Z on any accumulator op, C on the arithmetic ops and the shifts,
   V on ADC and SBC only; the accumulator write-enable is every storing op (the ALU group except
