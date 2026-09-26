@@ -1399,6 +1399,79 @@ static void testCycleCounter()
         }
 }
 
+struct FuStep { int db; int rst; int done; };
+
+static void runFetchOnEngine(Part& p, const std::vector<FuStep>& seq, int settleSteps,
+                             std::vector<int>& irOut, std::vector<int>& tOut, std::vector<int>& fOut)
+{
+        std::vector<State> out;
+        for (size_t i = 0; i < seq.size(); ++i)
+        {
+                for (int clk = 0; clk < 2; ++clk)
+                {
+                        std::vector<int> in(11, 0);
+                        for (int k = 0; k < 8; ++k) in[k] = (seq[i].db >> k) & 1;
+                        in[8] = seq[i].rst; in[9] = seq[i].done; in[10] = clk;
+                        std::vector<State> sin = toStates(in);
+                        for (int t = 0; t < settleSteps; ++t) out = p(sin);
+                }
+                std::vector<int> b = toBits(out);
+                int ir = 0; for (int k = 0; k < 8; ++k) ir |= b[k] << k;
+                irOut.push_back(ir);
+                tOut.push_back(b[8] | (b[9] << 1) | (b[10] << 2));
+                fOut.push_back(b[11]);
+        }
+}
+
+static void testFetchUnit()
+{
+        tf::section("6502 fetch unit (cycle counter + instruction register): interp, native inline, native link");
+        const std::string NAME = "6502_Fetch_Unit";
+        const int SETTLE = 60;
+        std::vector<FuStep> seq = {
+                { 0xFF, 1, 0 }, { 0xA9, 0, 0 }, { 0x11, 0, 0 }, { 0x22, 0, 0 }, { 0x33, 0, 1 },
+                { 0x42, 0, 0 }, { 0x55, 0, 0 }, { 0x66, 0, 1 }, { 0x77, 0, 0 }, { 0x88, 1, 0 } };
+
+        std::vector<int> gIR, gT, gF;
+        int cs = 0, ir = 0;
+        for (size_t i = 0; i < seq.size(); ++i)
+        {
+                int fetchDuring = (cs == 0) ? 1 : 0;
+                int nc = (seq[i].rst || seq[i].done) ? 0 : ((cs + 1) & 7);
+                int ni = fetchDuring ? seq[i].db : ir;
+                cs = nc; ir = ni;
+                gIR.push_back(ir); gT.push_back(cs); gF.push_back(cs == 0 ? 1 : 0);
+        }
+
+        int iIn = 0, iOut = 0;
+        Part interp = loadLayoutAsPart("layouts/" + NAME + ".json", iIn, iOut);
+        if (!tf::check(interp != nullptr, "fetch: interpreted loaded")) return;
+        std::vector<int> iIR, iT, iF;
+        runFetchOnEngine(interp, seq, SETTLE, iIR, iT, iF);
+        int gi = 0;
+        for (size_t i = 0; i < seq.size(); ++i) if (iIR[i] != gIR[i] || iT[i] != gT[i] || iF[i] != gF[i]) gi++;
+        tf::check(gi == 0, "fetch: interpreted matches golden (opcode latched on FETCH, held through execute)");
+
+        const char* modeName[2] = { "inline", "link" };
+        bool linkMode[2] = { false, true };
+        for (int m = 0; m < 2; ++m)
+        {
+                int nOut = 0;
+                Part nat = buildNative(NAME, nOut, linkMode[m]);
+                if (!tf::check(nat != nullptr, std::string("fetch: native ") + modeName[m] + " built")) continue;
+                std::vector<int> nIR, nT, nF;
+                runFetchOnEngine(nat, seq, SETTLE, nIR, nT, nF);
+                int gn = 0, df = 0;
+                for (size_t i = 0; i < seq.size(); ++i)
+                {
+                        if (nIR[i] != gIR[i] || nT[i] != gT[i] || nF[i] != gF[i]) gn++;
+                        if (nIR[i] != iIR[i] || nT[i] != iT[i] || nF[i] != iF[i]) df++;
+                }
+                tf::check(gn == 0, std::string("fetch: native ") + modeName[m] + " matches golden");
+                tf::check(df == 0, std::string("fetch: interpreted == native ") + modeName[m]);
+        }
+}
+
 static void testAluExecute()
 {
         tf::section("6502 ALU execute datapath (opcode + A + M -> new A + N/Z/C/V): interp, native inline, native link");
@@ -1769,6 +1842,7 @@ int main()
         testCompareBit();
         testBranchCondition();
         testCycleCounter();
+        testFetchUnit();
         testAluExecute();
         testAluExecuteSequential();
         testAluWriteback();
