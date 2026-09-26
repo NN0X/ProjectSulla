@@ -904,6 +904,74 @@ static void testPStatusRegister()
         }
 }
 
+
+struct RfOp { int wd; int ws; int we; int rs; };
+
+static void runRfOnEngine(Part& p, const std::vector<RfOp>& ops, int settle, std::vector<int>& reads)
+{
+        for (const RfOp& op : ops)
+        {
+                int rd = 0;
+                for (int clk = 0; clk < 2; ++clk)
+                {
+                        for (int t = 0; t < settle; ++t)
+                        {
+                                std::vector<int> in(14, 0);
+                                for (int k = 0; k < 8; ++k) in[k] = (op.wd >> k) & 1;
+                                in[8] = op.ws & 1; in[9] = (op.ws >> 1) & 1; in[10] = op.we;
+                                in[11] = op.rs & 1; in[12] = (op.rs >> 1) & 1; in[13] = clk;
+                                std::vector<int> o = toBits(p(toStates(in)));
+                                rd = 0;
+                                for (int k = 0; k < 8; ++k) rd |= (o[k] << k);
+                        }
+                }
+                reads.push_back(rd);
+        }
+}
+
+static void testRegisterFile()
+{
+        tf::section("6502 register file A/X/Y/SP (4x 74377 + 74139 write decode + 74153 read mux)");
+        const std::string NAME = "6502_Register_File";
+        const int SETTLE = 40;
+        int iIn = 0, iOut = 0;
+        Part interp = loadLayoutAsPart("layouts/" + NAME + ".json", iIn, iOut);
+        if (!tf::check(interp != nullptr, "register file: interpreted loaded")) return;
+        std::vector<RfOp> ops = {
+                { 0x11, 0, 1, 0 },   // write A, read A   -> 0x11
+                { 0x22, 1, 1, 1 },   // write X, read X   -> 0x22
+                { 0x33, 2, 1, 2 },   // write Y, read Y   -> 0x33
+                { 0x44, 3, 1, 3 },   // write SP, read SP -> 0x44
+                { 0x00, 0, 0, 0 },   // WE low, read A    -> 0x11 (held)
+                { 0x55, 0, 1, 0 },   // overwrite A       -> 0x55
+                { 0xFF, 2, 0, 1 },   // WE low, read X    -> 0x22 (held)
+                { 0x00, 0, 0, 3 }    // read SP           -> 0x44
+        };
+        std::vector<int> golden;
+        {
+                int state[4] = { 0, 0, 0, 0 };
+                for (const RfOp& op : ops)
+                {
+                        if (op.we) state[op.ws] = op.wd;
+                        golden.push_back(state[op.rs]);
+                }
+        }
+        std::vector<int> ri;
+        runRfOnEngine(interp, ops, SETTLE, ri);
+        tf::checkEq(ri, golden, "register file: interpreted write/read/hold sequence");
+        const char* modeName[2] = { "inline", "link" };
+        bool linkMode[2] = { false, true };
+        for (int m = 0; m < 2; ++m)
+        {
+                int nOut = 0;
+                Part nat = buildNative(NAME, nOut, linkMode[m]);
+                if (!tf::check(nat != nullptr, std::string("register file: native ") + modeName[m] + " built")) continue;
+                std::vector<int> rn;
+                runRfOnEngine(nat, ops, SETTLE, rn);
+                tf::checkEq(rn, golden, std::string("register file: native ") + modeName[m] + " sequence");
+        }
+}
+
 int main()
 {
         std::printf("%s%sSulla validation suite%s  (interpreted + native engines)\n",
@@ -968,6 +1036,7 @@ int main()
         testProgramCounter();
         testAlu8();
         testPStatusRegister();
+        testRegisterFile();
         testRamPart();
         testRom();
         testRomMulti();
