@@ -1799,6 +1799,14 @@ static void esGoldenStep(EsState& st, const EsOp& op)
                 st.C = Cout;
                 return;
         }
+        bool isLda = (cc == 1 && aaa == 5);
+        if (isLda)
+        {
+                st.A = op.M;
+                st.N = (op.M >> 7) & 1;
+                st.Z = (op.M == 0) ? 1 : 0;
+                return;
+        }
         bool isOra = (cc == 1 && aaa == 0);
         bool isAnd = (cc == 1 && aaa == 1);
         bool isEor = (cc == 1 && aaa == 2);
@@ -1933,8 +1941,8 @@ static void testAluWriteback()
 static void testAccumulatorExecute()
 {
         std::vector<EsOp> seq = {
-                { 0x01, 0x81 }, { 0x0A, 0x00 }, { 0x2A, 0x00 }, { 0x4A, 0x00 }, { 0x6A, 0x00 },
-                { 0x61, 0x01 }, { 0x0A, 0x00 }, { 0x6A, 0x00 }, { 0xC1, 0x82 }, { 0x4A, 0x00 } };
+                { 0xA9, 0x3C }, { 0x01, 0x81 }, { 0x0A, 0x00 }, { 0x2A, 0x00 }, { 0x4A, 0x00 }, { 0x6A, 0x00 },
+                { 0x61, 0x01 }, { 0xA9, 0x00 }, { 0x6A, 0x00 }, { 0xC1, 0x82 }, { 0x4A, 0x00 } };
         runSeqExecuteUnit("6502_Accumulator_Execute",
                           "6502 accumulator datapath (ALU group + shifts, EN-gated write-back): interp, native inline, native link",
                           seq, 18);
@@ -2024,12 +2032,12 @@ static void testCpuCore()
         const int SETTLE = 140;
         std::vector<SqStep> seq = {
                 { 0x00, 1 }, { 0x00, 1 },
-                { 0x09, 0 }, { 0x55, 0 },
+                { 0xA9, 0 }, { 0x3C, 0 },
+                { 0x09, 0 }, { 0x41, 0 },
                 { 0x69, 0 }, { 0x10, 0 },
                 { 0x0A, 0 }, { 0x00, 0 },
-                { 0x29, 0 }, { 0x0F, 0 },
+                { 0xA9, 0 }, { 0x00, 0 },
                 { 0x49, 0 }, { 0xFF, 0 },
-                { 0x69, 0 }, { 0x0B, 0 },
                 { 0x6A, 0 }, { 0x00, 0 } };
 
         std::vector<int> gPC, gA, gN, gZ, gC, gV, gIR, gT, gF, gD;

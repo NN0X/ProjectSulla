@@ -8,7 +8,7 @@ value is selected from whichever unit the opcode calls for.
 
 Instruction groups covered:
 
-    cc = 01   ORA  AND  EOR  ADC  CMP  SBC        (via the ALU execute datapath)
+    cc = 01   ORA  AND  EOR  ADC  CMP  SBC  LDA   (ALU execute datapath, plus a load path)
     cc = 10   ASL  ROL  LSR  ROR   (accumulator)  (via the shifter)
 
 ## Interface
@@ -29,6 +29,7 @@ The register file's A read port drives both the ALU execute block and the shifte
 group picks which result is written back and which flags it produces:
 
     ALU group (cc = 01): result, N, Z, and C/V as the ALU execute stage defines them
+    load (LDA): the operand copied to A, with N and Z from the operand
     shift group (cc = 10): the shifted byte, its top bit as N, zero-detect as Z, the
                            bit shifted out as C; V is not affected
 
@@ -42,6 +43,7 @@ Which flags each instruction commits, and whether it writes the accumulator:
     ORA/AND/EOR         yes       yes   -            -
     ADC/SBC             yes       yes   yes          yes
     CMP                 no        yes   yes          -
+    LDA                 yes       yes   -            -
     ASL/ROL/LSR/ROR     yes       yes   yes (out)    -
 
 Any opcode outside these groups leaves the registers and flags unchanged. EN gates every write, so with EN low a clock changes nothing; the control unit raises EN on the cycle an instruction commits its result.

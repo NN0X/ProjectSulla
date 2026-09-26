@@ -28,7 +28,7 @@ runs the instruction for the number of cycles that opcode needs; on the last cyc
 DONE, which both restarts the fetch and enables the datapath's write. So the datapath computes
 every cycle but commits only once, on the last cycle, using the held opcode and the operand then
 on the bus. This covers the accumulator group that runs in two cycles - the immediate ALU
-operations (ORA, AND, EOR, ADC, CMP, SBC with an immediate operand) and the accumulator shifts
+operations (ORA, AND, EOR, ADC, CMP, SBC), the immediate load LDA, and the accumulator shifts
 and rotates (ASL, ROL, LSR, ROR) - where the operand, when there is one, is the byte after the
 opcode.
 
