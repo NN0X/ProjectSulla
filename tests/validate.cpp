@@ -1165,13 +1165,13 @@ static void testAluExecute()
                 nat[m] = buildNative(NAME, nOut, linkMode[m]);
                 built[m] = tf::check(nat[m] != nullptr, std::string("ALU execute: native ") + modeName[m] + " built");
         }
-        int opcodes[4] = { 0x01, 0x21, 0x41, 0x61 };   // ORA AND EOR ADC (cc=01, aaa 0..3)
-        int aaa[4] = { 0, 1, 2, 3 };
+        int opcodes[6] = { 0x01, 0x21, 0x41, 0x61, 0xC1, 0xE1 };   // ORA AND EOR ADC CMP SBC (cc=01)
+        int aaa[6] = { 0, 1, 2, 3, 6, 7 };
         unsigned seed = 99991u;
         bool okI = true, okN[2] = { true, true };
         for (int t = 0; t < 3000; ++t)
         {
-                seed = seed * 1103515245u + 12345u; int oi = (seed >> 16) & 3;
+                seed = seed * 1103515245u + 12345u; int oi = (seed >> 16) % 6;
                 seed = seed * 1103515245u + 12345u; int A = (seed >> 16) & 0xFF;
                 seed = seed * 1103515245u + 12345u; int M = (seed >> 16) & 0xFF;
                 seed = seed * 1103515245u + 12345u; int Cin = (seed >> 16) & 1;
@@ -1180,28 +1180,33 @@ static void testAluExecute()
                 for (int k = 0; k < 8; ++k) { in[k] = (opcode >> k) & 1; in[8 + k] = (A >> k) & 1; in[16 + k] = (M >> k) & 1; }
                 in[24] = Cin;
                 int res = 0, eC = 0, eV = 0;
+                bool isAdc = (aaa[oi] == 3);
+                bool isSub = (aaa[oi] == 6 || aaa[oi] == 7);
                 if (aaa[oi] == 0) res = A | M;
                 else if (aaa[oi] == 1) res = A & M;
                 else if (aaa[oi] == 2) res = A ^ M;
-                else { int sum = A + M + Cin; res = sum & 0xFF; eC = (sum >= 256) ? 1 : 0;
+                else if (isAdc) { int sum = A + M + Cin; res = sum & 0xFF; eC = (sum >= 256) ? 1 : 0;
                         int a7 = (A >> 7) & 1, m7 = (M >> 7) & 1, r7 = (res >> 7) & 1;
                         eV = ((a7 && m7 && !r7) || (!a7 && !m7 && r7)) ? 1 : 0; }
+                else { int diff = A + (M ^ 0xFF) + Cin; res = diff & 0xFF; eC = (diff >= 256) ? 1 : 0;
+                        int a7 = (A >> 7) & 1, m7 = (M >> 7) & 1, r7 = (res >> 7) & 1;
+                        eV = ((a7 && !m7 && !r7) || (!a7 && m7 && r7)) ? 1 : 0; }
                 int eN = (res >> 7) & 1, eZ = (res == 0) ? 1 : 0;
-                bool isAdc = (aaa[oi] == 3);
+                bool checkCV = isAdc || isSub;
                 std::vector<int> oiv = toBits(interp(toStates(in)));
                 int aout = 0; for (int k = 0; k < 8; ++k) aout |= oiv[k] << k;
                 if (aout != res || oiv[8] != eN || oiv[9] != eZ) okI = false;
-                if (isAdc && (oiv[10] != eC || oiv[11] != eV)) okI = false;
+                if (checkCV && (oiv[10] != eC || oiv[11] != eV)) okI = false;
                 for (int m = 0; m < 2; ++m)
                 {
                         if (!built[m]) continue;
                         std::vector<int> onv = toBits(nat[m](toStates(in)));
                         int ao = 0; for (int k = 0; k < 8; ++k) ao |= onv[k] << k;
                         if (ao != res || onv[8] != eN || onv[9] != eZ) okN[m] = false;
-                        if (isAdc && (onv[10] != eC || onv[11] != eV)) okN[m] = false;
+                        if (checkCV && (onv[10] != eC || onv[11] != eV)) okN[m] = false;
                 }
         }
-        tf::check(okI, "ALU execute: interpreted matches 6502 semantics (ORA/AND/EOR/ADC, 3000 random)");
+        tf::check(okI, "ALU execute: interpreted matches 6502 semantics (ORA/AND/EOR/ADC/CMP/SBC, 3000 random)");
         for (int m = 0; m < 2; ++m) if (built[m]) tf::check(okN[m], std::string("ALU execute: native ") + modeName[m] + " matches 6502 semantics");
 }
 
