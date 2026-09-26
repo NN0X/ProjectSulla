@@ -1260,6 +1260,24 @@ struct EsState { int A; int N; int Z; int C; int V; };
 
 static void esGoldenStep(EsState& st, const EsOp& op)
 {
+        bool isAslA = op.opcode == 0x0A;
+        bool isRolA = op.opcode == 0x2A;
+        bool isLsrA = op.opcode == 0x4A;
+        bool isRorA = op.opcode == 0x6A;
+        if (isAslA || isRolA || isLsrA || isRorA)
+        {
+                int dir = (isLsrA || isRorA) ? 1 : 0;
+                int rot = (isRolA || isRorA) ? 1 : 0;
+                int inbit = rot ? st.C : 0;
+                int R, Cout;
+                if (dir == 0) { R = ((st.A << 1) | inbit) & 0xFF; Cout = (st.A >> 7) & 1; }
+                else { R = (st.A >> 1) | (inbit << 7); Cout = st.A & 1; }
+                st.A = R;
+                st.N = (R >> 7) & 1;
+                st.Z = (R == 0) ? 1 : 0;
+                st.C = Cout;
+                return;
+        }
         bool isOra = op.opcode == 0x01;
         bool isAnd = op.opcode == 0x21;
         bool isEor = op.opcode == 0x41;
@@ -1387,6 +1405,16 @@ static void testAluWriteback()
                 { 0xE1, 0x40 }, { 0x61, 0x50 }, { 0xE1, 0x80 }, { 0xC1, 0xD0 }, { 0x41, 0xFF } };
         runSeqExecuteUnit("6502_ALU_Writeback",
                           "6502 ALU write-back (register-file accumulator; ORA/AND/EOR/ADC/CMP/SBC with per-op write-enable and flag mask): interp, native inline, native link",
+                          seq);
+}
+
+static void testAccumulatorExecute()
+{
+        std::vector<EsOp> seq = {
+                { 0x01, 0x81 }, { 0x0A, 0x00 }, { 0x2A, 0x00 }, { 0x4A, 0x00 }, { 0x6A, 0x00 },
+                { 0x61, 0x01 }, { 0x0A, 0x00 }, { 0x6A, 0x00 }, { 0xC1, 0x82 }, { 0x4A, 0x00 } };
+        runSeqExecuteUnit("6502_Accumulator_Execute",
+                          "6502 accumulator datapath (ALU group + shifts ASL/ROL/LSR/ROR A, muxed by opcode, into the register file): interp, native inline, native link",
                           seq);
 }
 
@@ -1534,6 +1562,7 @@ int main()
         testAluExecute();
         testAluExecuteSequential();
         testAluWriteback();
+        testAccumulatorExecute();
         testRamPart();
         testRom();
         testRomMulti();
