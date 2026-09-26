@@ -1331,6 +1331,74 @@ static void testBranchCondition()
         for (int m = 0; m < 2; ++m) if (built[m]) tf::check(okN[m], std::string("branch: native ") + modeName[m] + " matches 6502 golden");
 }
 
+struct CcStep { int rst; int done; };
+
+static void runCycleOnEngine(Part& p, const std::vector<CcStep>& seq, int settleSteps, std::vector<int>& tOut, std::vector<int>& fOut)
+{
+        std::vector<State> out;
+        for (size_t i = 0; i < seq.size(); ++i)
+        {
+                for (int clk = 0; clk < 2; ++clk)
+                {
+                        std::vector<int> in(3, 0);
+                        in[0] = seq[i].rst; in[1] = seq[i].done; in[2] = clk;
+                        std::vector<State> sin = toStates(in);
+                        for (int t = 0; t < settleSteps; ++t) out = p(sin);
+                }
+                std::vector<int> b = toBits(out);
+                tOut.push_back(b[0] | (b[1] << 1) | (b[2] << 2));
+                fOut.push_back(b[3]);
+        }
+}
+
+static void testCycleCounter()
+{
+        tf::section("6502 cycle counter (instruction T-state timing): interp, native inline, native link");
+        const std::string NAME = "6502_Cycle_Counter";
+        const int SETTLE = 40;
+        std::vector<CcStep> seq = {
+                { 1, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 },
+                { 0, 1 }, { 0, 0 }, { 0, 0 }, { 0, 1 }, { 1, 0 } };
+
+        std::vector<int> gT, gF;
+        int state = 0;
+        for (size_t i = 0; i < seq.size(); ++i)
+        {
+                int rd = (seq[i].rst || seq[i].done) ? 1 : 0;
+                state = rd ? 0 : ((state + 1) & 7);
+                gT.push_back(state);
+                gF.push_back(state == 0 ? 1 : 0);
+        }
+
+        int iIn = 0, iOut = 0;
+        Part interp = loadLayoutAsPart("layouts/" + NAME + ".json", iIn, iOut);
+        if (!tf::check(interp != nullptr, "cycle: interpreted loaded")) return;
+        std::vector<int> iT, iF;
+        runCycleOnEngine(interp, seq, SETTLE, iT, iF);
+        int gfI = 0;
+        for (size_t i = 0; i < seq.size(); ++i) if (iT[i] != gT[i] || iF[i] != gF[i]) gfI++;
+        tf::check(gfI == 0, "cycle: interpreted matches golden T-state sequence (reset, wrap, done-restart)");
+
+        const char* modeName[2] = { "inline", "link" };
+        bool linkMode[2] = { false, true };
+        for (int m = 0; m < 2; ++m)
+        {
+                int nOut = 0;
+                Part nat = buildNative(NAME, nOut, linkMode[m]);
+                if (!tf::check(nat != nullptr, std::string("cycle: native ") + modeName[m] + " built")) continue;
+                std::vector<int> nT, nF;
+                runCycleOnEngine(nat, seq, SETTLE, nT, nF);
+                int gfN = 0, df = 0;
+                for (size_t i = 0; i < seq.size(); ++i)
+                {
+                        if (nT[i] != gT[i] || nF[i] != gF[i]) gfN++;
+                        if (nT[i] != iT[i] || nF[i] != iF[i]) df++;
+                }
+                tf::check(gfN == 0, std::string("cycle: native ") + modeName[m] + " matches golden");
+                tf::check(df == 0, std::string("cycle: interpreted == native ") + modeName[m]);
+        }
+}
+
 static void testAluExecute()
 {
         tf::section("6502 ALU execute datapath (opcode + A + M -> new A + N/Z/C/V): interp, native inline, native link");
@@ -1700,6 +1768,7 @@ int main()
         testIncDec();
         testCompareBit();
         testBranchCondition();
+        testCycleCounter();
         testAluExecute();
         testAluExecuteSequential();
         testAluWriteback();
