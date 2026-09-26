@@ -972,6 +972,53 @@ static void testRegisterFile()
         }
 }
 
+static void testAluDecodeEndToEnd()
+{
+        tf::section("6502 ALU decode end-to-end: opcode -> decoder -> 74181 ALU -> operation result");
+        int di = 0, dou = 0;
+        Part dec = loadLayoutAsPart("layouts/6502_ALU_Control_Decoder.json", di, dou);
+        int ai = 0, ao = 0;
+        Part alu = loadLayoutAsPart("layouts/74181x2_8-bit_ALU.json", ai, ao);
+        if (!tf::check(dec != nullptr && alu != nullptr, "decode e2e: decoder + ALU loaded")) return;
+        int aaas[6] = { 0, 1, 2, 3, 6, 7 };
+        unsigned seed = 123457u;
+        bool ok = true;
+        for (int oi = 0; oi < 6 && ok; ++oi)
+        {
+                int aaa = aaas[oi];
+                int opcode = (aaa << 5) | 0x01;
+                std::vector<int> ov(8);
+                for (int k = 0; k < 8; ++k) ov[k] = (opcode >> k) & 1;
+                std::vector<int> dout = toBits(dec(toStates(ov)));
+                int S0 = dout[0], S1 = dout[1], S2 = dout[2], S3 = dout[3], M = dout[4], isalu = dout[5];
+                if (!isalu) { ok = false; break; }
+                int Cn = (aaa == 3) ? 1 : (aaa == 6 || aaa == 7) ? 0 : 1;
+                for (int t = 0; t < 400 && ok; ++t)
+                {
+                        seed = seed * 1103515245u + 12345u; int A = (seed >> 16) & 0xFF;
+                        seed = seed * 1103515245u + 12345u; int B = (seed >> 16) & 0xFF;
+                        std::vector<int> in(22, 0);
+                        for (int k = 0; k < 8; ++k) { in[k] = (A >> k) & 1; in[8 + k] = (B >> k) & 1; }
+                        in[16] = S0; in[17] = S1; in[18] = S2; in[19] = S3; in[20] = M; in[21] = Cn;
+                        std::vector<int> f = toBits(alu(toStates(in)));
+                        int got = 0;
+                        for (int k = 0; k < 8; ++k) got |= (f[k] << k);
+                        int exp = 0;
+                        switch (aaa)
+                        {
+                                case 0: exp = (A | B) & 0xFF; break;
+                                case 1: exp = (A & B) & 0xFF; break;
+                                case 2: exp = (A ^ B) & 0xFF; break;
+                                case 3: exp = (A + B) & 0xFF; break;
+                                case 6: case 7: exp = (A - B) & 0xFF; break;
+                                default: exp = 0; break;
+                        }
+                        if (got != exp) ok = false;
+                }
+        }
+        tf::check(ok, "decode e2e: decoded control drives the ALU to the 6502 operation result");
+}
+
 int main()
 {
         std::printf("%s%sSulla validation suite%s  (interpreted + native engines)\n",
@@ -1037,6 +1084,26 @@ int main()
         testAlu8();
         testPStatusRegister();
         testRegisterFile();
+        testCombinational("6502_ALU_Control_Decoder", 8, [](const std::vector<int>& v){
+                int cc = v[0] | (v[1] << 1);
+                int aaa = v[5] | (v[6] << 1) | (v[7] << 2);
+                int S0 = 0, S1 = 0, S2 = 0, S3 = 0, M = 0, ISALU = 0;
+                if (cc == 1)
+                {
+                        switch (aaa)
+                        {
+                                case 0: S0 = 0; S1 = 1; S2 = 1; S3 = 1; M = 1; ISALU = 1; break;
+                                case 1: S0 = 1; S1 = 1; S2 = 0; S3 = 1; M = 1; ISALU = 1; break;
+                                case 2: S0 = 0; S1 = 1; S2 = 1; S3 = 0; M = 1; ISALU = 1; break;
+                                case 3: S0 = 1; S1 = 0; S2 = 0; S3 = 1; M = 0; ISALU = 1; break;
+                                case 6: S0 = 0; S1 = 1; S2 = 1; S3 = 0; M = 0; ISALU = 1; break;
+                                case 7: S0 = 0; S1 = 1; S2 = 1; S3 = 0; M = 0; ISALU = 1; break;
+                                default: break;
+                        }
+                }
+                return std::vector<int>{ S0, S1, S2, S3, M, ISALU };
+        });
+        testAluDecodeEndToEnd();
         testRamPart();
         testRom();
         testRomMulti();
