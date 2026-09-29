@@ -539,7 +539,7 @@ void drawUI(AppState& state)
                         return !state.sidebarCollapsed[section];
                 };
                 if (sbHeader("Parts Library", 0))
-                for (int i = 0; i <= PART_TYPE_ROM; ++i)
+                for (int i = 0; i <= PART_TYPE_BUS; ++i)
                 {
                         if (i == PART_TYPE_CUSTOM) continue;
 
@@ -903,6 +903,10 @@ void drawUI(AppState& state)
                 DrawText("  Right Click Part: Options", x, y, HELP_TEXT_SIZE, textC);
                 y += HELP_LINE_SPACING;
                 DrawText("  Right Click ROM: Load Hex File", x, y, HELP_TEXT_SIZE, textC);
+                y += HELP_LINE_SPACING;
+                DrawText("  Tri-state: in0 data, in1 enable", x, y, HELP_TEXT_SIZE, textC);
+                y += HELP_LINE_SPACING;
+                DrawText("  Bus: resolves its tri-state drivers", x, y, HELP_TEXT_SIZE, textC);
                 y += HELP_LINE_SPACING;
                 DrawText("Simulation:", x, y, HELP_HEADER_SIZE, DARKBLUE);
                 y += HELP_SECTION_SPACING;
