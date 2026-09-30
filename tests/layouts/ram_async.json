@@ -155,8 +155,8 @@
     },
     {
       "id": 117,
-      "type": 9,
-      "label": "RAM_ASYNC_8_8",
+      "type": 15,
+      "label": "RAM ASYNC",
       "x": 400.0,
       "y": 0.0,
       "numInputs": 17,

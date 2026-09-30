@@ -30,7 +30,9 @@ enum PartType
         PART_TYPE_DISPLAY,
         PART_TYPE_ROM,
         PART_TYPE_TRISTATE,
-        PART_TYPE_BUS
+        PART_TYPE_BUS,
+        PART_TYPE_RAM_ASYNC,
+        PART_TYPE_RAM_SYNC
 };
 
 typedef std::vector<State> Input;

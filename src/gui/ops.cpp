@@ -140,6 +140,8 @@ void dropPart(AppState& state, int type, Vector2 pos)
         if (type == PART_TYPE_SOURCE) setSourcePart(state.parts, id);
         else if (type == PART_TYPE_OUTPUT) setOutputPart(state.parts, id);
         else if (type == PART_TYPE_ROM) setPart(state.parts, id, makeRomPart(std::vector<uint32_t>((std::size_t)1 << 4, 0u), 4, 8));
+        else if (type == PART_TYPE_RAM_ASYNC) setPart(state.parts, id, makeMemoryPart(false, 4, 8));
+        else if (type == PART_TYPE_RAM_SYNC) setPart(state.parts, id, makeMemoryPart(true, 4, 8));
         else setPart(state.parts, id, getPartFromType((PartType)type));
 
         state.partTypes[id] = (PartType)type;
@@ -168,6 +170,11 @@ void dropPart(AppState& state, int type, Vector2 pos)
                 state.inputCounts[id] = 4;
                 state.outputCounts[id] = 8;
                 state.romData[id] = std::vector<uint32_t>((std::size_t)1 << 4, 0u);
+        }
+        else if (type == PART_TYPE_RAM_ASYNC || type == PART_TYPE_RAM_SYNC)
+        {
+                state.inputCounts[id] = 13;
+                state.outputCounts[id] = 8;
         }
         else if (type == PART_TYPE_CLOCK)
         {

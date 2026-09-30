@@ -192,12 +192,6 @@ int loadLayout(AppState& state, const std::string& filename)
                 case PART_TYPE_OUTPUT: setOutputPart(state.parts, part.id); break;
                 case PART_TYPE_CUSTOM:
                 {
-                        bool ramSync; int ramA, ramW;
-                        if (parseRamLabel(part.label, ramSync, ramA, ramW))
-                        {
-                                setPart(state.parts, part.id, makeMemoryPart(ramSync, ramA, ramW));
-                                break;
-                        }
                         bool aMul; int aW;
                         if (parseArithLabel(part.label, aMul, aW))
                         {
@@ -207,10 +201,10 @@ int loadLayout(AppState& state, const std::string& filename)
                         int dummyIn, dummyOut;
                         std::string layoutPath = "layouts/" + part.label + ".json";
 
-                        if (std::filesystem::exists(layoutPath)) 
+                        if (std::filesystem::exists(layoutPath))
                         {
                                 Part layoutPart = loadLayoutAsPart(layoutPath, dummyIn, dummyOut);
-                                if (layoutPart) setPart(state.parts, part.id, layoutPart); 
+                                if (layoutPart) setPart(state.parts, part.id, layoutPart);
                                 else { state.errorMessage = "Could not load subpart layout '" + part.label + "'."; state.showError = true; }
                                 loadPinLabelsForCustom(state, part.id, part.label, part.numOutputs);
                         }
@@ -231,6 +225,8 @@ int loadLayout(AppState& state, const std::string& filename)
                 }
                 break;
                 case PART_TYPE_ROM: state.romData[part.id] = part.romData; setPart(state.parts, part.id, makeRomPart(part.romData, part.numInputs, part.numOutputs)); break;
+                case PART_TYPE_RAM_ASYNC: setPart(state.parts, part.id, makeMemoryPart(false, part.numInputs - 1 - part.numOutputs, part.numOutputs)); break;
+                case PART_TYPE_RAM_SYNC: setPart(state.parts, part.id, makeMemoryPart(true, part.numInputs - 1 - part.numOutputs, part.numOutputs)); break;
                 default: setPart(state.parts, part.id, getPartFromType(part.type)); break;
                 }
                 state.partTypes[part.id] = part.type;
@@ -298,12 +294,6 @@ Part loadLayoutAsPart(const std::string& filename, int& nInputs, int& nOutputs)
                         break;
                 case PART_TYPE_CUSTOM:
                 {
-                        bool ramSync; int ramA, ramW;
-                        if (parseRamLabel(part.label, ramSync, ramA, ramW))
-                        {
-                                setPart(subParts, part.id, makeMemoryPart(ramSync, ramA, ramW));
-                                break;
-                        }
                         bool aMul; int aW;
                         if (parseArithLabel(part.label, aMul, aW))
                         {
@@ -313,15 +303,15 @@ Part loadLayoutAsPart(const std::string& filename, int& nInputs, int& nOutputs)
                         int dummyIn, dummyOut;
                         std::string layoutPath = "layouts/" + part.label + ".json";
 
-                        if (std::filesystem::exists(layoutPath)) 
+                        if (std::filesystem::exists(layoutPath))
                         {
                                 Part layoutPart = loadLayoutAsPart(layoutPath, dummyIn, dummyOut);
-                                if (layoutPart) setPart(subParts, part.id, layoutPart); 
+                                if (layoutPart) setPart(subParts, part.id, layoutPart);
                         }
-                        else 
+                        else
                         {
                                 Part compiledPart = loadCompiledPart(part.label, part.numOutputs);
-                                if (compiledPart) 
+                                if (compiledPart)
                                 {
                                         setPart(subParts, part.id, compiledPart);
                                 }
@@ -333,6 +323,8 @@ Part loadLayoutAsPart(const std::string& filename, int& nInputs, int& nOutputs)
                 }
                 break;
                 case PART_TYPE_ROM: setPart(subParts, part.id, makeRomPart(part.romData, part.numInputs, part.numOutputs)); break;
+                case PART_TYPE_RAM_ASYNC: setPart(subParts, part.id, makeMemoryPart(false, part.numInputs - 1 - part.numOutputs, part.numOutputs)); break;
+                case PART_TYPE_RAM_SYNC: setPart(subParts, part.id, makeMemoryPart(true, part.numInputs - 1 - part.numOutputs, part.numOutputs)); break;
                 default: setPart(subParts, part.id, getPartFromType(part.type)); break;
                 }
         }
@@ -469,30 +461,24 @@ std::set<int> importLayout(AppState& state, const std::string& filename, float m
                 case PART_TYPE_OUTPUT: setOutputPart(state.parts, newID); break;
                 case PART_TYPE_CUSTOM:
                 {
-                        bool ramSync; int ramA, ramW;
-                        if (parseRamLabel(part.label, ramSync, ramA, ramW))
-                        {
-                                setPart(state.parts, part.id, makeMemoryPart(ramSync, ramA, ramW));
-                                break;
-                        }
                         bool aMul; int aW;
                         if (parseArithLabel(part.label, aMul, aW))
                         {
-                                setPart(state.parts, part.id, makeArithPart(aMul, aW));
+                                setPart(state.parts, newID, makeArithPart(aMul, aW));
                                 break;
                         }
                         int dummyIn, dummyOut;
                         std::string layoutPath = "layouts/" + part.label + ".json";
-                        if (std::filesystem::exists(layoutPath)) 
+                        if (std::filesystem::exists(layoutPath))
                         {
                                 Part layoutPart = loadLayoutAsPart(layoutPath, dummyIn, dummyOut);
-                                if (layoutPart) setPart(state.parts, newID, layoutPart); 
+                                if (layoutPart) setPart(state.parts, newID, layoutPart);
                                 loadPinLabelsForCustom(state, newID, part.label, part.numOutputs);
                         }
-                        else 
+                        else
                         {
                                 Part compiledPart = loadCompiledPart(part.label, part.numOutputs);
-                                if (compiledPart) 
+                                if (compiledPart)
                                 {
                                         setPart(state.parts, newID, compiledPart);
                                         loadPinLabelsForCustom(state, newID, part.label, part.numOutputs);
@@ -505,6 +491,8 @@ std::set<int> importLayout(AppState& state, const std::string& filename, float m
                 }
                 break;
                 case PART_TYPE_ROM: setPart(state.parts, newID, makeRomPart(part.romData, part.numInputs, part.numOutputs)); break;
+                case PART_TYPE_RAM_ASYNC: setPart(state.parts, newID, makeMemoryPart(false, part.numInputs - 1 - part.numOutputs, part.numOutputs)); break;
+                case PART_TYPE_RAM_SYNC: setPart(state.parts, newID, makeMemoryPart(true, part.numInputs - 1 - part.numOutputs, part.numOutputs)); break;
                 default: setPart(state.parts, newID, getPartFromType(part.type)); break;
                 }
 

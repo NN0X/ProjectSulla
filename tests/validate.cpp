@@ -629,6 +629,72 @@ static void testRamPart()
         }
 }
 
+struct MemStep { int we; int addr; int din; };
+
+static std::vector<int> runMemOnEngine(Part& p, const std::vector<MemStep>& seq)
+{
+	std::vector<int> outs;
+	for (const MemStep& st : seq)
+	{
+		std::vector<int> in(17, 0);
+		in[0] = st.we;
+		for (int k = 0; k < 8; ++k) in[1 + k] = (st.addr >> k) & 1;
+		for (int k = 0; k < 8; ++k) in[9 + k] = (st.din >> k) & 1;
+		std::vector<int> o = toBits(p(toStates(in)));
+		int d = 0;
+		for (int k = 0; k < 8; ++k) d |= (o[k] << k);
+		outs.push_back(d);
+	}
+	return outs;
+}
+
+static std::vector<int> memGolden(const std::vector<MemStep>& seq, bool sync)
+{
+	std::vector<int> outs;
+	int mem[256] = { 0 };
+	int doutreg = 0;
+	for (const MemStep& st : seq)
+	{
+		int a = st.addr & 0xFF;
+		if (sync) { outs.push_back(doutreg); doutreg = mem[a]; }
+		else outs.push_back(mem[a]);
+		if (st.we) mem[a] = st.din & 0xFF;
+	}
+	return outs;
+}
+
+static void testRamPrimitives()
+{
+	tf::section("RAM primitives (first-class async + sync, 8-bit address x 8-bit word): interp, native inline, native link");
+	std::vector<MemStep> seq = {
+		{ 1, 0x00, 0xAA }, { 0, 0x00, 0 }, { 1, 0x05, 0x55 }, { 0, 0x05, 0 },
+		{ 0, 0x00, 0 }, { 1, 0x05, 0x33 }, { 0, 0x05, 0 }, { 1, 0xFF, 0x81 }, { 0, 0xFF, 0 } };
+	const char* modeName[3] = { "interpreted", "native inline", "native link" };
+	struct Variant { const char* name; bool sync; };
+	Variant variants[2] = { { "ram_async", false }, { "ram_sync", true } };
+	for (int vi = 0; vi < 2; ++vi)
+	{
+		const std::string NAME = variants[vi].name;
+		bool sync = variants[vi].sync;
+		std::vector<int> golden = memGolden(seq, sync);
+		int iIn = 0, iOut = 0;
+		Part interp = loadLayoutAsPart("layouts/" + NAME + ".json", iIn, iOut);
+		if (!tf::check(interp != nullptr, NAME + ": interpreted loaded")) continue;
+		std::vector<std::vector<int>> got(3);
+		got[0] = runMemOnEngine(interp, seq);
+		tf::checkEq(got[0], golden, NAME + ": interpreted write/read sequence");
+		bool linkMode[2] = { false, true };
+		for (int m = 0; m < 2; ++m)
+		{
+			int nOut = 0;
+			Part nat = buildNative(NAME, nOut, linkMode[m]);
+			if (!tf::check(nat != nullptr, NAME + ": " + modeName[m + 1] + " built")) continue;
+			got[m + 1] = runMemOnEngine(nat, seq);
+			tf::checkEq(got[m + 1], golden, NAME + std::string(": ") + modeName[m + 1] + " write/read sequence");
+		}
+	}
+}
+
 static void testRom()
 {
         tf::section("ROM primitive (16x8 lookup table, hex-loadable contents)");
@@ -3288,6 +3354,7 @@ int main()
         testSystem6502();
         testStore6502();
         testRamPart();
+        testRamPrimitives();
         testRom();
         testRomMulti();
         testLearningCircuits();

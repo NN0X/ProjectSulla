@@ -269,6 +269,35 @@ static void drawRomGlyph(Rectangle body, float width)
         }
 }
 
+static void drawRamGlyph(Rectangle body, float width, bool sync)
+{
+        const int RAM_ROWS = 4;
+        const int RAM_COLS = 6;
+        const float RAM_CELL = 5.0f;
+        const float RAM_GAP = 2.0f;
+        const float RAM_TOP_PAD = 4.0f;
+        const float RAM_CLK_SIZE = 6.0f;
+        const Color RAM_ASYNC_ACCENT = Color{ 90, 190, 205, 255 };
+        const Color RAM_SYNC_ACCENT = Color{ 170, 130, 215, 255 };
+        Color accent = sync ? RAM_SYNC_ACCENT : RAM_ASYNC_ACCENT;
+        float gridW = RAM_COLS * RAM_CELL + (RAM_COLS - 1) * RAM_GAP;
+        float gx = body.x + (width - gridW) / 2.0f;
+        float gy = body.y + PART_TITLE_HEIGHT + RAM_TOP_PAD;
+        for (int r = 0; r < RAM_ROWS; ++r)
+        for (int col = 0; col < RAM_COLS; ++col)
+        {
+                float cx = gx + col * (RAM_CELL + RAM_GAP);
+                float cy = gy + r * (RAM_CELL + RAM_GAP);
+                if (sync) DrawRectangleRec({cx, cy, RAM_CELL, RAM_CELL}, accent);
+                else DrawRectangleLinesEx({cx, cy, RAM_CELL, RAM_CELL}, 1.0f, accent);
+        }
+        if (sync)
+        {
+                float ty = gy + RAM_ROWS * (RAM_CELL + RAM_GAP) + 2.0f;
+                DrawTriangle({gx, ty}, {gx, ty + RAM_CLK_SIZE}, {gx + RAM_CLK_SIZE * 0.85f, ty + RAM_CLK_SIZE / 2.0f}, accent);
+        }
+}
+
 static void drawPrimitiveShape(PartType type, Rectangle b, Color fill, Color accent)
 {
         const float TRI_INSET = 0.14f;
@@ -491,6 +520,10 @@ void drawParts(AppState& state)
                 {
                         drawRomGlyph(body, size.x);
                 }
+                else if (type == PART_TYPE_RAM_ASYNC || type == PART_TYPE_RAM_SYNC)
+                {
+                        drawRamGlyph(body, size.x, type == PART_TYPE_RAM_SYNC);
+                }
                 if (type != PART_TYPE_SOURCE && type != PART_TYPE_CLOCK)
                 {
                         for (int i = 0; i < inCount; ++i)
@@ -604,7 +637,7 @@ void drawUI(AppState& state)
                         return !state.sidebarCollapsed[section];
                 };
                 if (sbHeader("Parts Library", 0))
-                for (int i = 0; i <= PART_TYPE_BUS; ++i)
+                for (int i = 0; i <= PART_TYPE_RAM_SYNC; ++i)
                 {
                         if (i == PART_TYPE_CUSTOM) continue;
 
@@ -972,6 +1005,8 @@ void drawUI(AppState& state)
                 DrawText("  Tri-state: data left, enable bottom", x, y, HELP_TEXT_SIZE, textC);
                 y += HELP_LINE_SPACING;
                 DrawText("  Bus: resolves its tri-state drivers", x, y, HELP_TEXT_SIZE, textC);
+                y += HELP_LINE_SPACING;
+                DrawText("  RAM: WE+addr+data in; async or sync read", x, y, HELP_TEXT_SIZE, textC);
                 y += HELP_LINE_SPACING;
                 DrawText("Simulation:", x, y, HELP_HEADER_SIZE, DARKBLUE);
                 y += HELP_SECTION_SPACING;

@@ -1,6 +1,7 @@
 import json, sys
 
 SOURCE, OUTPUT, CUSTOM = 7, 8, 9
+RAM_ASYNC, RAM_SYNC = 15, 16
 
 def ram_layout(sync, A, W):
     parts, conns = [], []
@@ -13,8 +14,7 @@ def ram_layout(sync, A, W):
     we = add(SOURCE, 0, 1, 0, 0, "WE")
     addr = [add(SOURCE, 0, 1, 0, 1 + k, "A%d" % k) for k in range(A)]
     din = [add(SOURCE, 0, 1, 0, 1 + A + k, "D%d" % k) for k in range(W)]
-    mode = "SYNC" if sync else "ASYNC"
-    ram = add(CUSTOM, 1 + A + W, W, 400, 0, f"RAM_{mode}_{A}_{W}")
+    ram = add(RAM_SYNC if sync else RAM_ASYNC, 1 + A + W, W, 400, 0, "RAM SYNC" if sync else "RAM ASYNC")
     dout = [add(OUTPUT, 1, 0, 800, k, "Q%d" % k) for k in range(W)]
     def w(f, t): conns.append({"from": {"id": f[0], "pin": f[1]}, "to": {"id": t[0], "pin": t[1]}})
     w((we, 0), (ram, 0))

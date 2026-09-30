@@ -140,6 +140,10 @@ Part getPartFromType(PartType type)
                 };
         case EVAL_ROM:
                 return makeRomPart(std::vector<uint32_t>(), 0, 1);
+        case EVAL_RAM_ASYNC:
+                return makeMemoryPart(false, 0, 1);
+        case EVAL_RAM_SYNC:
+                return makeMemoryPart(true, 0, 1);
         case EVAL_TRISTATE:
                 return makeTristatePart();
         case EVAL_BUS:

@@ -12,7 +12,9 @@ enum GateEval
         EVAL_CUSTOM,
         EVAL_ROM,
         EVAL_TRISTATE,
-        EVAL_BUS
+        EVAL_BUS,
+        EVAL_RAM_ASYNC,
+        EVAL_RAM_SYNC
 };
 
 struct GateSpec

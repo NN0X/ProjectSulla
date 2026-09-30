@@ -10,8 +10,6 @@ std::vector<State> displayPart(std::vector<State> input);
 
 Part getClockPart();
 
-bool parseRamLabel(const std::string& label, bool& sync, int& addrBits, int& dataBits);
-
 Part makeMemoryPart(bool sync, int addrBits, int dataBits);
 Part makeRomPart(const std::vector<uint32_t>& contents, int addrBits, int dataBits);
 std::vector<uint32_t> parseHexDump(const std::string& text, int dataBits);

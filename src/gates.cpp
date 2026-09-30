@@ -16,6 +16,8 @@ static const GateSpec GATES[] = {
         { "ROM",     EVAL_ROM,     0,  false, false, -1 },
         { "TRISTATE", EVAL_TRISTATE, 0, false, false, 2 },
         { "BUS",     EVAL_BUS,     0,  false, false, -1 },
+        { "RAM ASYNC", EVAL_RAM_ASYNC, 0, false, true, -1 },
+        { "RAM SYNC",  EVAL_RAM_SYNC,  0, false, true, -1 },
 };
 
 const GateSpec& gateSpec(PartType type) { return GATES[type]; }

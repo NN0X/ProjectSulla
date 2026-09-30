@@ -18,26 +18,6 @@ Part getClockPart()
         };
 }
 
-bool parseRamLabel(const std::string& label, bool& sync, int& addrBits, int& dataBits)
-{
-        if (label.rfind("RAM_", 0) != 0) return false;
-        std::string rest = label.substr(4);
-        std::string::size_type u1 = rest.find('_');
-        if (u1 == std::string::npos) return false;
-        std::string mode = rest.substr(0, u1);
-        if (mode == "SYNC") sync = true;
-        else if (mode == "ASYNC") sync = false;
-        else return false;
-        std::string tail = rest.substr(u1 + 1);
-        std::string::size_type u2 = tail.find('_');
-        if (u2 == std::string::npos) return false;
-        try {
-                addrBits = std::stoi(tail.substr(0, u2));
-                dataBits = std::stoi(tail.substr(u2 + 1));
-        } catch (...) { return false; }
-        return addrBits > 0 && addrBits <= 24 && dataBits > 0 && dataBits <= 32;
-}
-
 Part makeMemoryPart(bool sync, int addrBits, int dataBits)
 {
         std::shared_ptr<std::vector<uint32_t> > mem = std::make_shared<std::vector<uint32_t> >((std::size_t)1 << addrBits, 0u);
