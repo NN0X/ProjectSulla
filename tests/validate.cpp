@@ -2825,12 +2825,12 @@ static void aluGolden6502(int op, int ai, int bi, int cin, int& out, int& c, int
 
 static void testCpuCore6502()
 {
-        tf::section("6502 faithful CPU core (SB/DB/AI/BI/ADD datapath, P status register, ORA/AND/EOR/ADC/SBC/CMP with per-op flag masking): interp, native inline, native link");
+        tf::section("6502 faithful CPU core (SB/DB/AI/BI/ADD datapath, P status register, ORA/AND/EOR/ADC/SBC/CMP/LDA with per-op flag masking): interp, native inline, native link");
         const std::string NAME = "6502_CPU_Core_6502";
         const int SETTLE = 140;
         int prog[8][2] = {
-                { 0x01, 0x50 }, { 0xC1, 0x50 }, { 0xC1, 0x60 }, { 0xC1, 0x40 },
-                { 0x61, 0x10 }, { 0x41, 0xFF }, { 0xC1, 0x9E }, { 0x21, 0x0F } };
+                { 0xA9, 0x00 }, { 0xA9, 0xF5 }, { 0x01, 0x01 }, { 0x61, 0x20 },
+                { 0xA9, 0x80 }, { 0xC1, 0x80 }, { 0xA9, 0x00 }, { 0xE1, 0x01 } };
         std::vector<SqStep> seq;
         seq.push_back({ 0, 1 }); seq.push_back({ 0, 1 });
         for (int i = 0; i < 8; ++i)
@@ -2846,20 +2846,24 @@ static void testCpuCore6502()
                 int fetch = (cs == 0), ldin = (cs == 1), ldadd = (cs == 2), lda = (cs == 3), done = lda;
                 int cc = ir & 3, aaa = (ir >> 5) & 7;
                 int isCMP = (cc == 1) && (aaa == 6);
+                int isLDA = (cc == 1) && (aaa == 5);
                 int cinUse = isCMP ? 1 : Pc;
-                int aluOut = 0, aluC = 0, aluN = 0, aluZ = 0, aluV = 0;
-                aluGolden6502(ir, AI, BI, cinUse, aluOut, aluC, aluN, aluZ, aluV);
+                int aluOut = 0, aluC = 0, aluNe = 0, aluZe = 0, aluV = 0;
+                aluGolden6502(ir, AI, BI, cinUse, aluOut, aluC, aluNe, aluZe, aluV);
+                int aluN = isLDA ? ((BI >> 7) & 1) : aluNe;
+                int aluZ = isLDA ? ((BI == 0) ? 1 : 0) : aluZe;
                 int isALU = (cc == 1);
                 int isArith = (cc == 1) && (aaa == 3 || aaa == 7);
                 int lnz = lda && isALU, lc = lda && (isArith || isCMP), lv = lda && isArith;
                 int writeA = lda && !isCMP;
+                int wbSrc = isLDA ? BI : ADD;
                 int ncs = (seq[i].rst || done) ? 0 : ((cs + 1) & 7);
                 int nir = fetch ? seq[i].db : ir;
                 int npc = seq[i].rst ? 0 : (fetch ? ((pc + 1) & 0xFFFF) : pc);
                 int nAI = ldin ? A : AI;
                 int nBI = ldin ? seq[i].db : BI;
                 int nADD = ldadd ? aluOut : ADD;
-                int nA = writeA ? ADD : A;
+                int nA = writeA ? wbSrc : A;
                 int nPn = lnz ? aluN : Pn, nPz = lnz ? aluZ : Pz, nPc = lc ? aluC : Pc, nPv = lv ? aluV : Pv;
                 cs = ncs; ir = nir; pc = npc; AI = nAI; BI = nBI; ADD = nADD; A = nA; Pn = nPn; Pz = nPz; Pc = nPc; Pv = nPv;
                 gPC.push_back(pc); gA.push_back(A); gN.push_back(Pn); gZ.push_back(Pz); gC.push_back(Pc); gV.push_back(Pv);
