@@ -2838,17 +2838,18 @@ static void shiftGolden6502(int op, int a, int cin, int& r, int& cout)
 
 static void testCpuCore6502()
 {
-        tf::section("6502 faithful CPU core (accumulator group + flag ops + LDX/LDY + transfers incl. SP: TAX/TXA/TAY/TYA/TSX/TXS): interp, native inline, native link");
+        tf::section("6502 faithful CPU core (accumulator group + flag ops + loads/transfers/SP + INX/DEX/INY/DEY): interp, native inline, native link");
         const std::string NAME = "6502_CPU_Core_6502";
         const int SETTLE = 140;
-        int prog[16][2] = {
-                { 0xA2, 0xFF }, { 0x9A, 0x00 }, { 0xA0, 0x0F }, { 0x98, 0x00 },
-                { 0xA2, 0x00 }, { 0xBA, 0x00 }, { 0xA9, 0x40 }, { 0x38, 0x00 },
-                { 0x61, 0x0F }, { 0xA8, 0x00 }, { 0x0A, 0x00 }, { 0xAA, 0x00 },
-                { 0x9A, 0x00 }, { 0xC1, 0xA0 }, { 0xBA, 0x00 }, { 0x41, 0xFF } };
+        int prog[18][2] = {
+                { 0xA2, 0x7F }, { 0xE8, 0x00 }, { 0xCA, 0x00 }, { 0xA0, 0x00 },
+                { 0x88, 0x00 }, { 0xC8, 0x00 }, { 0x8A, 0x00 }, { 0xA8, 0x00 },
+                { 0xC8, 0x00 }, { 0xA9, 0x05 }, { 0x38, 0x00 }, { 0x61, 0x03 },
+                { 0xAA, 0x00 }, { 0xE8, 0x00 }, { 0x9A, 0x00 }, { 0xC1, 0x09 },
+                { 0xBA, 0x00 }, { 0x88, 0x00 } };
         std::vector<SqStep> seq;
         seq.push_back({ 0, 1 }); seq.push_back({ 0, 1 });
-        for (int i = 0; i < 16; ++i)
+        for (int i = 0; i < 18; ++i)
         {
                 seq.push_back({ prog[i][0], 0 }); seq.push_back({ prog[i][1], 0 });
                 seq.push_back({ 0, 0 }); seq.push_back({ 0, 0 });
@@ -2863,6 +2864,10 @@ static void testCpuCore6502()
                 int isTAX = (ir == 0xAA), isTXA = (ir == 0x8A), isTAY = (ir == 0xA8), isTYA = (ir == 0x98);
                 int isTSX = (ir == 0xBA), isTXS = (ir == 0x9A);
                 int we = isTAX || isTXA || isTAY || isTYA || isTSX || isTXS;
+                int isINX = (ir == 0xE8), isDEX = (ir == 0xCA), isINY = (ir == 0xC8), isDEY = (ir == 0x88);
+                int isIncX = isINX || isDEX, isIncY = isINY || isDEY, isID = isIncX || isIncY, dec = isDEX || isDEY;
+                int idval = isIncX ? X : Y;
+                int idres = dec ? ((idval - 1) & 0xFF) : ((idval + 1) & 0xFF);
                 int isCMP = (cc == 1) && (aaa == 6);
                 int isLDA = (cc == 1) && (aaa == 5);
                 int isLDX = (cc == 2) && (aaa == 5) && !we;
@@ -2876,13 +2881,13 @@ static void testCpuCore6502()
                 int shR = 0, shCout = 0;
                 shiftGolden6502(ir, A, Pc, shR, shCout);
                 int rslt = isSHF ? shR : aluOut;
-                int src = isImm ? BI : (isTAX || isTAY) ? A : isTXA ? X : isTYA ? Y : isTSX ? SP : isTXS ? X : ADD;
+                int src = isImm ? BI : isID ? idres : (isTAX || isTAY) ? A : isTXA ? X : isTYA ? Y : isTSX ? SP : isTXS ? X : ADD;
                 int aN = (src >> 7) & 1;
                 int aZ = (src == 0) ? 1 : 0;
                 int aC = isSHF ? shCout : aluC;
                 int isALU = (cc == 1);
                 int isArith = (cc == 1) && (aaa == 3 || aaa == 7);
-                int lnz = lda && (isALU || isSHF || isLDX || isLDY || (we && !isTXS)), lc = lda && (isArith || isCMP || isSHF), lv = lda && isArith;
+                int lnz = lda && (isALU || isSHF || isLDX || isLDY || isID || (we && !isTXS)), lc = lda && (isArith || isCMP || isSHF), lv = lda && isArith;
                 int writeOp = ((cc == 1) && !isCMP) || isSHF;
                 int writeA = lda && (writeOp || isTXA || isTYA);
                 int wbSrc = isImm ? BI : isTXA ? X : isTYA ? Y : ADD;
@@ -2893,8 +2898,8 @@ static void testCpuCore6502()
                 int nBI = ldin ? seq[i].db : BI;
                 int nADD = ldadd ? rslt : ADD;
                 int nA = writeA ? wbSrc : A;
-                int nX = (lda && (isLDX || isTAX || isTSX)) ? (isTAX ? A : isTSX ? SP : BI) : X;
-                int nY = (lda && (isLDY || isTAY)) ? (isTAY ? A : BI) : Y;
+                int nX = (lda && (isLDX || isTAX || isTSX || isIncX)) ? (isTAX ? A : isTSX ? SP : isIncX ? idres : BI) : X;
+                int nY = (lda && (isLDY || isTAY || isIncY)) ? (isTAY ? A : isIncY ? idres : BI) : Y;
                 int nSP = (lda && isTXS) ? X : SP;
                 int nPn = lnz ? aN : Pn, nPz = lnz ? aZ : Pz;
                 int nPc = (lda && (isSEC || isCLC)) ? (isSEC ? 1 : 0) : (lc ? aC : Pc);

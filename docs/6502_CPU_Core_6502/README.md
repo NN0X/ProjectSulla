@@ -50,7 +50,8 @@ instructions - and because a logic operation does not enable the C or V load, a 
 between two arithmetic ones leaves the carry and overflow untouched. This covers the memory-operand
 accumulator group ORA, AND, EOR, ADC, SBC, CMP and LDA (operand the byte after the opcode) plus
 the accumulator shifts and rotates ASL, ROL, LSR and ROR and the implied flag instructions
-CLC, SEC, CLI, SEI, CLV, CLD and SED, the index-register loads LDX and LDY, and the register transfers TAX, TXA, TAY, TYA, TSX and TXS.
+CLC, SEC, CLI, SEI, CLV, CLD and SED, the index-register loads LDX and LDY, the register transfers TAX, TXA, TAY, TYA, TSX and TXS, and the index inc/decrements INX, DEX,
+INY and DEY.
 
 CMP is the subtract with two differences from SBC: its carry-in is forced high (a full compare,
 not a borrow chain), and it does not write the accumulator - only the flags are updated, so it
@@ -70,6 +71,10 @@ transfer that sets no flags, so it changes the stack pointer without disturbing 
 (Because N and Z are read directly off the special bus, which carries whatever value is being
 written on any write-back, every instruction's N and Z fall out of the same place rather than a
 per-instruction mux.)
+
+INX, DEX, INY and DEY step an index register by one: an inc/dec unit takes the register (X or Y),
+adds or subtracts one, and its result is driven onto the special bus for the register to load, with
+N and Z from the result. The accumulator is untouched, and the carry is not affected.
 
 The shift and rotate instructions ASL, ROL, LSR and ROR work on the accumulator: a one-place
 shifter takes A, its direction from the opcode's direction bit and its fill (a shifted-in zero or
