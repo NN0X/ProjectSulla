@@ -3187,6 +3187,87 @@ static void testStore6502()
         }
 }
 
+struct LoadSample { int pc; int a; int n; int z; int ab; int rw; };
+
+static void runLoadOnEngine(Part& p, const std::vector<SqStep>& seq, int settleSteps, std::vector<LoadSample>& out)
+{
+	std::vector<State> st;
+	for (size_t i = 0; i < seq.size(); ++i)
+	{
+		for (int clk = 0; clk < 2; ++clk)
+		{
+			std::vector<int> in(10, 0);
+			for (int k = 0; k < 8; ++k) in[k] = (seq[i].db >> k) & 1;
+			in[8] = seq[i].rst; in[9] = clk;
+			std::vector<State> si = toStates(in);
+			for (int t = 0; t < settleSteps; ++t) st = p(si);
+		}
+		std::vector<int> b = toBits(st);
+		LoadSample s{ 0, 0, 0, 0, 0, 0 };
+		for (int k = 0; k < 16; ++k) s.pc |= b[k] << k;
+		for (int k = 0; k < 8; ++k) s.a |= b[16 + k] << k;
+		s.n = b[24]; s.z = b[25];
+		for (int k = 0; k < 16; ++k) s.ab |= b[65 + k] << k;
+		s.rw = b[89];
+		out.push_back(s);
+	}
+}
+
+static void testLoadZp6502()
+{
+	tf::section("6502 CPU core LDA zero-page (memory read: drives the effective address, reads the data bus into A): interp, native inline, native link");
+	const std::string NAME = "6502_CPU_Core_6502";
+	const int SETTLE = 150;
+	std::vector<SqStep> seq = {
+		{ 0x00, 1 }, { 0x00, 1 },
+		{ 0xA9, 0 }, { 0xAA, 0 }, { 0x00, 0 }, { 0x00, 0 },   // LDA #$AA
+		{ 0xA5, 0 }, { 0x10, 0 }, { 0x77, 0 }, { 0x00, 0 },   // LDA $10 (mem[$10]=$77 supplied on the read cycle)
+		{ 0xA5, 0 }, { 0x20, 0 }, { 0x00, 0 }, { 0x00, 0 } }; // LDA $20 (mem[$20]=$00 -> Z)
+
+	int iIn = 0, iOut = 0;
+	Part interp = loadLayoutAsPart("layouts/" + NAME + ".json", iIn, iOut);
+	if (!tf::check(interp != nullptr, "loadzp: interpreted loaded")) return;
+
+	const char* engName[3] = { "interpreted", "native inline", "native link" };
+	std::vector<std::vector<LoadSample>> got(3);
+	for (int e = 0; e < 3; ++e)
+	{
+		Part eng;
+		if (e == 0) eng = interp;
+		else { int nOut = 0; eng = buildNative(NAME, nOut, e == 2); if (!tf::check(eng != nullptr, std::string("loadzp: ") + engName[e] + " built")) continue; }
+		runLoadOnEngine(eng, seq, SETTLE, got[e]);
+	}
+
+	for (int e = 0; e < 3; ++e)
+	{
+		if (got[e].size() != seq.size()) continue;
+		LoadSample imm = got[e][5];    // after LDA #$AA
+		LoadSample rd1t2 = got[e][7];  // LDA $10 read cycle (T2)
+		LoadSample done1 = got[e][9];  // A <- mem[$10]
+		LoadSample rd2t2 = got[e][11]; // LDA $20 read cycle (T2)
+		LoadSample done2 = got[e][13]; // A <- mem[$20]
+		bool ok = imm.a == 0xAA && imm.n == 1
+			&& rd1t2.ab == 0x10 && rd1t2.rw == 1
+			&& done1.a == 0x77 && done1.n == 0 && done1.z == 0
+			&& rd2t2.ab == 0x20 && rd2t2.rw == 1
+			&& done2.a == 0x00 && done2.z == 1;
+		tf::check(ok, std::string("loadzp: ") + engName[e] + " LDA zp drives AB=zp addr on the read cycle and loads A from the data bus (N/Z from the loaded byte)");
+	}
+
+	if (got[0].size() == seq.size() && got[1].size() == seq.size() && got[2].size() == seq.size())
+	{
+		int d1 = 0, d2 = 0;
+		for (size_t i = 0; i < seq.size(); ++i)
+		{
+			LoadSample a = got[0][i], b = got[1][i], c = got[2][i];
+			if (a.pc != b.pc || a.a != b.a || a.n != b.n || a.z != b.z || a.ab != b.ab || a.rw != b.rw) d1++;
+			if (a.pc != c.pc || a.a != c.a || a.n != c.n || a.z != c.z || a.ab != c.ab || a.rw != c.rw) d2++;
+		}
+		tf::check(d1 == 0, "loadzp: interpreted == native inline (PC, A, N, Z, AB, R/W)");
+		tf::check(d2 == 0, "loadzp: interpreted == native link (PC, A, N, Z, AB, R/W)");
+	}
+}
+
 int main()
 {
         std::printf("%s%sSulla validation suite%s  (interpreted + native engines)\n",
@@ -3353,6 +3434,7 @@ int main()
         testCpuCore6502();
         testSystem6502();
         testStore6502();
+        testLoadZp6502();
         testRamPart();
         testRamPrimitives();
         testRom();

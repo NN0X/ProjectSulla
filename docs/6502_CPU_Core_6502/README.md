@@ -61,7 +61,8 @@ between two arithmetic ones leaves the carry and overflow untouched. This covers
 accumulator group ORA, AND, EOR, ADC, SBC, CMP and LDA (operand the byte after the opcode) plus
 the accumulator shifts and rotates ASL, ROL, LSR and ROR and the implied flag instructions
 CLC, SEC, CLI, SEI, CLV, CLD and SED, the index-register loads LDX and LDY, the register transfers TAX, TXA, TAY, TYA, TSX and TXS, the index inc/decrements INX, DEX,
-INY and DEY, and the store STA (zero-page) which writes the accumulator out to memory.
+INY and DEY, the store STA (zero-page) which writes the accumulator out to memory, and the load
+LDA (zero-page) which reads the accumulator back in from memory.
 
 CMP is the subtract with two differences from SBC: its carry-in is forced high (a full compare,
 not a borrow chain), and it does not write the accumulator - only the flags are updated, so it
@@ -119,6 +120,22 @@ later fetch or load. (The data-in and data-out buses are split across the part b
 a hierarchical part cannot expose a single bidirectional pin; a bus outside the CPU ties them into
 the one external data bus, driven by the CPU on a write and by memory on a read.)
 
+LDA zero-page (opcode A5) is the first instruction that reads from memory, and it introduces the
+first real addressing mode: the operand byte is an address, not a value. Where immediate LDA (A9)
+takes the operand byte straight into the accumulator, LDA zero-page uses it to fetch the byte at that
+zero-page address. It reuses the fixed four-cycle frame without adding a cycle: the operand register
+holds the zero-page address after the load cycle, so on the compute cycle the core drives that address
+onto the address bus (RW stays high - it is a read), the memory returns the byte on the data bus, and
+the operand register re-latches it. The write-back cycle then loads the accumulator from the operand
+register exactly as immediate LDA does, so the accumulator takes the memory byte and N and Z are set
+from it. The addressing mode is decoded from the opcode's mode field (bbb = 001 is zero-page, bbb =
+010 is immediate); only the zero-page load asks for the extra memory read, so every existing immediate
+and implied instruction is unchanged.
+
+Together STA and LDA zero-page close the loop: a program can store the accumulator to a memory cell
+and read it back, the processor's own writes feeding its own reads over the one shared address/data
+bus.
+
 A reset clears the program counter and timing to start at address zero; the accumulator and carry
 carry across a reset, as on the real device.
 
@@ -157,6 +174,12 @@ carry across a reset, as on the real device.
   zero-page effective address on a write, the program counter otherwise) and RW is its complement.
   DBout is the accumulator. The operand register (BI) already holds the byte read on the load cycle,
   which for a store is the address, so no extra latch is needed.
+- Zero-page read: LDA zero-page (cc=01 aaa=101, mode field bbb=001) raises a read-reload line on the
+  compute cycle. It extends the address-bus select (AB carries the operand register on this cycle too,
+  not just on a store) while leaving RW high, and it re-enables the operand register's load and the
+  data-bus input driver for that cycle, so the byte fetched from the effective address is captured back
+  into the operand register. The write-back then loads the accumulator from that register through the
+  existing immediate-load path, so no new write-back source or extra cycle is needed.
 
 ## Reference
 
