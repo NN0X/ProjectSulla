@@ -17,8 +17,8 @@ Inputs (10):
 Outputs (41):
 - PC0..PC15 - the program counter
 - A0..A7    - the accumulator
-- N, Z, C, V - the condition flags (C is registered and fed back as the ALU carry-in; N, Z, V are
-  the live ALU flags pending the full P status register)
+- N, Z, C, V - the condition flags, held in the P status register and updated per instruction by
+  the flags that instruction affects; C is fed back as the ALU carry-in
 - IR0..IR7  - the opcode currently running
 - T0, T1, T2 - the cycle within the instruction
 - FETCH, DONE - the fetch and last-cycle strobes
@@ -39,14 +39,17 @@ Because AI and BI come from two separate buses they load simultaneously, and bec
 accumulator loads from the registered ADD result rather than the live ALU output, the write-back
 never samples a still-settling value - the accumulator updates correctly every instruction.
 
-The carry flag is held in a one-bit register loaded only on the arithmetic opcodes (ADC and SBC),
-so a logic instruction between two arithmetic ones leaves the carry intact, and the ALU's carry-in
-is taken from this register - A = A OP operand with the carry carried across instructions, as on
-the real device. This covers the accumulator group that reads a memory operand: ORA, AND, EOR,
-ADC and SBC, where the operand is the byte after the opcode.
+The condition flags live in the P status register, which has a per-bit load enable so each
+instruction updates only the flags it affects: the logic operations (ORA, AND, EOR) update N and
+Z, while the arithmetic operations (ADC, SBC) update N, Z, C and V. The ALU's carry-in is taken
+from the register's C bit, so the carry is carried across instructions - and because a logic
+operation does not enable the C or V load, a logic instruction between two arithmetic ones leaves
+the carry and overflow untouched. This covers the accumulator group that reads a memory operand:
+ORA, AND, EOR, ADC and SBC, where the operand is the byte after the opcode.
 
-For example, `61 01` computes A = A + 1 + C and updates the carry; a following `21 0C` (AND) leaves
-that carry untouched; a later `61 00` then adds it back in.
+For example, `61 50` (ADC) adds and sets C and V from the result; a following `41 FF` (EOR)
+updates N and Z but leaves C and V as the ADC left them; a later `61 00` then adds the carry back
+in.
 
 A reset clears the program counter and timing to start at address zero; the accumulator and carry
 carry across a reset, as on the real device.
@@ -60,8 +63,9 @@ carry across a reset, as on the real device.
 - Datapath: SB and DB buses, the AI and BI input registers, the accumulator ALU, the ADD result
   register and the accumulator A - the faithful accumulator, its opcode taken from IR, its operand
   from DB and its carry-in from the carry register.
-- Carry register: one bit, loaded on the write-back cycle only for ADC/SBC, feeding the ALU
-  carry-in.
+- P status register: the condition flags, taken from the ALU flag outputs, with per-bit load
+  enables raised on the write-back cycle - N and Z for the accumulator group, C and V only for the
+  arithmetic operations - and its C bit fed back as the ALU carry-in.
 
 ## Reference
 

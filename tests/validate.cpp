@@ -2810,26 +2810,26 @@ static void testAccumulator6502()
         }
 }
 
-static void aluGolden6502(int op, int ai, int bi, int cin, int& out, int& c)
+static void aluGolden6502(int op, int ai, int bi, int cin, int& out, int& c, int& n, int& z, int& v)
 {
         int cc = op & 3, aaa = (op >> 5) & 7, sum = 0;
-        out = ai; c = cin;
+        out = ai; c = cin; v = 0;
         if (cc == 1 && aaa == 0) out = ai | bi;
         else if (cc == 1 && aaa == 1) out = ai & bi;
         else if (cc == 1 && aaa == 2) out = ai ^ bi;
-        else if (cc == 1 && aaa == 3) { sum = ai + bi + cin; out = sum & 0xFF; c = (sum >> 8) & 1; }
-        else if (cc == 1 && aaa == 7) { sum = ai + (bi ^ 0xFF) + cin; out = sum & 0xFF; c = (sum >> 8) & 1; }
-        out &= 0xFF;
+        else if (cc == 1 && aaa == 3) { sum = ai + bi + cin; out = sum & 0xFF; c = (sum >> 8) & 1; v = ((~(ai ^ bi) & (ai ^ out)) >> 7) & 1; }
+        else if (cc == 1 && aaa == 7) { sum = ai + (bi ^ 0xFF) + cin; out = sum & 0xFF; c = (sum >> 8) & 1; v = (((ai ^ bi) & (ai ^ out)) >> 7) & 1; }
+        out &= 0xFF; n = (out >> 7) & 1; z = (out == 0) ? 1 : 0;
 }
 
 static void testCpuCore6502()
 {
-        tf::section("6502 faithful CPU core (Program_Fetch + SB/DB/AI/BI/ADD datapath, carry feedback; memory-operand program): interp, native inline, native link");
+        tf::section("6502 faithful CPU core (Program_Fetch + SB/DB/AI/BI/ADD datapath, P status register with per-op flag masking; memory-operand program): interp, native inline, native link");
         const std::string NAME = "6502_CPU_Core_6502";
         const int SETTLE = 140;
         int prog[8][2] = {
-                { 0x01, 0x0F }, { 0x61, 0x01 }, { 0x61, 0xF8 }, { 0x61, 0x00 },
-                { 0x21, 0x0C }, { 0xE1, 0x02 }, { 0x41, 0xFF }, { 0x61, 0x01 } };
+                { 0x01, 0xF0 }, { 0x21, 0x0F }, { 0x41, 0x50 }, { 0x61, 0x50 },
+                { 0x61, 0x70 }, { 0x61, 0x00 }, { 0xE1, 0x12 }, { 0x41, 0xFF } };
         std::vector<SqStep> seq;
         seq.push_back({ 0, 1 }); seq.push_back({ 0, 1 });
         for (int i = 0; i < 8; ++i)
@@ -2838,16 +2838,17 @@ static void testCpuCore6502()
                 seq.push_back({ 0, 0 }); seq.push_back({ 0, 0 });
         }
 
-        std::vector<int> gPC, gA, gC, gIR, gT, gF, gD;
-        int cs = 0, ir = 0, pc = 0, AI = 0, BI = 0, ADD = 0, A = 0, Creg = 0;
+        std::vector<int> gPC, gA, gN, gZ, gC, gV, gIR, gT, gF, gD;
+        int cs = 0, ir = 0, pc = 0, AI = 0, BI = 0, ADD = 0, A = 0, Pn = 0, Pz = 0, Pc = 0, Pv = 0;
         for (size_t i = 0; i < seq.size(); ++i)
         {
                 int fetch = (cs == 0), ldin = (cs == 1), ldadd = (cs == 2), lda = (cs == 3), done = lda;
-                int aluOut = 0, aluC = 0;
-                aluGolden6502(ir, AI, BI, Creg, aluOut, aluC);
-                int aaa = (ir >> 5) & 7;
-                int isArith = ((ir & 3) == 1) && (aaa == 3 || aaa == 7);
-                int ldc = lda && isArith;
+                int aluOut = 0, aluC = 0, aluN = 0, aluZ = 0, aluV = 0;
+                aluGolden6502(ir, AI, BI, Pc, aluOut, aluC, aluN, aluZ, aluV);
+                int cc = ir & 3, aaa = (ir >> 5) & 7;
+                int isALU = (cc == 1);
+                int isArith = (cc == 1) && (aaa == 3 || aaa == 7);
+                int lnz = lda && isALU, lcv = lda && isArith;
                 int ncs = (seq[i].rst || done) ? 0 : ((cs + 1) & 7);
                 int nir = fetch ? seq[i].db : ir;
                 int npc = seq[i].rst ? 0 : (fetch ? ((pc + 1) & 0xFFFF) : pc);
@@ -2855,10 +2856,10 @@ static void testCpuCore6502()
                 int nBI = ldin ? seq[i].db : BI;
                 int nADD = ldadd ? aluOut : ADD;
                 int nA = lda ? ADD : A;
-                int nCreg = ldc ? aluC : Creg;
-                cs = ncs; ir = nir; pc = npc; AI = nAI; BI = nBI; ADD = nADD; A = nA; Creg = nCreg;
-                gPC.push_back(pc); gA.push_back(A); gC.push_back(Creg); gIR.push_back(ir);
-                gT.push_back(cs); gF.push_back(cs == 0 ? 1 : 0); gD.push_back(cs == 3 ? 1 : 0);
+                int nPn = lnz ? aluN : Pn, nPz = lnz ? aluZ : Pz, nPc = lcv ? aluC : Pc, nPv = lcv ? aluV : Pv;
+                cs = ncs; ir = nir; pc = npc; AI = nAI; BI = nBI; ADD = nADD; A = nA; Pn = nPn; Pz = nPz; Pc = nPc; Pv = nPv;
+                gPC.push_back(pc); gA.push_back(A); gN.push_back(Pn); gZ.push_back(Pz); gC.push_back(Pc); gV.push_back(Pv);
+                gIR.push_back(ir); gT.push_back(cs); gF.push_back(cs == 0 ? 1 : 0); gD.push_back(cs == 3 ? 1 : 0);
         }
 
         int iIn = 0, iOut = 0;
@@ -2868,8 +2869,8 @@ static void testCpuCore6502()
         runCpuOnEngine(interp, seq, SETTLE, iPC, iA, iN, iZ, iC, iV, iIR, iT, iF, iD);
         int gi = 0;
         for (size_t i = 0; i < seq.size(); ++i)
-                if (iPC[i] != gPC[i] || iA[i] != gA[i] || iC[i] != gC[i] || iIR[i] != gIR[i] || iT[i] != gT[i] || iF[i] != gF[i] || iD[i] != gD[i]) gi++;
-        tf::check(gi == 0, "cpu6502: interpreted runs the memory-operand program (A, C, PC, IR, timing match golden)");
+                if (iPC[i] != gPC[i] || iA[i] != gA[i] || iN[i] != gN[i] || iZ[i] != gZ[i] || iC[i] != gC[i] || iV[i] != gV[i] || iIR[i] != gIR[i] || iT[i] != gT[i] || iF[i] != gF[i] || iD[i] != gD[i]) gi++;
+        tf::check(gi == 0, "cpu6502: interpreted runs the program (A, N/Z/C/V flags, PC, IR, timing match golden)");
 
         const char* modeName[2] = { "inline", "link" };
         bool linkMode[2] = { false, true };
@@ -2883,8 +2884,8 @@ static void testCpuCore6502()
                 int gn = 0, df = 0;
                 for (size_t i = 0; i < seq.size(); ++i)
                 {
-                        if (nPC[i] != gPC[i] || nA[i] != gA[i] || nC[i] != gC[i] || nIR[i] != gIR[i] || nT[i] != gT[i] || nF[i] != gF[i] || nD[i] != gD[i]) gn++;
-                        if (nPC[i] != iPC[i] || nA[i] != iA[i] || nC[i] != iC[i] || nIR[i] != iIR[i] || nT[i] != iT[i] || nF[i] != iF[i] || nD[i] != iD[i]) df++;
+                        if (nPC[i] != gPC[i] || nA[i] != gA[i] || nN[i] != gN[i] || nZ[i] != gZ[i] || nC[i] != gC[i] || nV[i] != gV[i] || nIR[i] != gIR[i] || nT[i] != gT[i] || nF[i] != gF[i] || nD[i] != gD[i]) gn++;
+                        if (nPC[i] != iPC[i] || nA[i] != iA[i] || nN[i] != iN[i] || nZ[i] != iZ[i] || nC[i] != iC[i] || nV[i] != iV[i] || nIR[i] != iIR[i] || nT[i] != iT[i] || nF[i] != iF[i] || nD[i] != iD[i]) df++;
                 }
                 tf::check(gn == 0, std::string("cpu6502: native ") + modeName[m] + " runs the program (matches golden)");
                 tf::check(df == 0, std::string("cpu6502: interpreted == native ") + modeName[m]);
