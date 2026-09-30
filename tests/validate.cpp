@@ -3204,6 +3204,60 @@ static void testComputer6502()
 	}
 }
 
+static void testComputerLoop6502()
+{
+	tf::section("6502 computer running a real program: a loop computes 3x5 by repeated addition, stores to RAM, reads it back");
+	const std::string NAME = "6502_Computer_Loop";
+	const int SETTLE = 175;
+	const int nInstr = 25;
+	const int READBACK = 24;
+
+	int iIn = 0, iOut = 0;
+	Part interp = loadLayoutAsPart("layouts/" + NAME + ".json", iIn, iOut);
+	if (!tf::check(interp != nullptr, "loop: interpreted loaded")) return;
+
+	const char* engName[3] = { "interpreted", "native inline", "native link" };
+	std::vector<std::vector<int>> gotA(3), gotX(3);
+	for (int e = 0; e < 3; ++e)
+	{
+		Part eng;
+		if (e == 0) eng = interp;
+		else { int nOut = 0; eng = buildNative(NAME, nOut, e == 2); if (!tf::check(eng != nullptr, std::string("loop: ") + engName[e] + " built")) continue; }
+		auto clk = [&](int rst) {
+			std::vector<State> out;
+			for (int c = 0; c < 2; ++c) { std::vector<int> in(2, 0); in[0] = rst; in[1] = c; std::vector<State> si = toStates(in); for (int t = 0; t < SETTLE; ++t) out = eng(si); }
+			return toBits(out);
+		};
+		clk(1); clk(1);
+		for (int i = 0; i < nInstr; ++i)
+		{
+			std::vector<int> b;
+			for (int c = 0; c < 4; ++c) b = clk(0);
+			int a = 0, x = 0;
+			for (int k = 0; k < 8; ++k) { a |= b[16 + k] << k; x |= b[24 + k] << k; }
+			gotA[e].push_back(a); gotX[e].push_back(x);
+		}
+	}
+
+	for (int e = 0; e < 3; ++e)
+	{
+		if ((int)gotA[e].size() != nInstr) continue;
+		bool ok = gotX[e][20] == 0x00 && gotA[e][19] == 0x0F && gotA[e][READBACK] == 0x0F;
+		tf::check(ok, std::string("loop: ") + engName[e] + " loop computes 0x0F, stores it, and reads 0x0F back from RAM");
+	}
+	if (gotA[0].size() == (size_t)nInstr && gotA[1].size() == (size_t)nInstr && gotA[2].size() == (size_t)nInstr)
+	{
+		int d1 = 0, d2 = 0;
+		for (int i = 0; i < nInstr; ++i)
+		{
+			if (gotA[0][i] != gotA[1][i] || gotX[0][i] != gotX[1][i]) d1++;
+			if (gotA[0][i] != gotA[2][i] || gotX[0][i] != gotX[2][i]) d2++;
+		}
+		tf::check(d1 == 0, "loop: interpreted == native inline (A, X across the whole run)");
+		tf::check(d2 == 0, "loop: interpreted == native link (A, X across the whole run)");
+	}
+}
+
 struct BusSample { int pc; int a; int ab; int rw; int dbout; };
 
 static void runStoreOnEngine(Part& p, const std::vector<SqStep>& seq, int settleSteps, std::vector<BusSample>& out)
@@ -3538,6 +3592,7 @@ int main()
         testLoadZp6502();
         testBranch6502();
         testComputer6502();
+        testComputerLoop6502();
         testRamPart();
         testRamPrimitives();
         testRom();

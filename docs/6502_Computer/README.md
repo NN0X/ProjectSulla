@@ -48,6 +48,22 @@ It stores 0x42 to $80 and 0x99 to $81, clears the accumulator, then loads both b
 loads return 0x42 and 0x99, the bytes stored earlier, not immediate operands. The accumulator having
 been cleared to zero in between is what makes the read-back unambiguous.
 
+## A program with a loop
+
+A second build of the same machine, 6502_Computer_Loop, runs a real program that uses the control
+flow the branches added:
+
+    LDA #$00 ; LDX #$05
+    loop: CLC ; ADC #$03 ; DEX ; BNE loop
+    STA $80 ; LDA #$00 ; LDA $80
+
+It computes three times five by repeated addition - the accumulator climbs 3, 6, 9, 12, 15 as the
+loop runs five times, with X counting down 5 to 0 and BNE branching back to the top each time until X
+reaches zero. The result 0x0F is stored to RAM at $80; the accumulator is then cleared and loaded back
+from $80, so the final accumulator value 0x0F is the number the loop computed, written to memory and
+read back. It exercises the whole machine at once: arithmetic, a counter, a conditional backward
+branch, a store and a load, over the one shared bus.
+
 ## Construction
 
 - 6502_CPU_Core_6502 - the faithful CPU core, unchanged.
