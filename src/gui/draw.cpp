@@ -237,7 +237,70 @@ static Color gateAccent(PartType t)
         case PART_TYPE_XOR:  return THEME_GATE_PURPLE;
         case PART_TYPE_XNOR: return THEME_GATE_MAGENTA;
         case PART_TYPE_NOT:  return THEME_GATE_ORANGE;
+        case PART_TYPE_TRISTATE: return THEME_GATE_PURPLE;
+        case PART_TYPE_BUS:      return THEME_GATE_MAGENTA;
         default:             return THEME_GATE_GRAY;
+        }
+}
+
+static bool isShapePrimitive(PartType t)
+{
+        return t == PART_TYPE_TRISTATE || t == PART_TYPE_BUS;
+}
+
+static void drawRomGlyph(Rectangle body, float width)
+{
+        const int ROM_ROWS = 4;
+        const int ROM_COLS = 6;
+        const float ROM_CELL = 5.0f;
+        const float ROM_GAP = 2.0f;
+        const float ROM_TOP_PAD = 4.0f;
+        const Color ROM_ACCENT = Color{ 210, 180, 100, 255 };
+        float gridW = ROM_COLS * ROM_CELL + (ROM_COLS - 1) * ROM_GAP;
+        float gx = body.x + (width - gridW) / 2.0f;
+        float gy = body.y + PART_TITLE_HEIGHT + ROM_TOP_PAD;
+        for (int r = 0; r < ROM_ROWS; ++r)
+        for (int col = 0; col < ROM_COLS; ++col)
+        {
+                float cx = gx + col * (ROM_CELL + ROM_GAP);
+                float cy = gy + r * (ROM_CELL + ROM_GAP);
+                if (((r + col) & 1) == 0) DrawRectangleRec({cx, cy, ROM_CELL, ROM_CELL}, ROM_ACCENT);
+                else DrawRectangleLinesEx({cx, cy, ROM_CELL, ROM_CELL}, 1.0f, ROM_ACCENT);
+        }
+}
+
+static void drawPrimitiveShape(PartType type, Rectangle b, Color fill, Color accent)
+{
+        const float ENABLE_STUB = 0.55f;
+        const float BUS_NARROW = 0.30f;
+        const float TICK_LEN = 5.0f;
+        float x = b.x, y = b.y, w = b.width, h = b.height;
+        if (type == PART_TYPE_TRISTATE)
+        {
+                Vector2 top = {x, y};
+                Vector2 bot = {x, y + h};
+                Vector2 tip = {x + w, y + h / 2.0f};
+                DrawTriangle(bot, top, tip, fill);
+                DrawTriangleLines(bot, top, tip, accent);
+                float ecx = x + w * 0.32f;
+                float eEdge = y + h * (0.5f - 0.5f * (1.0f - 0.32f));
+                DrawLineEx({ecx, y + h * (1.0f - ENABLE_STUB) / 2.0f}, {ecx, eEdge}, 2.0f, accent);
+        }
+        else if (type == PART_TYPE_BUS)
+        {
+                Vector2 tl = {x, y};
+                Vector2 bl = {x, y + h};
+                Vector2 tr = {x + w, y + h * BUS_NARROW};
+                Vector2 br = {x + w, y + h * (1.0f - BUS_NARROW)};
+                DrawTriangle(bl, tl, tr, fill);
+                DrawTriangle(bl, tr, br, fill);
+                DrawLineEx(tl, tr, 2.0f, accent);
+                DrawLineEx(bl, br, 2.0f, accent);
+                DrawLineEx(tl, bl, 2.0f, accent);
+                DrawLineEx(tr, br, 2.0f, accent);
+                float q = h / 4.0f;
+                for (int i = 1; i < 4; ++i)
+                        DrawLineEx({x - TICK_LEN, y + q * i}, {x, y + q * i}, 2.0f, accent);
         }
 }
 
@@ -329,7 +392,7 @@ void drawParts(AppState& state)
                 Color borderColor = cBorder;
                 if (state.selectedParts.count(id)) borderColor = COLOR_PART_SELECTED;
                 Rectangle body = {pos.x - size.x/2, pos.y - size.y/2, size.x, size.y};
-                if (isLogicGate(type))
+                if (isLogicGate(type) || isShapePrimitive(type))
                 {
                         Color accent = state.selectedParts.count(id) ? COLOR_PART_SELECTED : gateAccent(type);
                         const std::string& partName = state.labels[id];
@@ -342,7 +405,8 @@ void drawParts(AppState& state)
                                 drawTextFit(partName.c_str(), nx, body.y + PART_LABEL_OFFSET, size.x - TEXT_PADDING, 10, cText);
                         }
                         Rectangle glyph = {body.x, body.y + titleH, size.x, size.y - titleH};
-                        drawGateGlyph(type, glyph, cBg, accent);
+                        if (isLogicGate(type)) drawGateGlyph(type, glyph, cBg, accent);
+                        else drawPrimitiveShape(type, glyph, cBg, accent);
                 }
                 else
                 {
@@ -425,6 +489,10 @@ void drawParts(AppState& state)
                                 last = {bx, ny};
                         }
                         DrawLineEx(last, {x1, last.y}, 1.5f, wave);
+                }
+                else if (type == PART_TYPE_ROM)
+                {
+                        drawRomGlyph(body, size.x);
                 }
                 if (type != PART_TYPE_SOURCE && type != PART_TYPE_CLOCK)
                 {
