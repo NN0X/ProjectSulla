@@ -28,15 +28,20 @@ Outputs (65):
 
 ## Behaviour
 
-Each instruction runs the four-cycle micro-sequence of the faithful accumulator, timed by one
-counter shared with the fetch unit:
+Each instruction runs the four-cycle micro-sequence of the faithful accumulator, timed by the
+fetch unit's counter:
 
-    cycle 0  fetch    - the opcode is latched into IR and the program counter advances
+    cycle 0  fetch    - the opcode is latched into IR and the program counter advances one byte
     cycle 1  load     - the accumulator drives SB into AI and the memory operand drives DB into
-                        BI, both loaded at once, one from each bus
+                        BI, both loaded at once, one from each bus; the program counter advances a
+                        second byte only when the opcode carries an operand
     cycle 2  compute  - the ALU computes AI OP BI and the result is captured into the ADD register
     cycle 3  writeback- the ADD register drives SB back into the accumulator; DONE is raised and
                         the counter returns to cycle 0
+
+The program counter is a real 16-bit counter with a count enable, separate from the fetch unit,
+so it advances by the true instruction length: one byte for the implied instructions and two for
+the ones that read an operand (all of the cc = 01 group and the immediate LDX and LDY).
 
 Because AI and BI come from two separate buses they load simultaneously, and because the
 accumulator loads from the registered ADD result rather than the live ALU output, the write-back
@@ -96,9 +101,11 @@ carry across a reset, as on the real device.
 
 ## Construction
 
-- Program fetch: the shared cycle counter, the instruction register (latched on the fetch cycle)
-  and the program counter (advanced on the fetch cycle) - one counter for the whole instruction,
-  its DONE input the write-back strobe, so an instruction is four cycles.
+- Fetch unit: the cycle counter and the instruction register (latched on the fetch cycle) - its
+  DONE input is the write-back strobe, so an instruction is four cycles.
+- Program counter: a 16-bit counter with a count enable, cleared on reset, its count enable raised
+  on the fetch cycle and again on the operand cycle when the opcode carries an operand - so it
+  advances by the instruction's true byte length.
 - Phase decode: T0 fetch, T1 load AI/BI, T2 load ADD, T3 write back - a few gates off the counter.
 - Datapath: SB and DB buses, the AI and BI input registers, the accumulator ALU, a one-place
   shifter, the ADD result register, the accumulator A, the X and Y index registers and the stack pointer - the

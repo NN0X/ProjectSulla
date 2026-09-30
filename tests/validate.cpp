@@ -2893,7 +2893,9 @@ static void testCpuCore6502()
                 int wbSrc = isImm ? BI : isTXA ? X : isTYA ? Y : ADD;
                 int ncs = (seq[i].rst || done) ? 0 : ((cs + 1) & 7);
                 int nir = fetch ? seq[i].db : ir;
-                int npc = seq[i].rst ? 0 : (fetch ? ((pc + 1) & 0xFFFF) : pc);
+                int hasOperand = (cc == 1) || isLDX || isLDY;
+                int ce = fetch || (ldin && hasOperand);
+                int npc = seq[i].rst ? 0 : (ce ? ((pc + 1) & 0xFFFF) : pc);
                 int nAI = ldin ? A : AI;
                 int nBI = ldin ? seq[i].db : BI;
                 int nADD = ldadd ? rslt : ADD;
