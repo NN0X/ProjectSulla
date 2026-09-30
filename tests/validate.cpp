@@ -2082,7 +2082,8 @@ static void testAccumulatorExecute()
 static void runCpuOnEngine(Part& p, const std::vector<SqStep>& seq, int settleSteps,
                            std::vector<int>& pc, std::vector<int>& a, std::vector<int>& n, std::vector<int>& z,
                            std::vector<int>& cc, std::vector<int>& v, std::vector<int>& ir, std::vector<int>& t,
-                           std::vector<int>& f, std::vector<int>& d, std::vector<int>& x, std::vector<int>& y)
+                           std::vector<int>& f, std::vector<int>& d, std::vector<int>& x, std::vector<int>& y,
+                           std::vector<int>& sp)
 {
         std::vector<State> out;
         for (size_t i = 0; i < seq.size(); i++)
@@ -2101,10 +2102,11 @@ static void runCpuOnEngine(Part& p, const std::vector<SqStep>& seq, int settleSt
                 int irv = 0; for (int k = 0; k < 8; k++) irv |= b[28 + k] << k;
                 pc.push_back(pcv); a.push_back(av); n.push_back(b[24]); z.push_back(b[25]); cc.push_back(b[26]); v.push_back(b[27]);
                 ir.push_back(irv); t.push_back(b[36] | (b[37] << 1) | (b[38] << 2)); f.push_back(b[39]); d.push_back(b[40]);
-                int xv = 0, yv = 0;
+                int xv = 0, yv = 0, spv = 0;
                 if ((int)b.size() >= 49) for (int k = 0; k < 8; k++) xv |= b[41 + k] << k;
                 if ((int)b.size() >= 57) for (int k = 0; k < 8; k++) yv |= b[49 + k] << k;
-                x.push_back(xv); y.push_back(yv);
+                if ((int)b.size() >= 65) for (int k = 0; k < 8; k++) spv |= b[57 + k] << k;
+                x.push_back(xv); y.push_back(yv); sp.push_back(spv);
         }
 }
 
@@ -2142,8 +2144,8 @@ static void testCpuCore()
         int iIn = 0, iOut = 0;
         Part interp = loadLayoutAsPart("layouts/" + NAME + ".json", iIn, iOut);
         if (!tf::check(interp != nullptr, "cpu: interpreted loaded")) return;
-        std::vector<int> iPC, iA, iN, iZ, iC, iV, iIR, iT, iF, iD, iX, iY;
-        runCpuOnEngine(interp, seq, SETTLE, iPC, iA, iN, iZ, iC, iV, iIR, iT, iF, iD, iX, iY);
+        std::vector<int> iPC, iA, iN, iZ, iC, iV, iIR, iT, iF, iD, iX, iY, iSP;
+        runCpuOnEngine(interp, seq, SETTLE, iPC, iA, iN, iZ, iC, iV, iIR, iT, iF, iD, iX, iY, iSP);
         int gi = 0;
         for (size_t i = 0; i < seq.size(); i++)
                 if (iPC[i] != gPC[i] || iA[i] != gA[i] || iN[i] != gN[i] || iZ[i] != gZ[i] || iC[i] != gC[i] || iV[i] != gV[i] || iIR[i] != gIR[i] || iT[i] != gT[i] || iF[i] != gF[i] || iD[i] != gD[i]) gi++;
@@ -2156,8 +2158,8 @@ static void testCpuCore()
                 int nOut = 0;
                 Part nat = buildNative(NAME, nOut, linkMode[m]);
                 if (!tf::check(nat != nullptr, std::string("cpu: native ") + modeName[m] + " built")) continue;
-                std::vector<int> nPC, nA, nN, nZ, nC, nV, nIR, nT, nF, nD, nX, nY;
-                runCpuOnEngine(nat, seq, SETTLE, nPC, nA, nN, nZ, nC, nV, nIR, nT, nF, nD, nX, nY);
+                std::vector<int> nPC, nA, nN, nZ, nC, nV, nIR, nT, nF, nD, nX, nY, nSP;
+                runCpuOnEngine(nat, seq, SETTLE, nPC, nA, nN, nZ, nC, nV, nIR, nT, nF, nD, nX, nY, nSP);
                 int gn = 0, df = 0;
                 for (size_t i = 0; i < seq.size(); i++)
                 {
@@ -2836,30 +2838,31 @@ static void shiftGolden6502(int op, int a, int cin, int& r, int& cout)
 
 static void testCpuCore6502()
 {
-        tf::section("6502 faithful CPU core (accumulator group + flag ops + LDX/LDY + transfers TAX/TXA/TAY/TYA): interp, native inline, native link");
+        tf::section("6502 faithful CPU core (accumulator group + flag ops + LDX/LDY + transfers incl. SP: TAX/TXA/TAY/TYA/TSX/TXS): interp, native inline, native link");
         const std::string NAME = "6502_CPU_Core_6502";
         const int SETTLE = 140;
-        int prog[14][2] = {
-                { 0xA2, 0xF0 }, { 0x8A, 0x00 }, { 0xA0, 0x0F }, { 0x98, 0x00 },
-                { 0xAA, 0x00 }, { 0xA9, 0x40 }, { 0x38, 0x00 }, { 0x61, 0x0F },
-                { 0xA8, 0x00 }, { 0x0A, 0x00 }, { 0xAA, 0x00 }, { 0x18, 0x00 },
-                { 0xC1, 0xA0 }, { 0x41, 0xFF } };
+        int prog[16][2] = {
+                { 0xA2, 0xFF }, { 0x9A, 0x00 }, { 0xA0, 0x0F }, { 0x98, 0x00 },
+                { 0xA2, 0x00 }, { 0xBA, 0x00 }, { 0xA9, 0x40 }, { 0x38, 0x00 },
+                { 0x61, 0x0F }, { 0xA8, 0x00 }, { 0x0A, 0x00 }, { 0xAA, 0x00 },
+                { 0x9A, 0x00 }, { 0xC1, 0xA0 }, { 0xBA, 0x00 }, { 0x41, 0xFF } };
         std::vector<SqStep> seq;
         seq.push_back({ 0, 1 }); seq.push_back({ 0, 1 });
-        for (int i = 0; i < 14; ++i)
+        for (int i = 0; i < 16; ++i)
         {
                 seq.push_back({ prog[i][0], 0 }); seq.push_back({ prog[i][1], 0 });
                 seq.push_back({ 0, 0 }); seq.push_back({ 0, 0 });
         }
 
-        std::vector<int> gPC, gA, gN, gZ, gC, gV, gIR, gT, gF, gD, gX, gY;
-        int cs = 0, ir = 0, pc = 0, AI = 0, BI = 0, ADD = 0, A = 0, X = 0, Y = 0, Pn = 0, Pz = 0, Pc = 0, Pv = 0;
+        std::vector<int> gPC, gA, gN, gZ, gC, gV, gIR, gT, gF, gD, gX, gY, gSP;
+        int cs = 0, ir = 0, pc = 0, AI = 0, BI = 0, ADD = 0, A = 0, X = 0, Y = 0, SP = 0, Pn = 0, Pz = 0, Pc = 0, Pv = 0;
         for (size_t i = 0; i < seq.size(); ++i)
         {
                 int fetch = (cs == 0), ldin = (cs == 1), ldadd = (cs == 2), lda = (cs == 3), done = lda;
                 int cc = ir & 3, aaa = (ir >> 5) & 7;
                 int isTAX = (ir == 0xAA), isTXA = (ir == 0x8A), isTAY = (ir == 0xA8), isTYA = (ir == 0x98);
-                int we = isTAX || isTXA || isTAY || isTYA;
+                int isTSX = (ir == 0xBA), isTXS = (ir == 0x9A);
+                int we = isTAX || isTXA || isTAY || isTYA || isTSX || isTXS;
                 int isCMP = (cc == 1) && (aaa == 6);
                 int isLDA = (cc == 1) && (aaa == 5);
                 int isLDX = (cc == 2) && (aaa == 5) && !we;
@@ -2873,13 +2876,13 @@ static void testCpuCore6502()
                 int shR = 0, shCout = 0;
                 shiftGolden6502(ir, A, Pc, shR, shCout);
                 int rslt = isSHF ? shR : aluOut;
-                int src = isImm ? BI : (isTAX || isTAY) ? A : isTXA ? X : isTYA ? Y : ADD;
+                int src = isImm ? BI : (isTAX || isTAY) ? A : isTXA ? X : isTYA ? Y : isTSX ? SP : isTXS ? X : ADD;
                 int aN = (src >> 7) & 1;
                 int aZ = (src == 0) ? 1 : 0;
                 int aC = isSHF ? shCout : aluC;
                 int isALU = (cc == 1);
                 int isArith = (cc == 1) && (aaa == 3 || aaa == 7);
-                int lnz = lda && (isALU || isSHF || isLDX || isLDY || we), lc = lda && (isArith || isCMP || isSHF), lv = lda && isArith;
+                int lnz = lda && (isALU || isSHF || isLDX || isLDY || (we && !isTXS)), lc = lda && (isArith || isCMP || isSHF), lv = lda && isArith;
                 int writeOp = ((cc == 1) && !isCMP) || isSHF;
                 int writeA = lda && (writeOp || isTXA || isTYA);
                 int wbSrc = isImm ? BI : isTXA ? X : isTYA ? Y : ADD;
@@ -2890,26 +2893,27 @@ static void testCpuCore6502()
                 int nBI = ldin ? seq[i].db : BI;
                 int nADD = ldadd ? rslt : ADD;
                 int nA = writeA ? wbSrc : A;
-                int nX = (lda && (isLDX || isTAX)) ? (isTAX ? A : BI) : X;
+                int nX = (lda && (isLDX || isTAX || isTSX)) ? (isTAX ? A : isTSX ? SP : BI) : X;
                 int nY = (lda && (isLDY || isTAY)) ? (isTAY ? A : BI) : Y;
+                int nSP = (lda && isTXS) ? X : SP;
                 int nPn = lnz ? aN : Pn, nPz = lnz ? aZ : Pz;
                 int nPc = (lda && (isSEC || isCLC)) ? (isSEC ? 1 : 0) : (lc ? aC : Pc);
                 int nPv = (lda && isCLV) ? 0 : (lv ? aluV : Pv);
-                cs = ncs; ir = nir; pc = npc; AI = nAI; BI = nBI; ADD = nADD; A = nA; X = nX; Y = nY; Pn = nPn; Pz = nPz; Pc = nPc; Pv = nPv;
+                cs = ncs; ir = nir; pc = npc; AI = nAI; BI = nBI; ADD = nADD; A = nA; X = nX; Y = nY; SP = nSP; Pn = nPn; Pz = nPz; Pc = nPc; Pv = nPv;
                 gPC.push_back(pc); gA.push_back(A); gN.push_back(Pn); gZ.push_back(Pz); gC.push_back(Pc); gV.push_back(Pv);
                 gIR.push_back(ir); gT.push_back(cs); gF.push_back(cs == 0 ? 1 : 0); gD.push_back(cs == 3 ? 1 : 0);
-                gX.push_back(X); gY.push_back(Y);
+                gX.push_back(X); gY.push_back(Y); gSP.push_back(SP);
         }
 
         int iIn = 0, iOut = 0;
         Part interp = loadLayoutAsPart("layouts/" + NAME + ".json", iIn, iOut);
         if (!tf::check(interp != nullptr, "cpu6502: interpreted loaded")) return;
-        std::vector<int> iPC, iA, iN, iZ, iC, iV, iIR, iT, iF, iD, iX, iY;
-        runCpuOnEngine(interp, seq, SETTLE, iPC, iA, iN, iZ, iC, iV, iIR, iT, iF, iD, iX, iY);
+        std::vector<int> iPC, iA, iN, iZ, iC, iV, iIR, iT, iF, iD, iX, iY, iSP;
+        runCpuOnEngine(interp, seq, SETTLE, iPC, iA, iN, iZ, iC, iV, iIR, iT, iF, iD, iX, iY, iSP);
         int gi = 0;
         for (size_t i = 0; i < seq.size(); ++i)
-                if (iPC[i] != gPC[i] || iA[i] != gA[i] || iN[i] != gN[i] || iZ[i] != gZ[i] || iC[i] != gC[i] || iV[i] != gV[i] || iIR[i] != gIR[i] || iT[i] != gT[i] || iF[i] != gF[i] || iD[i] != gD[i] || iX[i] != gX[i] || iY[i] != gY[i]) gi++;
-        tf::check(gi == 0, "cpu6502: interpreted runs the program (A, X, Y, N/Z/C/V flags, PC, IR, timing match golden)");
+                if (iPC[i] != gPC[i] || iA[i] != gA[i] || iN[i] != gN[i] || iZ[i] != gZ[i] || iC[i] != gC[i] || iV[i] != gV[i] || iIR[i] != gIR[i] || iT[i] != gT[i] || iF[i] != gF[i] || iD[i] != gD[i] || iX[i] != gX[i] || iY[i] != gY[i] || iSP[i] != gSP[i]) gi++;
+        tf::check(gi == 0, "cpu6502: interpreted runs the program (A, X, Y, SP, N/Z/C/V flags, PC, IR, timing match golden)");
 
         const char* modeName[2] = { "inline", "link" };
         bool linkMode[2] = { false, true };
@@ -2918,13 +2922,13 @@ static void testCpuCore6502()
                 int nOut = 0;
                 Part nat = buildNative(NAME, nOut, linkMode[m]);
                 if (!tf::check(nat != nullptr, std::string("cpu6502: native ") + modeName[m] + " built")) continue;
-                std::vector<int> nPC, nA, nN, nZ, nC, nV, nIR, nT, nF, nD, nX, nY;
-                runCpuOnEngine(nat, seq, SETTLE, nPC, nA, nN, nZ, nC, nV, nIR, nT, nF, nD, nX, nY);
+                std::vector<int> nPC, nA, nN, nZ, nC, nV, nIR, nT, nF, nD, nX, nY, nSP;
+                runCpuOnEngine(nat, seq, SETTLE, nPC, nA, nN, nZ, nC, nV, nIR, nT, nF, nD, nX, nY, nSP);
                 int gn = 0, df = 0;
                 for (size_t i = 0; i < seq.size(); ++i)
                 {
-                        if (nPC[i] != gPC[i] || nA[i] != gA[i] || nN[i] != gN[i] || nZ[i] != gZ[i] || nC[i] != gC[i] || nV[i] != gV[i] || nIR[i] != gIR[i] || nT[i] != gT[i] || nF[i] != gF[i] || nD[i] != gD[i] || nX[i] != gX[i] || nY[i] != gY[i]) gn++;
-                        if (nPC[i] != iPC[i] || nA[i] != iA[i] || nN[i] != iN[i] || nZ[i] != iZ[i] || nC[i] != iC[i] || nV[i] != iV[i] || nIR[i] != iIR[i] || nT[i] != iT[i] || nF[i] != iF[i] || nD[i] != iD[i] || nX[i] != iX[i] || nY[i] != iY[i]) df++;
+                        if (nPC[i] != gPC[i] || nA[i] != gA[i] || nN[i] != gN[i] || nZ[i] != gZ[i] || nC[i] != gC[i] || nV[i] != gV[i] || nIR[i] != gIR[i] || nT[i] != gT[i] || nF[i] != gF[i] || nD[i] != gD[i] || nX[i] != gX[i] || nY[i] != gY[i] || nSP[i] != gSP[i]) gn++;
+                        if (nPC[i] != iPC[i] || nA[i] != iA[i] || nN[i] != iN[i] || nZ[i] != iZ[i] || nC[i] != iC[i] || nV[i] != iV[i] || nIR[i] != iIR[i] || nT[i] != iT[i] || nF[i] != iF[i] || nD[i] != iD[i] || nX[i] != iX[i] || nY[i] != iY[i] || nSP[i] != iSP[i]) df++;
                 }
                 tf::check(gn == 0, std::string("cpu6502: native ") + modeName[m] + " runs the program (matches golden)");
                 tf::check(df == 0, std::string("cpu6502: interpreted == native ") + modeName[m]);

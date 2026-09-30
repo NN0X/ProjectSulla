@@ -14,11 +14,12 @@ Inputs (10):
 - RST      - reset the program counter and timing
 - CLK      - the clock
 
-Outputs (57):
+Outputs (65):
 - PC0..PC15 - the program counter
 - A0..A7    - the accumulator
 - X0..X7    - the X index register
 - Y0..Y7    - the Y index register
+- SP0..SP7  - the stack pointer
 - N, Z, C, V - the condition flags, held in the P status register and updated per instruction by
   the flags that instruction affects; C is fed back as the ALU carry-in
 - IR0..IR7  - the opcode currently running
@@ -49,7 +50,7 @@ instructions - and because a logic operation does not enable the C or V load, a 
 between two arithmetic ones leaves the carry and overflow untouched. This covers the memory-operand
 accumulator group ORA, AND, EOR, ADC, SBC, CMP and LDA (operand the byte after the opcode) plus
 the accumulator shifts and rotates ASL, ROL, LSR and ROR and the implied flag instructions
-CLC, SEC, CLI, SEI, CLV, CLD and SED, the index-register loads LDX and LDY, and the register transfers TAX, TXA, TAY and TYA.
+CLC, SEC, CLI, SEI, CLV, CLD and SED, the index-register loads LDX and LDY, and the register transfers TAX, TXA, TAY, TYA, TSX and TXS.
 
 CMP is the subtract with two differences from SBC: its carry-in is forced high (a full compare,
 not a borrow chain), and it does not write the accumulator - only the flags are updated, so it
@@ -61,11 +62,14 @@ and V are left unchanged. LDX and LDY are the same load into the X and Y index r
 registers on the special bus - each loading the operand and setting N and Z from it while leaving
 the accumulator and the other index register alone.
 
-The register-to-register transfers TAX, TXA, TAY and TYA move one register into another over the
-special bus: the source register drives the bus and the destination loads from it, with N and Z
-taken from the moved value. (Because N and Z are read directly off the special bus, which carries
-whatever value is being written on any write-back, every instruction's N and Z fall out of the same
-place rather than a per-instruction mux.)
+The register-to-register transfers TAX, TXA, TAY, TYA, TSX and TXS move one register into another
+over the special bus: the source register drives the bus and the destination loads from it, with N
+and Z taken from the moved value. TSX and TXS add the stack pointer as a fourth special-bus
+register - TSX copies it into X (setting N and Z) and TXS copies X into it, and TXS is the one
+transfer that sets no flags, so it changes the stack pointer without disturbing the status register.
+(Because N and Z are read directly off the special bus, which carries whatever value is being
+written on any write-back, every instruction's N and Z fall out of the same place rather than a
+per-instruction mux.)
 
 The shift and rotate instructions ASL, ROL, LSR and ROR work on the accumulator: a one-place
 shifter takes A, its direction from the opcode's direction bit and its fill (a shifted-in zero or
@@ -92,7 +96,7 @@ carry across a reset, as on the real device.
   its DONE input the write-back strobe, so an instruction is four cycles.
 - Phase decode: T0 fetch, T1 load AI/BI, T2 load ADD, T3 write back - a few gates off the counter.
 - Datapath: SB and DB buses, the AI and BI input registers, the accumulator ALU, a one-place
-  shifter, the ADD result register, the accumulator A and the X and Y index registers - the
+  shifter, the ADD result register, the accumulator A, the X and Y index registers and the stack pointer - the
   faithful accumulator, its opcode
   taken from IR, its operand from DB and its carry-in from the P register. The ADD register takes
   the shifter's output on a shift and the ALU's output otherwise; on write-back the special bus is
