@@ -271,36 +271,33 @@ static void drawRomGlyph(Rectangle body, float width)
 
 static void drawPrimitiveShape(PartType type, Rectangle b, Color fill, Color accent)
 {
-        const float ENABLE_STUB = 0.55f;
-        const float BUS_NARROW = 0.30f;
-        const float TICK_LEN = 5.0f;
+        const float TRI_INSET = 0.14f;
+        const float TRI_ENABLE_W = 2.5f;
+        const float TRI_DOT_R = 2.4f;
+        const float BUS_BAR_FRAC = 0.32f;
+        const float BUS_PAD_FRAC = 0.06f;
+        const float BUS_OUT_W = 3.0f;
         float x = b.x, y = b.y, w = b.width, h = b.height;
         if (type == PART_TYPE_TRISTATE)
         {
-                Vector2 top = {x, y};
-                Vector2 bot = {x, y + h};
+                float inset = h * TRI_INSET;
+                Vector2 top = {x, y + inset};
+                Vector2 bot = {x, y + h - inset};
                 Vector2 tip = {x + w, y + h / 2.0f};
                 DrawTriangle(bot, top, tip, fill);
                 DrawTriangleLines(bot, top, tip, accent);
-                float ecx = x + w * 0.32f;
-                float eEdge = y + h * (0.5f - 0.5f * (1.0f - 0.32f));
-                DrawLineEx({ecx, y + h * (1.0f - ENABLE_STUB) / 2.0f}, {ecx, eEdge}, 2.0f, accent);
+                float ex = x + w / 2.0f;
+                float lowerEdge = (y + h - inset) + ((y + h / 2.0f) - (y + h - inset)) * 0.5f;
+                DrawLineEx({ex, y + h}, {ex, lowerEdge}, TRI_ENABLE_W, accent);
+                DrawCircleV({ex, lowerEdge}, TRI_DOT_R, accent);
         }
         else if (type == PART_TYPE_BUS)
         {
-                Vector2 tl = {x, y};
-                Vector2 bl = {x, y + h};
-                Vector2 tr = {x + w, y + h * BUS_NARROW};
-                Vector2 br = {x + w, y + h * (1.0f - BUS_NARROW)};
-                DrawTriangle(bl, tl, tr, fill);
-                DrawTriangle(bl, tr, br, fill);
-                DrawLineEx(tl, tr, 2.0f, accent);
-                DrawLineEx(bl, br, 2.0f, accent);
-                DrawLineEx(tl, bl, 2.0f, accent);
-                DrawLineEx(tr, br, 2.0f, accent);
-                float q = h / 4.0f;
-                for (int i = 1; i < 4; ++i)
-                        DrawLineEx({x - TICK_LEN, y + q * i}, {x, y + q * i}, 2.0f, accent);
+                float barW = w * BUS_BAR_FRAC;
+                float barTop = y + h * BUS_PAD_FRAC;
+                float barBot = y + h * (1.0f - BUS_PAD_FRAC);
+                DrawRectangleRec({x, barTop, barW, barBot - barTop}, accent);
+                DrawLineEx({x + barW, y + h / 2.0f}, {x + w, y + h / 2.0f}, BUS_OUT_W, accent);
         }
 }
 
@@ -972,7 +969,7 @@ void drawUI(AppState& state)
                 y += HELP_LINE_SPACING;
                 DrawText("  Right Click ROM: Load Hex File", x, y, HELP_TEXT_SIZE, textC);
                 y += HELP_LINE_SPACING;
-                DrawText("  Tri-state: in0 data, in1 enable", x, y, HELP_TEXT_SIZE, textC);
+                DrawText("  Tri-state: data left, enable bottom", x, y, HELP_TEXT_SIZE, textC);
                 y += HELP_LINE_SPACING;
                 DrawText("  Bus: resolves its tri-state drivers", x, y, HELP_TEXT_SIZE, textC);
                 y += HELP_LINE_SPACING;

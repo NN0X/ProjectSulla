@@ -85,23 +85,78 @@ int getPinCount(const AppState& state, int id, bool isInput)
         return state.outputCounts.count(id) ? state.outputCounts.at(id) : 0;
 }
 
+enum PinSide
+{
+        PIN_SIDE_LEFT,
+        PIN_SIDE_RIGHT,
+        PIN_SIDE_BOTTOM
+};
+
+static PinSide pinSideOf(const AppState& state, int id, bool isInput, int index)
+{
+        PartType type = state.partTypes.count(id) ? state.partTypes.at(id) : PART_TYPE_AND;
+        if (isInput && type == PART_TYPE_TRISTATE && index == 1) return PIN_SIDE_BOTTOM;
+        return isInput ? PIN_SIDE_LEFT : PIN_SIDE_RIGHT;
+}
+
+static int pinsOnSide(const AppState& state, int id, PinSide side)
+{
+        if (side == PIN_SIDE_RIGHT) return state.outputCounts.count(id) ? state.outputCounts.at(id) : 0;
+        int inCount = state.inputCounts.count(id) ? state.inputCounts.at(id) : 0;
+        int n = 0;
+        for (int i = 0; i < inCount; ++i)
+                if (pinSideOf(state, id, true, i) == side) ++n;
+        return n;
+}
+
+static int pinOrdinalOnSide(const AppState& state, int id, bool isInput, int index)
+{
+        if (!isInput) return index;
+        PinSide side = pinSideOf(state, id, true, index);
+        int ord = 0;
+        for (int i = 0; i < index; ++i)
+                if (pinSideOf(state, id, true, i) == side) ++ord;
+        return ord;
+}
+
 float getPinYOffset(const AppState& state, int id, bool isInput, int index)
 {
         Vector2 size = getPartSize(state, id);
-        int count = getPinCount(state, id, isInput);
+        PinSide side = pinSideOf(state, id, isInput, index);
         float top = -size.y/2 + partTitleHeight(state, id) + PIN_Y_OFFSET_BASE;
         float bot = size.y/2 - PIN_Y_OFFSET_BASE;
+        if (side == PIN_SIDE_BOTTOM) return size.y/2;
+        int count = pinsOnSide(state, id, side);
+        int ord = pinOrdinalOnSide(state, id, isInput, index);
         if (count <= 1) return (top + bot) / 2.0f;
         float step = (bot - top) / (count - 1);
-        return top + index * step;
+        return top + ord * step;
+}
+
+static float getPinXOffset(const AppState& state, int id, bool isInput, int index)
+{
+        Vector2 size = getPartSize(state, id);
+        float left = -size.x/2 + PIN_Y_OFFSET_BASE;
+        float right = size.x/2 - PIN_Y_OFFSET_BASE;
+        int count = pinsOnSide(state, id, PIN_SIDE_BOTTOM);
+        int ord = pinOrdinalOnSide(state, id, isInput, index);
+        if (count <= 1) return 0.0f;
+        float step = (right - left) / (count - 1);
+        return left + ord * step;
 }
 
 Rectangle getPinRect(const AppState& state, int id, bool isInput, int index)
 {
         Vector2 pos = {state.positions.at(id).first, state.positions.at(id).second};
         Vector2 size = getPartSize(state, id);
+        PinSide side = pinSideOf(state, id, isInput, index);
+        if (side == PIN_SIDE_BOTTOM)
+        {
+                float xOff = getPinXOffset(state, id, isInput, index);
+                return {pos.x + xOff - PIN_SIZE/2, pos.y + size.y/2, PIN_SIZE, PIN_SIZE};
+        }
         float yOff = getPinYOffset(state, id, isInput, index);
-        float x = isInput ? (pos.x - size.x/2 - PIN_SIZE) : (pos.x + size.x/2);
+        float x = (side == PIN_SIDE_LEFT) ? (pos.x - size.x/2 - PIN_SIZE) : (pos.x + size.x/2);
         return {x, pos.y + yOff - PIN_SIZE/2, PIN_SIZE, PIN_SIZE};
 }
 
@@ -109,8 +164,14 @@ Vector2 getPinPos(const AppState& state, int id, bool isInput, int index)
 {
         Vector2 pos = {state.positions.at(id).first, state.positions.at(id).second};
         Vector2 size = getPartSize(state, id);
+        PinSide side = pinSideOf(state, id, isInput, index);
+        if (side == PIN_SIDE_BOTTOM)
+        {
+                float xOff = getPinXOffset(state, id, isInput, index);
+                return {pos.x + xOff, pos.y + size.y/2 + PIN_SIZE};
+        }
         float yOff = getPinYOffset(state, id, isInput, index);
-        float x = isInput ? (pos.x - size.x/2 - PIN_SIZE) : (pos.x + size.x/2 + PIN_SIZE);
+        float x = (side == PIN_SIDE_LEFT) ? (pos.x - size.x/2 - PIN_SIZE) : (pos.x + size.x/2 + PIN_SIZE);
         return {x, pos.y + yOff};
 }
 
