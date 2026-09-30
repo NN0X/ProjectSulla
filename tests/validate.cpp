@@ -3103,6 +3103,59 @@ static void testSystem6502()
         }
 }
 
+static void testBranch6502()
+{
+	tf::section("6502 CPU core conditional branches (Bxx load PC = PC + signed offset when taken): interp, native inline, native link");
+	const std::string NAME = "6502_CPU_Core_6502";
+	const int SETTLE = 160;
+	const int nInstr = 4;
+	// LDA #$00 (Z=1) ; BEQ $10 (taken, fwd) ; BNE $05 (not taken) ; BEQ $FE (taken, back -2)
+	int prog[nInstr][2] = { { 0xA9, 0x00 }, { 0xF0, 0x10 }, { 0xD0, 0x05 }, { 0xF0, 0xFE } };
+	int expPC[nInstr] = { 0x0002, 0x0014, 0x0016, 0x0016 };
+
+	int iIn = 0, iOut = 0;
+	Part interp = loadLayoutAsPart("layouts/" + NAME + ".json", iIn, iOut);
+	if (!tf::check(interp != nullptr, "branch: interpreted loaded")) return;
+
+	const char* engName[3] = { "interpreted", "native inline", "native link" };
+	std::vector<std::vector<int>> gotPC(3);
+	for (int e = 0; e < 3; ++e)
+	{
+		Part eng;
+		if (e == 0) eng = interp;
+		else { int nOut = 0; eng = buildNative(NAME, nOut, e == 2); if (!tf::check(eng != nullptr, std::string("branch: ") + engName[e] + " built")) continue; }
+		std::vector<State> out;
+		auto sub = [&](int db, int rst) {
+			for (int clk = 0; clk < 2; ++clk) { std::vector<int> in(10, 0); for (int k = 0; k < 8; ++k) in[k] = (db >> k) & 1; in[8] = rst; in[9] = clk; std::vector<State> si = toStates(in); for (int t = 0; t < SETTLE; ++t) out = eng(si); }
+			return toBits(out);
+		};
+		sub(0, 1); sub(0, 1);
+		for (int i = 0; i < nInstr; ++i)
+		{
+			std::vector<int> b;
+			b = sub(prog[i][0], 0); b = sub(prog[i][1], 0); b = sub(0, 0); b = sub(0, 0);
+			int pc = 0;
+			for (int k = 0; k < 16; ++k) pc |= b[k] << k;
+			gotPC[e].push_back(pc);
+		}
+	}
+
+	for (int e = 0; e < 3; ++e)
+	{
+		if ((int)gotPC[e].size() != nInstr) continue;
+		int bad = 0;
+		for (int i = 0; i < nInstr; ++i) if (gotPC[e][i] != expPC[i]) bad++;
+		tf::check(bad == 0, std::string("branch: ") + engName[e] + " taken/not-taken/backward branches redirect PC correctly");
+	}
+	if (gotPC[0].size() == (size_t)nInstr && gotPC[1].size() == (size_t)nInstr && gotPC[2].size() == (size_t)nInstr)
+	{
+		int d1 = 0, d2 = 0;
+		for (int i = 0; i < nInstr; ++i) { if (gotPC[0][i] != gotPC[1][i]) d1++; if (gotPC[0][i] != gotPC[2][i]) d2++; }
+		tf::check(d1 == 0, "branch: interpreted == native inline (PC)");
+		tf::check(d2 == 0, "branch: interpreted == native link (PC)");
+	}
+}
+
 static void testComputer6502()
 {
 	tf::section("6502 computer (CPU + program ROM + data RAM on the unified bus): store-then-read-back, all three engines");
@@ -3483,6 +3536,7 @@ int main()
         testSystem6502();
         testStore6502();
         testLoadZp6502();
+        testBranch6502();
         testComputer6502();
         testRamPart();
         testRamPrimitives();

@@ -61,8 +61,9 @@ between two arithmetic ones leaves the carry and overflow untouched. This covers
 accumulator group ORA, AND, EOR, ADC, SBC, CMP and LDA (operand the byte after the opcode) plus
 the accumulator shifts and rotates ASL, ROL, LSR and ROR and the implied flag instructions
 CLC, SEC, CLI, SEI, CLV, CLD and SED, the index-register loads LDX and LDY, the register transfers TAX, TXA, TAY, TYA, TSX and TXS, the index inc/decrements INX, DEX,
-INY and DEY, the store STA (zero-page) which writes the accumulator out to memory, and the load
-LDA (zero-page) which reads the accumulator back in from memory.
+INY and DEY, the store STA (zero-page) which writes the accumulator out to memory, the load
+LDA (zero-page) which reads the accumulator back in from memory, and the conditional branches
+BPL, BMI, BVC, BVS, BCC, BCS, BNE and BEQ which redirect the program counter.
 
 CMP is the subtract with two differences from SBC: its carry-in is forced high (a full compare,
 not a borrow chain), and it does not write the accumulator - only the flags are updated, so it
@@ -136,6 +137,18 @@ Together STA and LDA zero-page close the loop: a program can store the accumulat
 and read it back, the processor's own writes feeding its own reads over the one shared address/data
 bus.
 
+The conditional branches BPL, BMI, BVC, BVS, BCC, BCS, BNE and BEQ are the first control flow: each
+tests one condition flag and, when the test holds, redirects the program counter by a signed offset
+instead of falling through to the next instruction. They are two-byte (opcode plus a relative offset)
+and, like every other instruction here, run the fixed four cycles. The offset is read into the operand
+register on the load cycle; a branch-condition unit reads the opcode and the current flags and decides
+whether the branch is taken; and on the write-back cycle of a taken branch the program counter is
+loaded with its own value plus the sign-extended offset - a backward offset (bit 7 set) subtracts, so
+a branch can jump back to an earlier instruction. That backward branch is what makes loops possible: a
+counter decremented with DEX and a BNE back to the top runs a block a fixed number of times. A branch
+writes no register and no flag; when it is not taken it simply falls through, the program counter
+having already advanced past both bytes.
+
 A reset clears the program counter and timing to start at address zero; the accumulator and carry
 carry across a reset, as on the real device.
 
@@ -180,6 +193,14 @@ carry across a reset, as on the real device.
   data-bus input driver for that cycle, so the byte fetched from the effective address is captured back
   into the operand register. The write-back then loads the accumulator from that register through the
   existing immediate-load path, so no new write-back source or extra cycle is needed.
+- Branches: the branch group is decoded as cc=00 bbb=100, which also adds a byte to the program
+  counter's advance so a branch is two bytes. A 6502_Branch_Condition subpart takes the opcode and the
+  P register's N/Z/C/V and raises TAKEN. A 16-bit adder (four 74283 chips in a carry chain) adds the
+  program counter and the sign-extended operand register (its bit 7 replicated into the high byte), and
+  its sum is wired to the counter's parallel-load inputs; the counter's load line is asserted on the
+  write-back cycle of a taken branch, so the counter loads the target then instead of counting. On any
+  other instruction the load line stays inactive and the counter advances normally, so the branch adder
+  is present every cycle but only takes effect when a branch is taken.
 
 ## Reference
 
