@@ -3103,6 +3103,54 @@ static void testSystem6502()
         }
 }
 
+static void testComputer6502()
+{
+	tf::section("6502 computer (CPU + program ROM + data RAM on the unified bus): store-then-read-back, all three engines");
+	const std::string NAME = "6502_Computer";
+	const int SETTLE = 170;
+	const int nInstr = 7;
+	// program: LDA #$42 ; STA $80 ; LDA #$99 ; STA $81 ; LDA #$00 ; LDA $80 ; LDA $81
+	int expA[nInstr] = { 0x42, 0x42, 0x99, 0x99, 0x00, 0x42, 0x99 };
+	int expN[nInstr] = { 0, 0, 1, 1, 0, 0, 1 };
+	int expZ[nInstr] = { 0, 0, 0, 0, 1, 0, 0 };
+
+	int iIn = 0, iOut = 0;
+	Part interp = loadLayoutAsPart("layouts/" + NAME + ".json", iIn, iOut);
+	if (!tf::check(interp != nullptr, "computer: interpreted loaded")) return;
+
+	const char* engName[3] = { "interpreted", "native inline", "native link" };
+	std::vector<std::vector<int>> gotA(3), gotN(3), gotZ(3);
+	for (int e = 0; e < 3; ++e)
+	{
+		Part eng;
+		if (e == 0) eng = interp;
+		else { int nOut = 0; eng = buildNative(NAME, nOut, e == 2); if (!tf::check(eng != nullptr, std::string("computer: ") + engName[e] + " built")) continue; }
+		auto clk = [&](int rst) {
+			std::vector<State> out;
+			for (int c = 0; c < 2; ++c) { std::vector<int> in(2, 0); in[0] = rst; in[1] = c; std::vector<State> si = toStates(in); for (int t = 0; t < SETTLE; ++t) out = eng(si); }
+			return toBits(out);
+		};
+		clk(1); clk(1);
+		for (int i = 0; i < nInstr; ++i)
+		{
+			std::vector<int> b;
+			for (int c = 0; c < 4; ++c) b = clk(0);
+			int a = 0;
+			for (int k = 0; k < 8; ++k) a |= b[16 + k] << k;
+			gotA[e].push_back(a); gotN[e].push_back(b[48]); gotZ[e].push_back(b[49]);
+		}
+	}
+
+	for (int e = 0; e < 3; ++e)
+	{
+		if ((int)gotA[e].size() != nInstr) continue;
+		int bad = 0;
+		for (int i = 0; i < nInstr; ++i)
+			if (gotA[e][i] != expA[i] || gotN[e][i] != expN[i] || gotZ[e][i] != expZ[i]) bad++;
+		tf::check(bad == 0, std::string("computer: ") + engName[e] + " stores A to RAM and reads it back (the last two loads return the stored bytes)");
+	}
+}
+
 struct BusSample { int pc; int a; int ab; int rw; int dbout; };
 
 static void runStoreOnEngine(Part& p, const std::vector<SqStep>& seq, int settleSteps, std::vector<BusSample>& out)
@@ -3435,6 +3483,7 @@ int main()
         testSystem6502();
         testStore6502();
         testLoadZp6502();
+        testComputer6502();
         testRamPart();
         testRamPrimitives();
         testRom();
