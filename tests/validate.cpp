@@ -3037,6 +3037,90 @@ static void testSystem6502()
         }
 }
 
+struct BusSample { int pc; int a; int ab; int rw; int dbout; };
+
+static void runStoreOnEngine(Part& p, const std::vector<SqStep>& seq, int settleSteps, std::vector<BusSample>& out)
+{
+        std::vector<State> st;
+        for (size_t i = 0; i < seq.size(); ++i)
+        {
+                for (int clk = 0; clk < 2; ++clk)
+                {
+                        std::vector<int> in(10, 0);
+                        for (int k = 0; k < 8; ++k) in[k] = (seq[i].db >> k) & 1;
+                        in[8] = seq[i].rst; in[9] = clk;
+                        std::vector<State> si = toStates(in);
+                        for (int t = 0; t < settleSteps; ++t) st = p(si);
+                }
+                std::vector<int> b = toBits(st);
+                BusSample s{ 0, 0, 0, 0, 0 };
+                for (int k = 0; k < 16; ++k) s.pc |= b[k] << k;
+                for (int k = 0; k < 8; ++k) s.a |= b[16 + k] << k;
+                for (int k = 0; k < 16; ++k) s.ab |= b[65 + k] << k;
+                for (int k = 0; k < 8; ++k) s.dbout |= b[81 + k] << k;
+                s.rw = b[89];
+                out.push_back(s);
+        }
+}
+
+static void testStore6502()
+{
+        tf::section("6502 CPU core store path (STA drives the address bus, R/W and data-out bus faithfully): interp, native inline, native link");
+        const std::string NAME = "6502_CPU_Core_6502";
+        const int SETTLE = 150;
+        std::vector<SqStep> seq = {
+                { 0x00, 1 }, { 0x00, 1 },
+                { 0xA9, 0 }, { 0x42, 0 }, { 0x00, 0 }, { 0x00, 0 },   // LDA #$42
+                { 0x85, 0 }, { 0x10, 0 }, { 0x00, 0 }, { 0x00, 0 },   // STA $10
+                { 0xA9, 0 }, { 0x07, 0 }, { 0x00, 0 }, { 0x00, 0 },   // LDA #$07
+                { 0x85, 0 }, { 0x11, 0 }, { 0x00, 0 }, { 0x00, 0 } }; // STA $11
+        const int storeStepA = 8, storeStepB = 16;                    // the T3 sub-step of each STA
+        const int expAddrA = 0x10, expDataA = 0x42;
+        const int expAddrB = 0x11, expDataB = 0x07;
+
+        int iIn = 0, iOut = 0;
+        Part interp = loadLayoutAsPart("layouts/" + NAME + ".json", iIn, iOut);
+        if (!tf::check(interp != nullptr, "store: interpreted loaded")) return;
+
+        const char* engName[3] = { "interpreted", "native inline", "native link" };
+        std::vector<std::vector<BusSample>> got(3);
+        for (int e = 0; e < 3; ++e)
+        {
+                Part eng;
+                if (e == 0) eng = interp;
+                else { int nOut = 0; eng = buildNative(NAME, nOut, e == 2); if (!tf::check(eng != nullptr, std::string("store: ") + engName[e] + " built")) continue; }
+                runStoreOnEngine(eng, seq, SETTLE, got[e]);
+        }
+
+        for (int e = 0; e < 3; ++e)
+        {
+                if (got[e].size() != seq.size()) continue;
+                int busBad = 0, storeBad = 0;
+                for (size_t i = 0; i < seq.size(); ++i)
+                {
+                        BusSample s = got[e][i];
+                        if ((int)i == storeStepA) { if (s.rw != 0 || s.ab != expAddrA || s.dbout != expDataA) storeBad++; }
+                        else if ((int)i == storeStepB) { if (s.rw != 0 || s.ab != expAddrB || s.dbout != expDataB) storeBad++; }
+                        else { if (s.rw != 1 || s.ab != s.pc) busBad++; }   // read cycles: R/W high, address bus = PC
+                }
+                tf::check(storeBad == 0, std::string("store: ") + engName[e] + " STA drives AB=effective addr, R/W=low, DBout=A on the store cycle");
+                tf::check(busBad == 0, std::string("store: ") + engName[e] + " read cycles hold R/W=high and AB=PC");
+        }
+
+        if (got[0].size() == seq.size() && got[1].size() == seq.size() && got[2].size() == seq.size())
+        {
+                int d1 = 0, d2 = 0;
+                for (size_t i = 0; i < seq.size(); ++i)
+                {
+                        BusSample a = got[0][i], b = got[1][i], c = got[2][i];
+                        if (a.pc != b.pc || a.a != b.a || a.ab != b.ab || a.rw != b.rw || a.dbout != b.dbout) d1++;
+                        if (a.pc != c.pc || a.a != c.a || a.ab != c.ab || a.rw != c.rw || a.dbout != c.dbout) d2++;
+                }
+                tf::check(d1 == 0, "store: interpreted == native inline (PC, A, AB, R/W, DBout)");
+                tf::check(d2 == 0, "store: interpreted == native link (PC, A, AB, R/W, DBout)");
+        }
+}
+
 int main()
 {
         std::printf("%s%sSulla validation suite%s  (interpreted + native engines)\n",
@@ -3202,6 +3286,7 @@ int main()
         testAccumulator6502();
         testCpuCore6502();
         testSystem6502();
+        testStore6502();
         testRamPart();
         testRom();
         testRomMulti();

@@ -10,21 +10,26 @@ flag fed back across instructions so arithmetic chains correctly.
 ## Interface
 
 Inputs (10):
-- DB0..DB7 - the data bus: the opcode on the fetch cycle, the memory operand on the load cycle
+- DB0..DB7 - the data-in bus: the byte read from memory - the opcode on the fetch cycle, the memory
+  operand (or, for a store, the address) on the load cycle
 - RST      - reset the program counter and timing
 - CLK      - the clock
 
-Outputs (65):
+Outputs (90):
 - PC0..PC15 - the program counter
 - A0..A7    - the accumulator
-- X0..X7    - the X index register
-- Y0..Y7    - the Y index register
-- SP0..SP7  - the stack pointer
 - N, Z, C, V - the condition flags, held in the P status register and updated per instruction by
   the flags that instruction affects; C is fed back as the ALU carry-in
 - IR0..IR7  - the opcode currently running
 - T0, T1, T2 - the cycle within the instruction
 - FETCH, DONE - the fetch and last-cycle strobes
+- X0..X7    - the X index register
+- Y0..Y7    - the Y index register
+- SP0..SP7  - the stack pointer
+- AB0..AB15 - the address bus: the read address (the program counter) on fetch and operand cycles,
+  the effective address on a store cycle - the real chip's single address bus
+- DBout0..DBout7 - the data-out bus: the byte the CPU drives to memory on a write (the accumulator)
+- RW        - the read/write line: high to read, low to write; low only on a store cycle
 
 ## Behaviour
 
@@ -55,8 +60,8 @@ instructions - and because a logic operation does not enable the C or V load, a 
 between two arithmetic ones leaves the carry and overflow untouched. This covers the memory-operand
 accumulator group ORA, AND, EOR, ADC, SBC, CMP and LDA (operand the byte after the opcode) plus
 the accumulator shifts and rotates ASL, ROL, LSR and ROR and the implied flag instructions
-CLC, SEC, CLI, SEI, CLV, CLD and SED, the index-register loads LDX and LDY, the register transfers TAX, TXA, TAY, TYA, TSX and TXS, and the index inc/decrements INX, DEX,
-INY and DEY.
+CLC, SEC, CLI, SEI, CLV, CLD and SED, the index-register loads LDX and LDY, the register transfers TAX, TXA, TAY, TYA, TSX and TXS, the index inc/decrements INX, DEX,
+INY and DEY, and the store STA (zero-page) which writes the accumulator out to memory.
 
 CMP is the subtract with two differences from SBC: its carry-in is forced high (a full compare,
 not a borrow chain), and it does not write the accumulator - only the flags are updated, so it
@@ -96,6 +101,24 @@ For example, `61 50` (ADC) adds and sets C and V from the result; a following `4
 updates N and Z but leaves C and V as the ADC left them; a `C1 9E` (CMP) then sets N, Z and C from
 A minus the operand without disturbing A or V.
 
+STA (zero-page) is the first instruction that writes to memory, and it introduces the real chip's
+external memory interface: a single address bus AB, a data-out bus DBout, and a read/write line RW.
+On every fetch and operand cycle the CPU is reading, so RW is high and AB carries the program counter
+- the address of the byte being fetched. On the write-back cycle of an STA the CPU is writing, so RW
+goes low, AB carries the effective address (the zero-page operand, high byte zero) and DBout carries
+the accumulator. Nothing else changes: STA writes no register and sets no flag - its accumulator
+write-enable and every flag load-enable are held off, and the operand byte it read on the load cycle
+is reused as the store address rather than as an ALU input. The program counter still advances two
+bytes (opcode plus zero-page address), so the next fetch resumes correctly.
+
+Because AB is the program counter on a read and the effective address on a write, and RW selects
+between them, this is exactly the real 6502's bus: one address bus, one data path in and one out, and
+one line saying which way the transfer goes. A memory wired to these pins - RW gating its write, AB
+selecting the cell, DBout supplying the data - stores the byte, and the same bus reads it back on a
+later fetch or load. (The data-in and data-out buses are split across the part boundary here because
+a hierarchical part cannot expose a single bidirectional pin; a bus outside the CPU ties them into
+the one external data bus, driven by the CPU on a write and by memory on a read.)
+
 A reset clears the program counter and timing to start at address zero; the accumulator and carry
 carry across a reset, as on the real device.
 
@@ -128,6 +151,12 @@ carry across a reset, as on the real device.
   load enable (gated by the write-back strobe) is OR-ed into the P load enables and its value is
   muxed into the carry and overflow inputs, so the explicit flag instructions update their bit while
   the datapath drives the rest.
+- Memory bus: STA decode (cc=01 aaa=100) raises a write line on the write-back cycle. That line is
+  excluded from the accumulator write-enable and from the N/Z load, so STA disturbs nothing, and it
+  selects the address bus and the R/W line: AB is a 16-bit 2:1 mux (the operand register as the
+  zero-page effective address on a write, the program counter otherwise) and RW is its complement.
+  DBout is the accumulator. The operand register (BI) already holds the byte read on the load cycle,
+  which for a store is the address, so no extra latch is needed.
 
 ## Reference
 
