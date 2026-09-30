@@ -2942,6 +2942,101 @@ static void testCpuCore6502()
         }
 }
 
+struct Reg6502 { int A; int X; int Y; int SP; int N; int Z; int C; int V; };
+
+static void setNZ6502(Reg6502& s, int val) { s.N = (val >> 7) & 1; s.Z = ((val & 0xFF) == 0) ? 1 : 0; }
+
+static void execInstr6502(Reg6502& s, int op, int operand)
+{
+        int cc = op & 3, aaa = (op >> 5) & 7, r = 0, cout = 0, out = 0, cf = 0, vf = 0;
+        if (op == 0xAA) { s.X = s.A; setNZ6502(s, s.X); }
+        else if (op == 0x8A) { s.A = s.X; setNZ6502(s, s.A); }
+        else if (op == 0xA8) { s.Y = s.A; setNZ6502(s, s.Y); }
+        else if (op == 0x98) { s.A = s.Y; setNZ6502(s, s.A); }
+        else if (op == 0xBA) { s.X = s.SP; setNZ6502(s, s.X); }
+        else if (op == 0x9A) { s.SP = s.X; }
+        else if (op == 0xE8) { s.X = (s.X + 1) & 0xFF; setNZ6502(s, s.X); }
+        else if (op == 0xCA) { s.X = (s.X - 1) & 0xFF; setNZ6502(s, s.X); }
+        else if (op == 0xC8) { s.Y = (s.Y + 1) & 0xFF; setNZ6502(s, s.Y); }
+        else if (op == 0x88) { s.Y = (s.Y - 1) & 0xFF; setNZ6502(s, s.Y); }
+        else if (op == 0x18) { s.C = 0; }
+        else if (op == 0x38) { s.C = 1; }
+        else if (op == 0xB8) { s.V = 0; }
+        else if (cc == 2 && aaa < 4) { shiftGolden6502(op, s.A, s.C, r, cout); s.A = r & 0xFF; s.C = cout; setNZ6502(s, s.A); }
+        else if (cc == 1 && aaa == 5) { s.A = operand & 0xFF; setNZ6502(s, s.A); }
+        else if (cc == 2 && aaa == 5) { s.X = operand & 0xFF; setNZ6502(s, s.X); }
+        else if (cc == 0 && aaa == 5) { s.Y = operand & 0xFF; setNZ6502(s, s.Y); }
+        else if (cc == 1 && aaa == 6) { aluGolden6502(op, s.A, operand, 1, out, cf, vf); s.C = cf; setNZ6502(s, out); }
+        else if (cc == 1) { aluGolden6502(op, s.A, operand, s.C, out, cf, vf); s.A = out & 0xFF; setNZ6502(s, s.A); if (aaa == 3 || aaa == 7) { s.C = cf; s.V = vf; } }
+}
+
+static int opHasOperand6502(int op)
+{
+        if (op == 0xAA || op == 0x8A || op == 0xA8 || op == 0x98 || op == 0xBA || op == 0x9A) return 0;
+        int cc = op & 3, aaa = (op >> 5) & 7;
+        return (cc == 1) || (cc == 2 && aaa == 5) || (cc == 0 && aaa == 5);
+}
+
+static void testSystem6502()
+{
+        tf::section("6502 system (CPU core + ROM: fetches and runs a real program from memory over the address/data bus): interp, native inline, native link");
+        const std::string NAME = "6502_System";
+        const int SETTLE = 160;
+        std::vector<int> prog = { 0xA9,0x10, 0xA2,0x05, 0xE8, 0xA8, 0x18, 0x69,0x20, 0xAA, 0x88, 0x38, 0xE9,0x0F, 0x0A, 0xC9,0x42 };
+
+        std::vector<Reg6502> golden;
+        Reg6502 s{ 0, 0, 0, 0, 0, 0, 0, 0 };
+        for (size_t pc = 0; pc < prog.size(); )
+        {
+                int op = prog[pc];
+                int operand = opHasOperand6502(op) ? prog[pc + 1] : 0;
+                pc += opHasOperand6502(op) ? 2 : 1;
+                execInstr6502(s, op, operand);
+                golden.push_back(s);
+        }
+        int nInstr = (int)golden.size();
+
+        int iIn = 0, iOut = 0;
+        Part interp = loadLayoutAsPart("layouts/" + NAME + ".json", iIn, iOut);
+        if (!tf::check(interp != nullptr, "system: interpreted loaded")) return;
+
+        const char* engName[3] = { "interpreted", "native inline", "native link" };
+        std::vector<std::vector<Reg6502>> got(3);
+        for (int e = 0; e < 3; ++e)
+        {
+                Part eng;
+                if (e == 0) eng = interp;
+                else { int nOut = 0; eng = buildNative(NAME, nOut, e == 2); if (!tf::check(eng != nullptr, std::string("system: ") + engName[e] + " built")) continue; }
+                auto clk = [&](int rst) {
+                        std::vector<State> out;
+                        for (int c = 0; c < 2; ++c) { std::vector<int> in(2, 0); in[0] = rst; in[1] = c; std::vector<State> si = toStates(in); for (int t = 0; t < SETTLE; ++t) out = eng(si); }
+                        return toBits(out);
+                };
+                clk(1); clk(1);
+                for (int i = 0; i < nInstr; ++i)
+                {
+                        std::vector<int> b;
+                        for (int c = 0; c < 4; ++c) b = clk(0);
+                        Reg6502 r{ 0, 0, 0, 0, 0, 0, 0, 0 };
+                        for (int k = 0; k < 8; ++k) { r.A |= b[16 + k] << k; r.X |= b[24 + k] << k; r.Y |= b[32 + k] << k; r.SP |= b[40 + k] << k; }
+                        r.N = b[48]; r.Z = b[49]; r.C = b[50]; r.V = b[51];
+                        got[e].push_back(r);
+                }
+        }
+
+        for (int e = 0; e < 3; ++e)
+        {
+                if ((int)got[e].size() != nInstr) continue;
+                int bad = 0;
+                for (int i = 0; i < nInstr; ++i)
+                {
+                        Reg6502 g = golden[i], h = got[e][i];
+                        if (h.A != g.A || h.X != g.X || h.Y != g.Y || h.SP != g.SP || h.N != g.N || h.Z != g.Z || h.C != g.C || h.V != g.V) bad++;
+                }
+                tf::check(bad == 0, std::string("system: ") + engName[e] + " runs the ROM program (registers/flags match after each instruction)");
+        }
+}
+
 int main()
 {
         std::printf("%s%sSulla validation suite%s  (interpreted + native engines)\n",
@@ -3106,6 +3201,7 @@ int main()
         testSequencedOperand();
         testAccumulator6502();
         testCpuCore6502();
+        testSystem6502();
         testRamPart();
         testRom();
         testRomMulti();
