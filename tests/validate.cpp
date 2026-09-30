@@ -2810,6 +2810,87 @@ static void testAccumulator6502()
         }
 }
 
+static void aluGolden6502(int op, int ai, int bi, int cin, int& out, int& c)
+{
+        int cc = op & 3, aaa = (op >> 5) & 7, sum = 0;
+        out = ai; c = cin;
+        if (cc == 1 && aaa == 0) out = ai | bi;
+        else if (cc == 1 && aaa == 1) out = ai & bi;
+        else if (cc == 1 && aaa == 2) out = ai ^ bi;
+        else if (cc == 1 && aaa == 3) { sum = ai + bi + cin; out = sum & 0xFF; c = (sum >> 8) & 1; }
+        else if (cc == 1 && aaa == 7) { sum = ai + (bi ^ 0xFF) + cin; out = sum & 0xFF; c = (sum >> 8) & 1; }
+        out &= 0xFF;
+}
+
+static void testCpuCore6502()
+{
+        tf::section("6502 faithful CPU core (Program_Fetch + SB/DB/AI/BI/ADD datapath, carry feedback; memory-operand program): interp, native inline, native link");
+        const std::string NAME = "6502_CPU_Core_6502";
+        const int SETTLE = 140;
+        int prog[8][2] = {
+                { 0x01, 0x0F }, { 0x61, 0x01 }, { 0x61, 0xF8 }, { 0x61, 0x00 },
+                { 0x21, 0x0C }, { 0xE1, 0x02 }, { 0x41, 0xFF }, { 0x61, 0x01 } };
+        std::vector<SqStep> seq;
+        seq.push_back({ 0, 1 }); seq.push_back({ 0, 1 });
+        for (int i = 0; i < 8; ++i)
+        {
+                seq.push_back({ prog[i][0], 0 }); seq.push_back({ prog[i][1], 0 });
+                seq.push_back({ 0, 0 }); seq.push_back({ 0, 0 });
+        }
+
+        std::vector<int> gPC, gA, gC, gIR, gT, gF, gD;
+        int cs = 0, ir = 0, pc = 0, AI = 0, BI = 0, ADD = 0, A = 0, Creg = 0;
+        for (size_t i = 0; i < seq.size(); ++i)
+        {
+                int fetch = (cs == 0), ldin = (cs == 1), ldadd = (cs == 2), lda = (cs == 3), done = lda;
+                int aluOut = 0, aluC = 0;
+                aluGolden6502(ir, AI, BI, Creg, aluOut, aluC);
+                int aaa = (ir >> 5) & 7;
+                int isArith = ((ir & 3) == 1) && (aaa == 3 || aaa == 7);
+                int ldc = lda && isArith;
+                int ncs = (seq[i].rst || done) ? 0 : ((cs + 1) & 7);
+                int nir = fetch ? seq[i].db : ir;
+                int npc = seq[i].rst ? 0 : (fetch ? ((pc + 1) & 0xFFFF) : pc);
+                int nAI = ldin ? A : AI;
+                int nBI = ldin ? seq[i].db : BI;
+                int nADD = ldadd ? aluOut : ADD;
+                int nA = lda ? ADD : A;
+                int nCreg = ldc ? aluC : Creg;
+                cs = ncs; ir = nir; pc = npc; AI = nAI; BI = nBI; ADD = nADD; A = nA; Creg = nCreg;
+                gPC.push_back(pc); gA.push_back(A); gC.push_back(Creg); gIR.push_back(ir);
+                gT.push_back(cs); gF.push_back(cs == 0 ? 1 : 0); gD.push_back(cs == 3 ? 1 : 0);
+        }
+
+        int iIn = 0, iOut = 0;
+        Part interp = loadLayoutAsPart("layouts/" + NAME + ".json", iIn, iOut);
+        if (!tf::check(interp != nullptr, "cpu6502: interpreted loaded")) return;
+        std::vector<int> iPC, iA, iN, iZ, iC, iV, iIR, iT, iF, iD;
+        runCpuOnEngine(interp, seq, SETTLE, iPC, iA, iN, iZ, iC, iV, iIR, iT, iF, iD);
+        int gi = 0;
+        for (size_t i = 0; i < seq.size(); ++i)
+                if (iPC[i] != gPC[i] || iA[i] != gA[i] || iC[i] != gC[i] || iIR[i] != gIR[i] || iT[i] != gT[i] || iF[i] != gF[i] || iD[i] != gD[i]) gi++;
+        tf::check(gi == 0, "cpu6502: interpreted runs the memory-operand program (A, C, PC, IR, timing match golden)");
+
+        const char* modeName[2] = { "inline", "link" };
+        bool linkMode[2] = { false, true };
+        for (int m = 0; m < 2; ++m)
+        {
+                int nOut = 0;
+                Part nat = buildNative(NAME, nOut, linkMode[m]);
+                if (!tf::check(nat != nullptr, std::string("cpu6502: native ") + modeName[m] + " built")) continue;
+                std::vector<int> nPC, nA, nN, nZ, nC, nV, nIR, nT, nF, nD;
+                runCpuOnEngine(nat, seq, SETTLE, nPC, nA, nN, nZ, nC, nV, nIR, nT, nF, nD);
+                int gn = 0, df = 0;
+                for (size_t i = 0; i < seq.size(); ++i)
+                {
+                        if (nPC[i] != gPC[i] || nA[i] != gA[i] || nC[i] != gC[i] || nIR[i] != gIR[i] || nT[i] != gT[i] || nF[i] != gF[i] || nD[i] != gD[i]) gn++;
+                        if (nPC[i] != iPC[i] || nA[i] != iA[i] || nC[i] != iC[i] || nIR[i] != iIR[i] || nT[i] != iT[i] || nF[i] != iF[i] || nD[i] != iD[i]) df++;
+                }
+                tf::check(gn == 0, std::string("cpu6502: native ") + modeName[m] + " runs the program (matches golden)");
+                tf::check(df == 0, std::string("cpu6502: interpreted == native ") + modeName[m]);
+        }
+}
+
 int main()
 {
         std::printf("%s%sSulla validation suite%s  (interpreted + native engines)\n",
@@ -2973,6 +3054,7 @@ int main()
         testOperandSequence();
         testSequencedOperand();
         testAccumulator6502();
+        testCpuCore6502();
         testRamPart();
         testRom();
         testRomMulti();
