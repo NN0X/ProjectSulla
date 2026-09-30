@@ -2832,16 +2832,16 @@ static void shiftGolden6502(int op, int a, int cin, int& r, int& cout)
 
 static void testCpuCore6502()
 {
-        tf::section("6502 faithful CPU core (full accumulator group: ORA/AND/EOR/ADC/SBC/CMP/LDA/ASL/ROL/LSR/ROR with per-op flag masking): interp, native inline, native link");
+        tf::section("6502 faithful CPU core (accumulator group + explicit flag ops SEC/CLC/CLV via the flag decoder): interp, native inline, native link");
         const std::string NAME = "6502_CPU_Core_6502";
         const int SETTLE = 140;
-        int prog[11][2] = {
-                { 0xA9, 0x81 }, { 0x0A, 0x00 }, { 0x2A, 0x00 }, { 0x01, 0xF0 },
-                { 0x4A, 0x00 }, { 0x6A, 0x00 }, { 0x21, 0x3C }, { 0x61, 0xC4 },
-                { 0xC1, 0x00 }, { 0xE1, 0x01 }, { 0x41, 0x0F } };
+        int prog[12][2] = {
+                { 0xA9, 0x40 }, { 0x38, 0x00 }, { 0x61, 0x0F }, { 0x0A, 0x00 },
+                { 0x18, 0x00 }, { 0x2A, 0x00 }, { 0x61, 0x50 }, { 0xB8, 0x00 },
+                { 0xC1, 0x91 }, { 0x41, 0xFF }, { 0x38, 0x00 }, { 0xE1, 0x6E } };
         std::vector<SqStep> seq;
         seq.push_back({ 0, 1 }); seq.push_back({ 0, 1 });
-        for (int i = 0; i < 11; ++i)
+        for (int i = 0; i < 12; ++i)
         {
                 seq.push_back({ prog[i][0], 0 }); seq.push_back({ prog[i][1], 0 });
                 seq.push_back({ 0, 0 }); seq.push_back({ 0, 0 });
@@ -2856,6 +2856,7 @@ static void testCpuCore6502()
                 int isCMP = (cc == 1) && (aaa == 6);
                 int isLDA = (cc == 1) && (aaa == 5);
                 int isSHF = (cc == 2) && (aaa < 4);
+                int isSEC = (ir == 0x38), isCLC = (ir == 0x18), isCLV = (ir == 0xB8);
                 int cinUse = isCMP ? 1 : Pc;
                 int aluOut = 0, aluC = 0, aluV = 0;
                 aluGolden6502(ir, AI, BI, cinUse, aluOut, aluC, aluV);
@@ -2868,7 +2869,8 @@ static void testCpuCore6502()
                 int isALU = (cc == 1);
                 int isArith = (cc == 1) && (aaa == 3 || aaa == 7);
                 int lnz = lda && (isALU || isSHF), lc = lda && (isArith || isCMP || isSHF), lv = lda && isArith;
-                int writeA = lda && !isCMP;
+                int writeOp = ((cc == 1) && !isCMP) || isSHF;
+                int writeA = lda && writeOp;
                 int wbSrc = isLDA ? BI : ADD;
                 int ncs = (seq[i].rst || done) ? 0 : ((cs + 1) & 7);
                 int nir = fetch ? seq[i].db : ir;
@@ -2877,7 +2879,9 @@ static void testCpuCore6502()
                 int nBI = ldin ? seq[i].db : BI;
                 int nADD = ldadd ? rslt : ADD;
                 int nA = writeA ? wbSrc : A;
-                int nPn = lnz ? aN : Pn, nPz = lnz ? aZ : Pz, nPc = lc ? aC : Pc, nPv = lv ? aluV : Pv;
+                int nPn = lnz ? aN : Pn, nPz = lnz ? aZ : Pz;
+                int nPc = (lda && (isSEC || isCLC)) ? (isSEC ? 1 : 0) : (lc ? aC : Pc);
+                int nPv = (lda && isCLV) ? 0 : (lv ? aluV : Pv);
                 cs = ncs; ir = nir; pc = npc; AI = nAI; BI = nBI; ADD = nADD; A = nA; Pn = nPn; Pz = nPz; Pc = nPc; Pv = nPv;
                 gPC.push_back(pc); gA.push_back(A); gN.push_back(Pn); gZ.push_back(Pz); gC.push_back(Pc); gV.push_back(Pv);
                 gIR.push_back(ir); gT.push_back(cs); gF.push_back(cs == 0 ? 1 : 0); gD.push_back(cs == 3 ? 1 : 0);

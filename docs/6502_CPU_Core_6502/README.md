@@ -46,7 +46,8 @@ and C. The ALU's carry-in is taken from the register's C bit, so the carry is ca
 instructions - and because a logic operation does not enable the C or V load, a logic instruction
 between two arithmetic ones leaves the carry and overflow untouched. This covers the memory-operand
 accumulator group ORA, AND, EOR, ADC, SBC, CMP and LDA (operand the byte after the opcode) plus
-the accumulator shifts and rotates ASL, ROL, LSR and ROR.
+the accumulator shifts and rotates ASL, ROL, LSR and ROR and the implied flag instructions
+CLC, SEC, CLI, SEI, CLV, CLD and SED.
 
 CMP is the subtract with two differences from SBC: its carry-in is forced high (a full compare,
 not a borrow chain), and it does not write the accumulator - only the flags are updated, so it
@@ -60,6 +61,12 @@ The shift and rotate instructions ASL, ROL, LSR and ROR work on the accumulator:
 shifter takes A, its direction from the opcode's direction bit and its fill (a shifted-in zero or
 the carry) from the rotate bit and the carry flag, and its result is written back to A the same way
 the ALU result is. They update N and Z from the result and C from the bit shifted out.
+
+The explicit flag instructions CLC, SEC, CLI, SEI, CLV, CLD and SED set or clear a single status
+bit and touch nothing else. They are implied (single-byte, no operand) and write only their flag,
+not the accumulator. A flag decoder turns the opcode into which bit to load and the value to load,
+and that load enable is OR-ed into the P register's per-bit enables while its value is selected into
+the carry and overflow inputs, so a flag instruction updates exactly its bit and leaves the rest.
 
 For example, `61 50` (ADC) adds and sets C and V from the result; a following `41 FF` (EOR)
 updates N and Z but leaves C and V as the ADC left them; a `C1 9E` (CMP) then sets N, Z and C from
@@ -87,6 +94,13 @@ carry across a reset, as on the real device.
   operations and CMP, V for the arithmetic operations only - and its C bit fed back as the ALU
   carry-in. For CMP the carry-in is forced high (an OR of the compare-decode into the carry line)
   and the accumulator's load enable is suppressed, so the compare updates flags without writing A.
+  N and Z on a shift come from the same result register, and C from the shifter's carry-out through
+  a mux; the accumulator's load enable is raised only for the write instructions (the ALU group bar
+  CMP, LDA and the shifts), so the flag and compare instructions leave A untouched.
+- Flag decoder: the flag-op decoder feeds the P register in parallel with the datapath - its per-bit
+  load enable (gated by the write-back strobe) is OR-ed into the P load enables and its value is
+  muxed into the carry and overflow inputs, so the explicit flag instructions update their bit while
+  the datapath drives the rest.
 
 ## Reference
 
