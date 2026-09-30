@@ -2735,6 +2735,81 @@ static void testSequencedOperand()
         }
 }
 
+struct Ac6Instr { int op; int din; int cin; };
+
+static void runAcc6502OnEngine(Part& p, const std::vector<Ac6Instr>& prog, int settleSteps, std::vector<int>& aAtDone)
+{
+        std::vector<State> out;
+        for (size_t i = 0; i < prog.size(); ++i)
+        for (int cyc = 0; cyc < 4; ++cyc)
+        {
+                int rst = (i == 0 && cyc == 0) ? 1 : 0;
+                for (int clk = 0; clk < 2; ++clk)
+                {
+                        std::vector<int> in(19, 0);
+                        in[0] = rst;
+                        for (int k = 0; k < 8; ++k) { in[1 + k] = (prog[i].din >> k) & 1; in[9 + k] = (prog[i].op >> k) & 1; }
+                        in[17] = prog[i].cin; in[18] = clk;
+                        std::vector<State> sin = toStates(in);
+                        for (int t = 0; t < settleSteps; ++t) out = p(sin);
+                }
+                if (cyc == 3)
+                {
+                        std::vector<int> b = toBits(out);
+                        int a = 0; for (int k = 0; k < 8; ++k) a |= b[k] << k;
+                        aAtDone.push_back(a);
+                }
+        }
+}
+
+static void testAccumulator6502()
+{
+        tf::section("6502 faithful accumulator datapath (SB/DB buses, AI/BI input regs, ADD result reg, A write-back): interp, native inline, native link");
+        const std::string NAME = "6502_Accumulator_6502";
+        const int SETTLE = 110;
+        std::vector<Ac6Instr> prog = {
+                { 0x01, 0x0F, 0 }, { 0x61, 0x10, 0 }, { 0x21, 0x3C, 0 }, { 0x41, 0xFF, 0 },
+                { 0x61, 0x01, 1 }, { 0xE1, 0x08, 1 }, { 0x01, 0x80, 0 }, { 0x61, 0x90, 0 } };
+
+        std::vector<int> golden;
+        int acc = 0;
+        for (size_t i = 0; i < prog.size(); ++i)
+        {
+                golden.push_back(acc & 0xFF);
+                int cc = prog[i].op & 3, aaa = (prog[i].op >> 5) & 7, M = prog[i].din, Cin = prog[i].cin, res = acc;
+                if (cc == 1 && aaa == 0) res = acc | M;
+                else if (cc == 1 && aaa == 1) res = acc & M;
+                else if (cc == 1 && aaa == 2) res = acc ^ M;
+                else if (cc == 1 && aaa == 3) res = (acc + M + Cin) & 0xFF;
+                else if (cc == 1 && aaa == 7) res = (acc + (M ^ 0xFF) + Cin) & 0xFF;
+                acc = res & 0xFF;
+        }
+
+        int iIn = 0, iOut = 0;
+        Part interp = loadLayoutAsPart("layouts/" + NAME + ".json", iIn, iOut);
+        if (!tf::check(interp != nullptr, "acc6502: interpreted loaded")) return;
+        std::vector<int> iA;
+        runAcc6502OnEngine(interp, prog, SETTLE, iA);
+        int gi = 0;
+        for (size_t i = 0; i < prog.size(); ++i) if (iA[i] != golden[i]) gi++;
+        tf::check(gi == 0, "acc6502: interpreted accumulator tracks the program (write-back via ADD register)");
+
+        const char* modeName[2] = { "inline", "link" };
+        bool linkMode[2] = { false, true };
+        for (int m = 0; m < 2; ++m)
+        {
+                int nOut = 0;
+                Part nat = buildNative(NAME, nOut, linkMode[m]);
+                if (!tf::check(nat != nullptr, std::string("acc6502: native ") + modeName[m] + " built")) continue;
+                std::vector<int> nA;
+                runAcc6502OnEngine(nat, prog, SETTLE, nA);
+                int gn = 0, df = 0;
+                for (size_t i = 0; i < prog.size(); ++i) { if (nA[i] != golden[i]) gn++; if (nA[i] != iA[i]) df++; }
+                tf::check(gn == 0, std::string("acc6502: native ") + modeName[m] + " accumulator tracks the program");
+                tf::check(df == 0, std::string("acc6502: interpreted == native ") + modeName[m]);
+        }
+}
+
 int main()
 {
         std::printf("%s%sSulla validation suite%s  (interpreted + native engines)\n",
@@ -2897,6 +2972,7 @@ int main()
         testAluInputs();
         testOperandSequence();
         testSequencedOperand();
+        testAccumulator6502();
         testRamPart();
         testRom();
         testRomMulti();
