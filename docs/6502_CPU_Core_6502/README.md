@@ -45,8 +45,8 @@ Z, the arithmetic operations (ADC, SBC) update N, Z, C and V, and the compare (C
 and C. The ALU's carry-in is taken from the register's C bit, so the carry is carried across
 instructions - and because a logic operation does not enable the C or V load, a logic instruction
 between two arithmetic ones leaves the carry and overflow untouched. This covers the memory-operand
-accumulator group ORA, AND, EOR, ADC, SBC, CMP and LDA, where the operand is the byte after the
-opcode.
+accumulator group ORA, AND, EOR, ADC, SBC, CMP and LDA (operand the byte after the opcode) plus
+the accumulator shifts and rotates ASL, ROL, LSR and ROR.
 
 CMP is the subtract with two differences from SBC: its carry-in is forced high (a full compare,
 not a borrow chain), and it does not write the accumulator - only the flags are updated, so it
@@ -55,6 +55,11 @@ reports how A compares with the operand (C set when A is greater or equal) while
 LDA loads the accumulator from the operand: A takes the memory byte directly (it drives the
 special bus on write-back instead of the ALU result), and N and Z are taken from that byte while C
 and V are left unchanged.
+
+The shift and rotate instructions ASL, ROL, LSR and ROR work on the accumulator: a one-place
+shifter takes A, its direction from the opcode's direction bit and its fill (a shifted-in zero or
+the carry) from the rotate bit and the carry flag, and its result is written back to A the same way
+the ALU result is. They update N and Z from the result and C from the bit shifted out.
 
 For example, `61 50` (ADC) adds and sets C and V from the result; a following `41 FF` (EOR)
 updates N and Z but leaves C and V as the ADC left them; a `C1 9E` (CMP) then sets N, Z and C from
@@ -69,12 +74,14 @@ carry across a reset, as on the real device.
   and the program counter (advanced on the fetch cycle) - one counter for the whole instruction,
   its DONE input the write-back strobe, so an instruction is four cycles.
 - Phase decode: T0 fetch, T1 load AI/BI, T2 load ADD, T3 write back - a few gates off the counter.
-- Datapath: SB and DB buses, the AI and BI input registers, the accumulator ALU, the ADD result
-  register and the accumulator A - the faithful accumulator, its opcode taken from IR, its operand
-  from DB and its carry-in from the P register. On write-back the special bus is driven by the ADD
-  register for the ALU/compare group or, for LDA, by the operand register - a bus source select in
-  place of a discrete multiplexer - and the N/Z flag values are likewise selected between the ALU
-  flags and the operand for LDA.
+- Datapath: SB and DB buses, the AI and BI input registers, the accumulator ALU, a one-place
+  shifter, the ADD result register and the accumulator A - the faithful accumulator, its opcode
+  taken from IR, its operand from DB and its carry-in from the P register. The ADD register takes
+  the shifter's output on a shift and the ALU's output otherwise; on write-back the special bus is
+  driven by the ADD register for the ALU/shift/compare group or, for LDA, by the operand register -
+  a bus source select in place of a discrete multiplexer. N is the result's bit 7 (or the operand's
+  for LDA), Z is the result being zero (or the operand for LDA), and C is the shifter's carry-out on
+  a shift or the ALU carry otherwise.
 - P status register: the condition flags, taken from the ALU flag outputs, with per-bit load
   enables raised on the write-back cycle - N and Z for the whole group, C for the arithmetic
   operations and CMP, V for the arithmetic operations only - and its C bit fed back as the ALU
