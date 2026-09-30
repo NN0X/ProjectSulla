@@ -41,15 +41,19 @@ never samples a still-settling value - the accumulator updates correctly every i
 
 The condition flags live in the P status register, which has a per-bit load enable so each
 instruction updates only the flags it affects: the logic operations (ORA, AND, EOR) update N and
-Z, while the arithmetic operations (ADC, SBC) update N, Z, C and V. The ALU's carry-in is taken
-from the register's C bit, so the carry is carried across instructions - and because a logic
-operation does not enable the C or V load, a logic instruction between two arithmetic ones leaves
-the carry and overflow untouched. This covers the accumulator group that reads a memory operand:
-ORA, AND, EOR, ADC and SBC, where the operand is the byte after the opcode.
+Z, the arithmetic operations (ADC, SBC) update N, Z, C and V, and the compare (CMP) updates N, Z
+and C. The ALU's carry-in is taken from the register's C bit, so the carry is carried across
+instructions - and because a logic operation does not enable the C or V load, a logic instruction
+between two arithmetic ones leaves the carry and overflow untouched. This covers the memory-operand
+accumulator group ORA, AND, EOR, ADC, SBC and CMP, where the operand is the byte after the opcode.
+
+CMP is the subtract with two differences from SBC: its carry-in is forced high (a full compare,
+not a borrow chain), and it does not write the accumulator - only the flags are updated, so it
+reports how A compares with the operand (C set when A is greater or equal) while leaving A alone.
 
 For example, `61 50` (ADC) adds and sets C and V from the result; a following `41 FF` (EOR)
-updates N and Z but leaves C and V as the ADC left them; a later `61 00` then adds the carry back
-in.
+updates N and Z but leaves C and V as the ADC left them; a `C1 9E` (CMP) then sets N, Z and C from
+A minus the operand without disturbing A or V.
 
 A reset clears the program counter and timing to start at address zero; the accumulator and carry
 carry across a reset, as on the real device.
@@ -64,8 +68,10 @@ carry across a reset, as on the real device.
   register and the accumulator A - the faithful accumulator, its opcode taken from IR, its operand
   from DB and its carry-in from the carry register.
 - P status register: the condition flags, taken from the ALU flag outputs, with per-bit load
-  enables raised on the write-back cycle - N and Z for the accumulator group, C and V only for the
-  arithmetic operations - and its C bit fed back as the ALU carry-in.
+  enables raised on the write-back cycle - N and Z for the whole group, C for the arithmetic
+  operations and CMP, V for the arithmetic operations only - and its C bit fed back as the ALU
+  carry-in. For CMP the carry-in is forced high (an OR of the compare-decode into the carry line)
+  and the accumulator's load enable is suppressed, so the compare updates flags without writing A.
 
 ## Reference
 
