@@ -2836,14 +2836,14 @@ static void shiftGolden6502(int op, int a, int cin, int& r, int& cout)
 
 static void testCpuCore6502()
 {
-        tf::section("6502 faithful CPU core (accumulator group + flag ops + LDX/LDY into the X/Y registers): interp, native inline, native link");
+        tf::section("6502 faithful CPU core (accumulator group + flag ops + LDX/LDY + transfers TAX/TXA/TAY/TYA): interp, native inline, native link");
         const std::string NAME = "6502_CPU_Core_6502";
         const int SETTLE = 140;
         int prog[14][2] = {
-                { 0xA2, 0x05 }, { 0xA0, 0x80 }, { 0xA9, 0x50 }, { 0x38, 0x00 },
-                { 0x61, 0x0F }, { 0x61, 0x50 }, { 0xB8, 0x00 }, { 0x0A, 0x00 },
-                { 0xA2, 0x00 }, { 0xA0, 0xFF }, { 0x18, 0x00 }, { 0x2A, 0x00 },
-                { 0xC1, 0xC0 }, { 0x41, 0xFF } };
+                { 0xA2, 0xF0 }, { 0x8A, 0x00 }, { 0xA0, 0x0F }, { 0x98, 0x00 },
+                { 0xAA, 0x00 }, { 0xA9, 0x40 }, { 0x38, 0x00 }, { 0x61, 0x0F },
+                { 0xA8, 0x00 }, { 0x0A, 0x00 }, { 0xAA, 0x00 }, { 0x18, 0x00 },
+                { 0xC1, 0xA0 }, { 0x41, 0xFF } };
         std::vector<SqStep> seq;
         seq.push_back({ 0, 1 }); seq.push_back({ 0, 1 });
         for (int i = 0; i < 14; ++i)
@@ -2858,10 +2858,12 @@ static void testCpuCore6502()
         {
                 int fetch = (cs == 0), ldin = (cs == 1), ldadd = (cs == 2), lda = (cs == 3), done = lda;
                 int cc = ir & 3, aaa = (ir >> 5) & 7;
+                int isTAX = (ir == 0xAA), isTXA = (ir == 0x8A), isTAY = (ir == 0xA8), isTYA = (ir == 0x98);
+                int we = isTAX || isTXA || isTAY || isTYA;
                 int isCMP = (cc == 1) && (aaa == 6);
                 int isLDA = (cc == 1) && (aaa == 5);
-                int isLDX = (cc == 2) && (aaa == 5);
-                int isLDY = (cc == 0) && (aaa == 5);
+                int isLDX = (cc == 2) && (aaa == 5) && !we;
+                int isLDY = (cc == 0) && (aaa == 5) && !we;
                 int isImm = isLDA || isLDX || isLDY;
                 int isSHF = (cc == 2) && (aaa < 4);
                 int isSEC = (ir == 0x38), isCLC = (ir == 0x18), isCLV = (ir == 0xB8);
@@ -2871,15 +2873,16 @@ static void testCpuCore6502()
                 int shR = 0, shCout = 0;
                 shiftGolden6502(ir, A, Pc, shR, shCout);
                 int rslt = isSHF ? shR : aluOut;
-                int aN = isImm ? ((BI >> 7) & 1) : ((ADD >> 7) & 1);
-                int aZ = isImm ? ((BI == 0) ? 1 : 0) : ((ADD == 0) ? 1 : 0);
+                int src = isImm ? BI : (isTAX || isTAY) ? A : isTXA ? X : isTYA ? Y : ADD;
+                int aN = (src >> 7) & 1;
+                int aZ = (src == 0) ? 1 : 0;
                 int aC = isSHF ? shCout : aluC;
                 int isALU = (cc == 1);
                 int isArith = (cc == 1) && (aaa == 3 || aaa == 7);
-                int lnz = lda && (isALU || isSHF || isLDX || isLDY), lc = lda && (isArith || isCMP || isSHF), lv = lda && isArith;
+                int lnz = lda && (isALU || isSHF || isLDX || isLDY || we), lc = lda && (isArith || isCMP || isSHF), lv = lda && isArith;
                 int writeOp = ((cc == 1) && !isCMP) || isSHF;
-                int writeA = lda && writeOp;
-                int wbSrc = isImm ? BI : ADD;
+                int writeA = lda && (writeOp || isTXA || isTYA);
+                int wbSrc = isImm ? BI : isTXA ? X : isTYA ? Y : ADD;
                 int ncs = (seq[i].rst || done) ? 0 : ((cs + 1) & 7);
                 int nir = fetch ? seq[i].db : ir;
                 int npc = seq[i].rst ? 0 : (fetch ? ((pc + 1) & 0xFFFF) : pc);
@@ -2887,8 +2890,8 @@ static void testCpuCore6502()
                 int nBI = ldin ? seq[i].db : BI;
                 int nADD = ldadd ? rslt : ADD;
                 int nA = writeA ? wbSrc : A;
-                int nX = (lda && isLDX) ? BI : X;
-                int nY = (lda && isLDY) ? BI : Y;
+                int nX = (lda && (isLDX || isTAX)) ? (isTAX ? A : BI) : X;
+                int nY = (lda && (isLDY || isTAY)) ? (isTAY ? A : BI) : Y;
                 int nPn = lnz ? aN : Pn, nPz = lnz ? aZ : Pz;
                 int nPc = (lda && (isSEC || isCLC)) ? (isSEC ? 1 : 0) : (lc ? aC : Pc);
                 int nPv = (lda && isCLV) ? 0 : (lv ? aluV : Pv);
